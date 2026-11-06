@@ -422,6 +422,17 @@ const getEndOfDay = (date) => {
   return d;
 };
 
+/**
+ * Get file extension from filename
+ * @param {string} filename - Filename
+ * @returns {string} - File extension
+ */
+const getFileExtension = (filename) => {
+  if (!filename) return '';
+  const parts = filename.split('.');
+  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : '';
+};
+
 // Export all helpers
 module.exports = {
   generateUniqueId,
@@ -458,4 +469,5 @@ module.exports = {
   getCurrentTimestamp,
   getStartOfDay,
   getEndOfDay,
+  getFileExtension,
 };
