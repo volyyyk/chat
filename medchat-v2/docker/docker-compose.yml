@@ -1,0 +1,168 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    container_name: medchat-postgres
+    environment:
+      POSTGRES_DB: medchat_v2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - medchat-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: medchat-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - medchat-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MinIO File Storage
+  minio:
+    image: minio/minio
+    container_name: medchat-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - medchat-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MedChat Server
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    container_name: medchat-server
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      WS_PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: medchat_v2
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_DIALECT: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: medchat-files
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      ENCRYPTION_SECRET: your-encryption-secret-key
+      FILE_RETENTION_DAYS: 3
+      FREE_MESSAGE_DAYS: 30
+      MESSAGE_PRICE_RUB: 50
+      DOCTOR_SHARE_PERCENT: 80
+      CLINIC_SHARE_PERCENT: 20
+      CORS_ORIGIN: http://localhost:3000,http://localhost:3001,http://localhost:19006
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - ../server:/app/server
+      - /app/server/node_modules
+      - ./logs:/app/server/logs
+    networks:
+      - medchat-network
+    restart: unless-stopped
+    command: npm run dev
+
+  # MedChat Web Client (for development)
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    container_name: medchat-web
+    environment:
+      NODE_ENV: development
+      REACT_APP_API_URL: http://localhost:3000
+      REACT_APP_WS_URL: ws://localhost:3001
+    volumes:
+      - ../web:/app/web
+      - /app/web/node_modules
+    ports:
+      - "3002:3000"
+    networks:
+      - medchat-network
+    restart: unless-stopped
+    command: npm run dev
+    profiles:
+      - web
+
+  # PGAdmin (Database Management UI)
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: medchat-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@medchat.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    networks:
+      - medchat-network
+    restart: unless-stopped
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  pgadmin_data:
+
+networks:
+  medchat-network:
+    driver: bridge
