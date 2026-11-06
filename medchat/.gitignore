@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+build/
+dist/
+*.build
+*.bundle
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Mobile
+android/.gradle
+android/build
+android/app/build
+android/local.properties
+
+# iOS
+ios/build
+ios/Pods
+ios/*.xcworkspace
+ios/*.xcodeproj
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.bak
+*.tmp
+*.cache
+
+# Certificates
+certs/
+*.key
+*.cert
+*.pem
+*.crt
+
+# Database
+*.db
+*.sqlite
