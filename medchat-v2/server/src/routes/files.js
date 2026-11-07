@@ -13,7 +13,11 @@ const {
   updateFileSchema,
   fileMetadataSchema,
 } = require('../validators/file');
-const upload = require('../middleware/upload');
+// NOTE: middleware/upload.js exports an ALREADY-CONFIGURED multer middleware for field 'file'
+// (const single = upload.single('file')). Pass it as a reference; calling it as a function
+// crashed the server at require time: multerMiddleware got 'file' as req ->
+// TypeError: Cannot read properties of undefined (reading 'transfer-encoding') in type-is.
+const { single: uploadSingle } = require('../middleware/upload');
 
 // All routes require authentication
 router.use(authenticate());
@@ -69,7 +73,7 @@ router.use(authenticate());
  *             schema:
  *               $ref: '#/components/schemas/File'
  */
-router.post('/upload', upload.single('file'), validate(uploadFileSchema), FileController.upload);
+router.post('/upload', uploadSingle, validate(uploadFileSchema), FileController.upload);
 
 /**
  * @swagger
