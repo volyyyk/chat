@@ -3,11 +3,6 @@
   "version": "2.0.0",
   "description": "MedChat v2.0 - Doctor-Patient Communication Platform with Micropayments",
   "private": true,
-  "workspaces": [
-    "server",
-    "mobile",
-    "web"
-  ],
   "scripts": {
     "setup": "npm run setup:server && npm run setup:mobile && npm run setup:web",
     "setup:server": "cd server && npm install",
