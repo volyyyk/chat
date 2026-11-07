@@ -159,7 +159,11 @@ module.exports = (sequelize) => {
     Review.belongsTo(models.User, { foreignKey: 'createdBy', as: 'creator' });
     Review.belongsTo(models.User, { foreignKey: 'publishedBy', as: 'publisher' });
     Review.belongsTo(models.User, { foreignKey: 'respondedBy', as: 'responder' });
-    Review.hasMany(models.ReviewLike, { foreignKey: 'reviewId', as: 'likes' });
+    // NOTE: the alias must NOT be 'likes' — that name is a real INTEGER
+    // column on Review (like counter); Sequelize throws a naming-collision
+    // error at model load. reviewController queries models.ReviewLike directly,
+    // nothing includes this association by alias.
+    Review.hasMany(models.ReviewLike, { foreignKey: 'reviewId', as: 'reviewLikes' });
   };
 
   return Review;

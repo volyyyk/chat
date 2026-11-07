@@ -267,11 +267,16 @@ module.exports = (sequelize, DataTypes) => {
       onDelete: 'CASCADE',
     });
 
-    // Doctor has many Specialties (through ClinicSpecialty)
+    // Doctor m2m Specialties (through DoctorSpecialty).
+    // NOTE: the alias must NOT be 'specialties' — that name is already a real
+    // column on Doctor (ARRAY of specialty UUIDs). Sequelize throws
+    // "Naming collision between attribute and association" at model-load time,
+    // which crashed seed, jest and any real model usage.
+    // Bare includes like [{ model: models.Specialty }] still auto-resolve here.
     Doctor.belongsToMany(models.Specialty, {
       through: models.DoctorSpecialty,
       foreignKey: 'doctorId',
-      as: 'specialties',
+      as: 'specialtyDetails',
     });
 
     // Doctor has many Patients
