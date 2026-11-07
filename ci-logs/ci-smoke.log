@@ -1,28 +1,16 @@
-=== run 42421389714 job e2e-smoke Sat Nov  7 22:37:58 UTC 2026 ===
+=== run 42421926139 job e2e-smoke Sat Nov  7 22:45:06 UTC 2026 ===
 
 > medchat-server@2.0.0 test:smoke
 > node scripts/smoke-test.js
 
 MedChat smoke test
 Base URL: http://127.0.0.1:3990
-Server exited unexpectedly with code 1:
-/home/runner/work/chat/chat/medchat-v2/server/node_modules/express/lib/router/route.js:216
-        throw new Error(msg);
-        ^
+  ✓ server started, /health responds
 
-Error: Route.post() requires a callback function but got a [object Undefined]
-    at Route.<computed> [as post] (/home/runner/work/chat/chat/medchat-v2/server/node_modules/express/lib/router/route.js:216:15)
-    at proto.<computed> [as post] (/home/runner/work/chat/chat/medchat-v2/server/node_modules/express/lib/router/index.js:521:19)
-    at Object.<anonymous> (/home/runner/work/chat/chat/medchat-v2/server/src/routes/files.js:310:8)
-    at Module._compile (node:internal/modules/cjs/loader:1364:14)
-    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
-    at Module.load (node:internal/modules/cjs/loader:1203:32)
-    at Module._load (node:internal/modules/cjs/loader:1019:12)
-    at Module.require (node:internal/modules/cjs/loader:1231:19)
-    at require (node:internal/modules/helpers:177:18)
-    at Object.<anonymous> (/home/runner/work/chat/chat/medchat-v2/server/src/index.js:39:20)
-
-Node.js v18.20.8
-
-Server did not start in time. Server stderr:
-
+[1] Аутентификация всех сторон
+  ✓ логин: admin, doctor, patient1, patient2
+  ✓ неверный пароль отклоняется (401)
+Smoke test crashed: TypeError: fetch failed
+    at node:internal/deps/undici/undici:12637:11
+    at async request (/home/runner/work/chat/chat/medchat-v2/server/scripts/smoke-test.js:48:15)
+    at async main (/home/runner/work/chat/chat/medchat-v2/server/scripts/smoke-test.js:172:19)
