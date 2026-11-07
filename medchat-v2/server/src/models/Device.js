@@ -65,12 +65,12 @@ module.exports = (sequelize) => {
     tableName: 'Devices',
     timestamps: true,
     indexes: [
-      { fields: ['userId'] },
-      { fields: ['pushToken'] },
-      { fields: ['deviceId'] },
-      { fields: ['deviceType'] },
-      { fields: ['isActive'] },
-      { fields: ['userId', 'deviceId'], unique: true },
+      { fields: ['user_id'] },
+      { fields: ['push_token'] },
+      { fields: ['device_id'] },
+      { fields: ['device_type'] },
+      { fields: ['is_active'] },
+      { fields: ['user_id', 'device_id'], unique: true },
     ],
   });
 

@@ -180,15 +180,15 @@ module.exports = (sequelize) => {
     timestamps: true,
     paranoid: true,
     indexes: [
-      { fields: ['prescriptionNumber'], unique: true },
-      { fields: ['doctorId'] },
-      { fields: ['patientId'] },
-      { fields: ['appointmentId'] },
+      { fields: ['prescription_number'], unique: true },
+      { fields: ['doctor_id'] },
+      { fields: ['patient_id'] },
+      { fields: ['appointment_id'] },
       { fields: ['type'] },
       { fields: ['status'] },
-      { fields: ['validUntil'] },
+      { fields: ['valid_until'] },
       { fields: ['deleted'] },
-      { fields: ['doctorId', 'patientId'] },
+      { fields: ['doctor_id', 'patient_id'] },
     ],
   });
 

@@ -87,10 +87,10 @@ module.exports = (sequelize, DataTypes) => {
           fields: ['category'],
         },
         {
-          fields: ['isActive'],
+          fields: ['is_active'],
         },
         {
-          fields: ['sortOrder'],
+          fields: ['sort_order'],
         },
       ],
     }

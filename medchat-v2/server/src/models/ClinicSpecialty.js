@@ -47,19 +47,19 @@ module.exports = (sequelize, DataTypes) => {
       indexes: [
         {
           unique: true,
-          fields: ['clinicId', 'specialtyId'],
+          fields: ['clinic_id', 'specialty_id'],
         },
         {
-          fields: ['clinicId'],
+          fields: ['clinic_id'],
         },
         {
-          fields: ['specialtyId'],
+          fields: ['specialty_id'],
         },
         {
-          fields: ['isActive'],
+          fields: ['is_active'],
         },
         {
-          fields: ['sortOrder'],
+          fields: ['sort_order'],
         },
       ],
     }

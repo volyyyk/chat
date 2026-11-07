@@ -241,16 +241,16 @@ module.exports = (sequelize, DataTypes) => {
       tableName: 'files',
       indexes: [
         {
-          fields: ['chatId'],
+          fields: ['chat_id'],
         },
         {
-          fields: ['messageId'],
+          fields: ['message_id'],
         },
         {
-          fields: ['uploaderId'],
+          fields: ['uploader_id'],
         },
         {
-          fields: ['ownerType', 'ownerId'],
+          fields: ['owner_type', 'owner_id'],
         },
         {
           fields: ['visibility'],
@@ -262,10 +262,10 @@ module.exports = (sequelize, DataTypes) => {
           fields: ['status'],
         },
         {
-          fields: ['deleteAt'],
+          fields: ['delete_at'],
         },
         {
-          fields: ['createdAt'],
+          fields: ['created_at'],
         },
       ],
     }

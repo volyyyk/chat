@@ -3,16 +3,15 @@
  * A client must never be able to choose how much a message/file/subscription
  * costs, nor pass arbitrary amounts through the validators.
  *
- * NOTE: this suite intentionally does NOT depend on whether jest.mock()
- * interception replaces the real modules or not. The jest.mock factories are
- * kept (they keep the suite DB-free when interception works), and beforeEach
- * additionally installs jest.spyOn() guards on the required module objects.
- * spyOn works both on mock factories and on the real Sequelize model classes,
- * so the suite stays green in either module-resolution scenario while the
- * production require-graph of paymentService stays under test.
+ * NOTE: the jest.mock factories here MUST be registered with { virtual: true }.
+ * In this project a plain (non-virtual) factory registered from this file does
+ * not intercept require('../models') inside paymentService (the suite then hits
+ * a real Postgres). The exact pattern of tests/paymentService.test.js (virtual
+ * mocks + clearAllMocks + direct mockResolvedValue) is CI-proven green.
  */
 
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
+process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'payments-security-secret';
 
 jest.mock('../../src/models', () => ({
   Chat: { findByPk: jest.fn(), findOne: jest.fn() },
@@ -21,13 +20,13 @@ jest.mock('../../src/models', () => ({
   Transaction: { create: jest.fn(), findOne: jest.fn(), findByPk: jest.fn() },
   sequelize: { transaction: jest.fn() },
   Sequelize: { Op: { or: Symbol('or'), gte: Symbol('gte'), lt: Symbol('lt'), gt: Symbol('gt') } },
-}));
+}), { virtual: true });
 
 jest.mock('../../src/services/balanceService', () => ({
   charge: jest.fn(),
   deposit: jest.fn(),
   getBalance: jest.fn(),
-}));
+}), { virtual: true });
 
 const request = require('supertest');
 const express = require('express');
@@ -49,19 +48,15 @@ const chat = {
 };
 
 beforeEach(() => {
-  jest.restoreAllMocks();
+  jest.clearAllMocks();
   delete process.env.MESSAGE_PRICE_RUB;
   delete process.env.FILE_PRICE_RUB;
 
-  // Guards that work both for the mocked modules and for the real ones:
-  // if the jest.mock factories were applied, these spyOn() calls simply wrap
-  // the factory jest.fn()s; if the real modules were loaded (Sequelize model
-  // classes / the BalanceService class), they override the static methods.
-  jest.spyOn(models.sequelize, 'transaction').mockImplementation(async (fn) => fn({}));
-  jest.spyOn(models.Chat, 'findByPk').mockResolvedValue(chat);
-  jest.spyOn(BalanceService, 'charge').mockResolvedValue({ success: true, balanceBefore: 100, balanceAfter: 50 });
-  jest.spyOn(BalanceService, 'deposit').mockResolvedValue({ success: true });
-  jest.spyOn(models.Transaction, 'create').mockResolvedValue({ id: 'tx-1' });
+  models.sequelize.transaction.mockImplementation(async (fn) => fn({}));
+  models.Chat.findByPk.mockResolvedValue(chat);
+  models.Transaction.create.mockResolvedValue({ id: 'tx-1' });
+  BalanceService.charge.mockResolvedValue({ success: true, balanceBefore: 100, balanceAfter: 50 });
+  BalanceService.deposit.mockResolvedValue({ success: true });
 });
 
 describe('Server-side price pinning (services/paymentService.js)', () => {

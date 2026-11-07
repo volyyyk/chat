@@ -191,13 +191,13 @@ module.exports = (sequelize, DataTypes) => {
       tableName: 'messages',
       indexes: [
         {
-          fields: ['chatId'],
+          fields: ['chat_id'],
         },
         {
-          fields: ['senderId'],
+          fields: ['sender_id'],
         },
         {
-          fields: ['receiverId'],
+          fields: ['receiver_id'],
         },
         {
           fields: ['status'],
@@ -206,16 +206,16 @@ module.exports = (sequelize, DataTypes) => {
           fields: ['type'],
         },
         {
-          fields: ['createdAt'],
+          fields: ['created_at'],
         },
         {
-          fields: ['replyToId'],
+          fields: ['reply_to_id'],
         },
         {
-          fields: ['isPaid'],
+          fields: ['is_paid'],
         },
         {
-          fields: ['isFree'],
+          fields: ['is_free'],
         },
       ],
     }

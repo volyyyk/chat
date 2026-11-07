@@ -78,12 +78,12 @@ module.exports = (sequelize) => {
     tableName: 'Notifications',
     timestamps: true,
     indexes: [
-      { fields: ['userId'] },
+      { fields: ['user_id'] },
       { fields: ['type'] },
       { fields: ['status'] },
       { fields: ['read'] },
-      { fields: ['createdAt'] },
-      { fields: ['userId', 'read'] },
+      { fields: ['created_at'] },
+      { fields: ['user_id', 'read'] },
     ],
   });
 

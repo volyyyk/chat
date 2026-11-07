@@ -64,10 +64,10 @@ module.exports = (sequelize, DataTypes) => {
       tableName: 'balance_reserves',
       indexes: [
         {
-          fields: ['userId'],
+          fields: ['user_id'],
         },
         {
-          fields: ['balanceId'],
+          fields: ['balance_id'],
         },
         {
           fields: ['reference'],
@@ -76,10 +76,10 @@ module.exports = (sequelize, DataTypes) => {
           fields: ['status'],
         },
         {
-          fields: ['expiresAt'],
+          fields: ['expires_at'],
         },
         {
-          fields: ['createdAt'],
+          fields: ['created_at'],
         },
       ],
     }

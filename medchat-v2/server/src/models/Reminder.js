@@ -137,16 +137,16 @@ module.exports = (sequelize) => {
     tableName: 'Reminders',
     timestamps: true,
     indexes: [
-      { fields: ['userId'] },
-      { fields: ['recipientId'] },
-      { fields: ['doctorId'] },
-      { fields: ['patientId'] },
-      { fields: ['appointmentId'] },
+      { fields: ['user_id'] },
+      { fields: ['recipient_id'] },
+      { fields: ['doctor_id'] },
+      { fields: ['patient_id'] },
+      { fields: ['appointment_id'] },
       { fields: ['type'] },
       { fields: ['status'] },
-      { fields: ['scheduledFor'] },
+      { fields: ['scheduled_for'] },
       { fields: ['priority'] },
-      { fields: ['userId', 'status'] },
+      { fields: ['user_id', 'status'] },
     ],
   });
 

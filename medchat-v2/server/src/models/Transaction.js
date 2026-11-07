@@ -229,16 +229,16 @@ module.exports = (sequelize, DataTypes) => {
       tableName: 'transactions',
       indexes: [
         {
-          fields: ['userId'],
+          fields: ['user_id'],
         },
         {
-          fields: ['doctorId'],
+          fields: ['doctor_id'],
         },
         {
-          fields: ['patientId'],
+          fields: ['patient_id'],
         },
         {
-          fields: ['clinicId'],
+          fields: ['clinic_id'],
         },
         {
           fields: ['type'],
@@ -247,19 +247,19 @@ module.exports = (sequelize, DataTypes) => {
           fields: ['status'],
         },
         {
-          fields: ['paymentMethod'],
+          fields: ['payment_method'],
         },
         {
-          fields: ['providerTransactionId'],
+          fields: ['provider_transaction_id'],
         },
         {
-          fields: ['messageId'],
+          fields: ['message_id'],
         },
         {
-          fields: ['chatId'],
+          fields: ['chat_id'],
         },
         {
-          fields: ['createdAt'],
+          fields: ['created_at'],
         },
       ],
     }

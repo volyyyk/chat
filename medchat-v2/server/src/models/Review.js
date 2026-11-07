@@ -142,12 +142,12 @@ module.exports = (sequelize) => {
     timestamps: true,
     paranoid: true,
     indexes: [
-      { fields: ['doctorId'] },
-      { fields: ['clinicId'] },
-      { fields: ['patientId'] },
+      { fields: ['doctor_id'] },
+      { fields: ['clinic_id'] },
+      { fields: ['patient_id'] },
       { fields: ['rating'] },
       { fields: ['status'] },
-      { fields: ['createdAt'] },
+      { fields: ['created_at'] },
       { fields: ['deleted'] },
     ],
   });

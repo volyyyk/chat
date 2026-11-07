@@ -228,22 +228,22 @@ module.exports = (sequelize, DataTypes) => {
       indexes: [
         {
           unique: true,
-          fields: ['userId'],
+          fields: ['user_id'],
         },
         {
-          fields: ['clinicId'],
+          fields: ['clinic_id'],
         },
         {
-          fields: ['primarySpecialtyId'],
+          fields: ['primary_specialty_id'],
         },
         {
           fields: ['verified'],
         },
         {
-          fields: ['invitationStatus'],
+          fields: ['invitation_status'],
         },
         {
-          fields: ['averageRating'],
+          fields: ['average_rating'],
         },
         {
           fields: ['category'],

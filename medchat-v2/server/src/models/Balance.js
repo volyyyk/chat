@@ -60,16 +60,16 @@ module.exports = (sequelize, DataTypes) => {
       indexes: [
         {
           unique: true,
-          fields: ['userId', 'currency'],
+          fields: ['user_id', 'currency'],
         },
         {
-          fields: ['userId'],
+          fields: ['user_id'],
         },
         {
           fields: ['currency'],
         },
         {
-          fields: ['updatedAt'],
+          fields: ['updated_at'],
         },
       ],
     }

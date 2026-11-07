@@ -167,16 +167,16 @@ module.exports = (sequelize, DataTypes) => {
       indexes: [
         {
           unique: true,
-          fields: ['chatId'],
+          fields: ['chat_id'],
         },
         {
-          fields: ['doctorId'],
+          fields: ['doctor_id'],
         },
         {
-          fields: ['patientId'],
+          fields: ['patient_id'],
         },
         {
-          fields: ['clinicId'],
+          fields: ['clinic_id'],
         },
         {
           fields: ['status'],
@@ -188,10 +188,10 @@ module.exports = (sequelize, DataTypes) => {
           fields: ['priority'],
         },
         {
-          fields: ['lastMessageAt'],
+          fields: ['last_message_at'],
         },
         {
-          fields: ['createdAt'],
+          fields: ['created_at'],
         },
       ],
     }

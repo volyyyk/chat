@@ -204,7 +204,7 @@ module.exports = (sequelize, DataTypes) => {
           fields: ['status'],
         },
         {
-          fields: ['lastActivityAt'],
+          fields: ['last_activity_at'],
         },
       ],
     }

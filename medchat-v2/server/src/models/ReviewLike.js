@@ -43,10 +43,10 @@ module.exports = (sequelize) => {
     tableName: 'ReviewLikes',
     timestamps: true,
     indexes: [
-      { fields: ['reviewId'] },
-      { fields: ['userId'] },
+      { fields: ['review_id'] },
+      { fields: ['user_id'] },
       { fields: ['type'] },
-      { fields: ['reviewId', 'userId'], unique: true },
+      { fields: ['review_id', 'user_id'], unique: true },
     ],
   });
 
