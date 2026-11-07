@@ -1,22 +1,79 @@
-=== run 42417525023 job e2e-smoke Sat Nov  7 21:49:45 UTC 2026 ===
+=== run 42417931973 job e2e-smoke Sat Nov  7 21:54:27 UTC 2026 ===
 
 > medchat-server@2.0.0 seed:test
 > node src/seeds/testData.js
 
-/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/associations/helpers.js:4
-    throw new Error(`Naming collision between attribute '${association.as}' and association '${association.as}' on model ${association.source.name}. To remedy this, change either foreignKey or as in your association definition`);
-    ^
-
-Error: Naming collision between attribute 'specialties' and association 'specialties' on model Doctor. To remedy this, change either foreignKey or as in your association definition
-    at Object.checkNamingCollision (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/associations/helpers.js:4:11)
-    at BelongsToMany._injectAttributes (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/associations/belongs-to-many.js:292:13)
-    at Doctor.belongsToMany (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/associations/mixin.js:45:17)
-    at Doctor.associate (/home/runner/work/chat/chat/medchat-v2/server/src/models/Doctor.js:271:12)
-    at /home/runner/work/chat/chat/medchat-v2/server/src/models/index.js:28:19
-    at Array.forEach (<anonymous>)
-    at Object.<anonymous> (/home/runner/work/chat/chat/medchat-v2/server/src/models/index.js:26:17)
-    at Module._compile (node:internal/modules/cjs/loader:1364:14)
-    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
-    at Module.load (node:internal/modules/cjs/loader:1203:32)
-
-Node.js v18.20.8
+Seeding MedChat test data...
+✅ Database connection has been established successfully (test).
+Seed failed: Error
+    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
+    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async PostgresQueryInterface.addIndex (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/abstract/query-interface.js:250:12)
+    at async Appointment.sync (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:999:7)
+    at async Sequelize._syncModelsWithCyclicReferences (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:395:7)
+    at async main (/home/runner/work/chat/chat/medchat-v2/server/src/seeds/testData.js:147:3) {
+  name: 'SequelizeDatabaseError',
+  parent: error: column "doctorId" does not exist
+      at parseErrorMessage (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:306:11)
+      at Parser.handlePacket (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:143:27)
+      at Parser.parse (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:37:38)
+      at Socket.<anonymous> (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/index.js:12:42)
+      at Socket.emit (node:events:517:28)
+      at addChunk (node:internal/streams/readable:368:12)
+      at readableAddChunk (node:internal/streams/readable:341:9)
+      at Readable.push (node:internal/streams/readable:278:10)
+      at TCP.onStreamRead (node:internal/stream_base_commons:190:23) {
+    length: 98,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'indexcmds.c',
+    line: '1847',
+    routine: 'ComputeIndexAttrs',
+    sql: 'CREATE INDEX "appointments_doctor_id" ON "Appointments" ("doctorId")',
+    parameters: undefined
+  },
+  original: error: column "doctorId" does not exist
+      at parseErrorMessage (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:306:11)
+      at Parser.handlePacket (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:143:27)
+      at Parser.parse (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:37:38)
+      at Socket.<anonymous> (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/index.js:12:42)
+      at Socket.emit (node:events:517:28)
+      at addChunk (node:internal/streams/readable:368:12)
+      at readableAddChunk (node:internal/streams/readable:341:9)
+      at Readable.push (node:internal/streams/readable:278:10)
+      at TCP.onStreamRead (node:internal/stream_base_commons:190:23) {
+    length: 98,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'indexcmds.c',
+    line: '1847',
+    routine: 'ComputeIndexAttrs',
+    sql: 'CREATE INDEX "appointments_doctor_id" ON "Appointments" ("doctorId")',
+    parameters: undefined
+  },
+  sql: 'CREATE INDEX "appointments_doctor_id" ON "Appointments" ("doctorId")',
+  parameters: {}
+}
