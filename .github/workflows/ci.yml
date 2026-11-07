@@ -22,8 +22,18 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies (with error diagnosis)
+        run: |
+          if npm install > /tmp/npm-install.log 2>&1; then
+            echo "npm install OK"
+          else
+            echo "=== npm install FAILED, last 30 lines ==="
+            tail -n 30 /tmp/npm-install.log
+            grep -m 5 "npm error" /tmp/npm-install.log | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            exit 1
+          fi
 
       - name: Lint (non-blocking)
         run: npm run lint
