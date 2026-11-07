@@ -16,25 +16,25 @@ module.exports = (sequelize) => {
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
       onDelete: 'CASCADE',
     },
     recipientId: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
       onDelete: 'CASCADE',
     },
     doctorId: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Doctors', key: 'id' },
+      references: { model: 'doctors', key: 'id' },
       onDelete: 'CASCADE',
     },
     patientId: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Patients', key: 'id' },
+      references: { model: 'patients', key: 'id' },
       onDelete: 'CASCADE',
     },
     appointmentId: {
@@ -99,7 +99,7 @@ module.exports = (sequelize) => {
     completedBy: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     cancelledAt: {
       type: DataTypes.DATE,
@@ -108,7 +108,7 @@ module.exports = (sequelize) => {
     cancelledBy: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     failedAt: {
       type: DataTypes.DATE,
@@ -121,7 +121,7 @@ module.exports = (sequelize) => {
     createdBy: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     createdAt: {
       type: DataTypes.DATE,

@@ -16,19 +16,19 @@ module.exports = (sequelize) => {
     doctorId: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Doctors', key: 'id' },
+      references: { model: 'doctors', key: 'id' },
       onDelete: 'CASCADE',
     },
     clinicId: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Clinics', key: 'id' },
+      references: { model: 'clinics', key: 'id' },
       onDelete: 'CASCADE',
     },
     patientId: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: { model: 'Patients', key: 'id' },
+      references: { model: 'patients', key: 'id' },
       onDelete: 'CASCADE',
     },
     rating: {
@@ -73,7 +73,7 @@ module.exports = (sequelize) => {
     respondedBy: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     likes: {
       type: DataTypes.INTEGER,
@@ -94,7 +94,7 @@ module.exports = (sequelize) => {
     publishedBy: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     rejectedAt: {
       type: DataTypes.DATE,
@@ -103,7 +103,7 @@ module.exports = (sequelize) => {
     rejectedBy: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     rejectionReason: {
       type: DataTypes.TEXT,
@@ -120,12 +120,12 @@ module.exports = (sequelize) => {
     deletedBy: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     createdBy: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     createdAt: {
       type: DataTypes.DATE,

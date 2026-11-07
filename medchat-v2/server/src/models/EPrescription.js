@@ -21,13 +21,13 @@ module.exports = (sequelize) => {
     doctorId: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: { model: 'Doctors', key: 'id' },
+      references: { model: 'doctors', key: 'id' },
       onDelete: 'CASCADE',
     },
     patientId: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: { model: 'Patients', key: 'id' },
+      references: { model: 'patients', key: 'id' },
       onDelete: 'CASCADE',
     },
     appointmentId: {
@@ -103,7 +103,7 @@ module.exports = (sequelize) => {
     sentBy: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     sentVia: {
       type: DataTypes.ENUM('chat', 'email', 'sms'),
@@ -120,7 +120,7 @@ module.exports = (sequelize) => {
     fulfilledBy: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     fulfillmentNotes: {
       type: DataTypes.TEXT,
@@ -141,7 +141,7 @@ module.exports = (sequelize) => {
     cancelledBy: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     cancellationReason: {
       type: DataTypes.TEXT,
@@ -158,12 +158,12 @@ module.exports = (sequelize) => {
     deletedBy: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     createdBy: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: { model: 'Users', key: 'id' },
+      references: { model: 'users', key: 'id' },
     },
     createdAt: {
       type: DataTypes.DATE,
