@@ -17,6 +17,9 @@ import { parsePatientIdentifier, isFileExpired } from '../utils/helpers';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
+import { Audio } from 'expo-av';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { paymentService } from '../services/paymentService';
 
 const ChatScreen = ({ navigation, route }) => {
   const { chatId } = route.params || {};
@@ -50,6 +53,14 @@ const ChatScreen = ({ navigation, route }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [showDoctorInfo, setShowDoctorInfo] = useState(false);
   const [showFiles, setShowFiles] = useState(false);
+
+  // Voice message state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recording, setRecording] = useState(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [playingId, setPlayingId] = useState(null);
+  const soundRef = useRef(null);
+  const recordingTimerRef = useRef(null);
 
   const flatListRef = useRef(null);
 
@@ -88,7 +99,7 @@ const ChatScreen = ({ navigation, route }) => {
     setTypingStatus(text.length > 0);
   }, [setTypingStatus]);
 
-  // Send message
+  // Send message (with paid-message check for patients)
   const handleSendMessage = useCallback(async () => {
     if (!newMessage.trim() || isSending) return;
 
@@ -96,12 +107,120 @@ const ChatScreen = ({ navigation, route }) => {
     setNewMessage('');
     setShowEmojiPicker(false);
 
+    // Patients: check the free period before sending
+    if (user?.role === 'patient') {
+      try {
+        const token = await AsyncStorage.getItem('authToken');
+        const check = await paymentService.checkFree(token, chatId);
+        if (check.success && check.isFree === false) {
+          // Free period is over: redirect to payment screen,
+          // the pending message is sent after successful payment
+          navigation.navigate('Payment', { chatId, pendingMessage: message });
+          return;
+        }
+      } catch (err) {
+        // Fail-open: if the check service is unavailable, send anyway
+        console.warn('checkFree failed, sending anyway:', err.message);
+      }
+    }
+
     try {
       await sendMessage(message);
     } catch (err) {
       console.error('Error sending message:', err);
     }
-  }, [newMessage, isSending, sendMessage]);
+  }, [newMessage, isSending, sendMessage, user, chatId, navigation]);
+
+  // Start voice recording
+  const startVoiceRecording = useCallback(async () => {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Ошибка', 'Нет разрешения на микрофон');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording: rec } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+
+      setRecording(rec);
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((s) => s + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Error starting recording:', err);
+      Alert.alert('Ошибка', 'Не удалось начать запись');
+    }
+  }, []);
+
+  // Stop voice recording and send the voice message
+  const stopVoiceRecording = useCallback(async (send) => {
+    if (!recording) return;
+
+    clearInterval(recordingTimerRef.current);
+    setIsRecording(false);
+
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecording(null);
+
+      if (!send || !uri) return;
+
+      const info = await FileSystem.getInfoAsync(uri);
+      const voiceFile = {
+        uri,
+        name: `voice_${Date.now()}.m4a`,
+        type: 'audio/m4a',
+        size: info.exists ? info.size : 0,
+      };
+
+      setIsUploading(true);
+      await sendFile(voiceFile);
+    } catch (err) {
+      console.error('Error sending voice message:', err);
+      Alert.alert('Ошибка', 'Не удалось отправить голосовое сообщение');
+    } finally {
+      setIsUploading(false);
+    }
+  }, [recording, sendFile]);
+
+  // Play / stop a voice message
+  const togglePlayVoice = useCallback(async (file) => {
+    try {
+      if (playingId) {
+        await soundRef.current?.unloadAsync();
+        soundRef.current = null;
+        setPlayingId(null);
+        if (playingId === (file.id || file.name)) return;
+      }
+
+      const { sound } = await Audio.Sound.createAsync({ uri: file.url || file.uri });
+      soundRef.current = sound;
+      setPlayingId(file.id || file.name);
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+          soundRef.current = null;
+          setPlayingId(null);
+        }
+      });
+
+      await sound.playAsync();
+    } catch (err) {
+      console.error('Error playing voice message:', err);
+      Alert.alert('Ошибка', 'Не удалось воспроизвести сообщение');
+    }
+  }, [playingId]);
 
   // Pick file
   const pickFile = useCallback(async (type = 'document') => {
@@ -228,6 +347,37 @@ const ChatScreen = ({ navigation, route }) => {
       );
     }
 
+    // Handle voice messages
+    const fileType = item.file?.type || item.file?.mimeType || '';
+    if (item.file && fileType.indexOf('audio') === 0) {
+      const isPlaying = playingId === (item.file.id || item.file.name);
+      return (
+        <View style={bubbleStyle}>
+          <TouchableOpacity
+            style={styles.voiceMessage}
+            onPress={() => togglePlayVoice(item.file)}
+          >
+            <MaterialIcons
+              name={isPlaying ? 'pause' : 'play-arrow'}
+              size={28}
+              color={isMyMessage ? colors.text.primaryInverse : colors.primary[600]}
+            />
+            <View style={styles.voiceInfo}>
+              <Text style={textStyle}>Голосовое сообщение</Text>
+              <Text style={[textStyle, styles.fileSize]}>
+                {formatMessageTime(item.createdAt)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          <View style={styles.messageFooter}>
+            <Text style={[chatStyles.messageTime, isMyMessage && styles.myMessageTime]}>
+              {formatMessageTime(item.createdAt)}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
     // Handle system messages
     if (item.sender === 'system') {
       return (
@@ -271,7 +421,7 @@ const ChatScreen = ({ navigation, route }) => {
         </View>
       </View>
     );
-  }, [user]);
+  }, [user, playingId, togglePlayVoice]);
 
   // Render header
   const renderHeader = useCallback(() => {
@@ -363,17 +513,39 @@ const ChatScreen = ({ navigation, route }) => {
 
             {isUploading ? (
               <ActivityIndicator size="small" color={colors.primary[600]} />
+            ) : isRecording ? (
+              <View style={styles.recordingRow}>
+                <TouchableOpacity
+                  style={styles.recordingCancelButton}
+                  onPress={() => stopVoiceRecording(false)}
+                >
+                  <MaterialIcons name="close" size={22} color={colors.error[500]} />
+                </TouchableOpacity>
+                <View style={styles.recordingIndicator}>
+                  <View style={styles.recordingDot} />
+                  <Text style={styles.recordingTime}>{recordingSeconds} сек</Text>
+                </View>
+                <TouchableOpacity
+                  style={[chatStyles.sendButton, styles.recordingSendButton]}
+                  onPress={() => stopVoiceRecording(true)}
+                >
+                  <MaterialIcons name="send" size={24} color={colors.text.primaryInverse} />
+                </TouchableOpacity>
+              </View>
+            ) : newMessage.trim().length === 0 ? (
+              <TouchableOpacity
+                style={chatStyles.emojiButton}
+                onPress={startVoiceRecording}
+              >
+                <MaterialIcons name="mic" size={24} color={colors.text.tertiary} />
+              </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[chatStyles.sendButton, newMessage.trim().length === 0 && chatStyles.sendButtonDisabled]}
+                style={chatStyles.sendButton}
                 onPress={handleSendMessage}
-                disabled={newMessage.trim().length === 0 || isSending}
+                disabled={isSending}
               >
-                <MaterialIcons
-                  name="send"
-                  size={24}
-                  color={newMessage.trim().length === 0 ? colors.primary[300] : colors.text.primaryInverse}
-                />
+                <MaterialIcons name="send" size={24} color={colors.text.primaryInverse} />
               </TouchableOpacity>
             )}
           </View>
@@ -387,7 +559,19 @@ const ChatScreen = ({ navigation, route }) => {
         </View>
       </KeyboardAvoidingView>
     );
-  }, [newMessage, showEmojiPicker, isUploading, isSending, handleMessageChange, handleSendMessage]);
+  }, [
+    newMessage,
+    showEmojiPicker,
+    isUploading,
+    isSending,
+    isRecording,
+    recordingSeconds,
+    recording,
+    handleMessageChange,
+    handleSendMessage,
+    startVoiceRecording,
+    stopVoiceRecording,
+  ]);
 
   // Render convenient time overlay
   const renderConvenientTime = useCallback(() => {
@@ -693,8 +877,51 @@ const styles = StyleSheet.create({
   },
   
   fileSize: {
-    fontSize: fontSizes.xs,
+    fontSize: 11,
     opacity: 0.7,
+  },
+
+  voiceMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+
+  voiceInfo: {
+    flex: 1,
+  },
+
+  recordingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+
+  recordingCancelButton: {
+    padding: spacing[1],
+  },
+
+  recordingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    paddingHorizontal: spacing[2],
+  },
+
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.error[500],
+  },
+
+  recordingTime: {
+    fontSize: 13,
+    color: colors.text.primary,
+  },
+
+  recordingSendButton: {
+    opacity: 1,
   },
   
   downloadButton: {
@@ -917,3 +1144,4 @@ const styles = StyleSheet.create({
 });
 
 export default ChatScreen;
+

@@ -1,6 +1,7 @@
 /**
  * Payment Screen
- * Pay for a message when the free period is over (test balance)
+ * Pay for a message when the free period is over (test balance).
+ * If a pendingMessage was passed from ChatScreen, it is sent after payment.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -9,8 +10,10 @@ import {
   ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../hooks/useAuth';
 import { paymentService } from '../services/paymentService';
+import { API_BASE_URL } from '../config/config';
 import { colors } from '../styles/colors';
 import { spacing } from '../styles/spacing';
 import { textStyles, buttonStyles, cardStyles } from '../styles/commonStyles';
@@ -23,7 +26,7 @@ const PACKAGES = [
 ];
 
 const PaymentScreen = ({ navigation, route }) => {
-  const { chatId, messageId, messagePrice } = route.params || {};
+  const { chatId, messageId, messagePrice, pendingMessage } = route.params || {};
   const { token } = useAuth();
   const [pricing, setPricing] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,6 +45,25 @@ const PaymentScreen = ({ navigation, route }) => {
 
   const price = messagePrice || (pricing && pricing.messagePrice) || 50;
 
+  // Send the pending message after successful payment
+  const sendPendingMessage = async () => {
+    if (!pendingMessage || !chatId) return true;
+    try {
+      const storedToken = token || (await AsyncStorage.getItem('authToken'));
+      const response = await fetch(API_BASE_URL + '/api/chats/' + chatId + '/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + storedToken,
+        },
+        body: JSON.stringify({ content: pendingMessage, type: 'text' }),
+      });
+      return response.ok;
+    } catch (err) {
+      return false;
+    }
+  };
+
   const handlePayMessage = async () => {
     setIsPaying(true);
     const result = await paymentService.process(token, {
@@ -54,9 +76,12 @@ const PaymentScreen = ({ navigation, route }) => {
     setIsPaying(false);
 
     if (result.success) {
-      Alert.alert('Оплачено', 'Сообщение отправлено (тестовый баланс)', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      const sent = await sendPendingMessage();
+      Alert.alert(
+        'Оплачено',
+        sent ? 'Сообщение отправлено (тестовый баланс)' : 'Оплата прошла, но сообщение не удалось отправить',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     } else {
       Alert.alert('Ошибка', result.message || 'Не удалось выполнить оплату');
     }
@@ -78,9 +103,13 @@ const PaymentScreen = ({ navigation, route }) => {
     setIsPaying(false);
 
     if (result.success) {
-      Alert.alert('Готово', 'Пакет куплен (тестовый баланс)', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      Alert.alert(
+        'Готово',
+        selectedPackage.messages
+          ? 'Пакет куплен, теперь это сообщение бесплатно'
+          : 'Безлимит на месяц активирован',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     } else {
       Alert.alert('Ошибка', result.message || 'Не удалось купить пакет');
     }
@@ -104,11 +133,19 @@ const PaymentScreen = ({ navigation, route }) => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {pendingMessage ? (
+          <View style={[cardStyles.cardBase, cardStyles.cardElevated, styles.pendingCard]}>
+            <MaterialIcons name="chat" size={22} color={colors.primary[600]} />
+            <Text style={[textStyles.bodySmall, styles.pendingText]} numberOfLines={2}>
+              {pendingMessage}
+            </Text>
+          </View>
+        ) : null}
+
         <View style={[cardStyles.cardBase, cardStyles.cardElevated, styles.warnCard]}>
           <MaterialIcons name="hourglass-bottom" size={28} color={colors.warning[600]} />
           <Text style={[textStyles.bodySmall, styles.warnText]}>
-            Бесплатный период закончился (прошло больше 30 дней с последнего приема).
-            Отправка сообщения платная.
+            Бесплатный период закончился (прошло больше 30 дней с последнего приема). Отправка сообщения платная.
           </Text>
         </View>
 
@@ -116,7 +153,7 @@ const PaymentScreen = ({ navigation, route }) => {
           <Text style={[textStyles.h5, styles.priceLabel]}>Стоимость сообщения</Text>
           <Text style={[textStyles.h2, styles.priceValue]}>{price} ₽</Text>
           <Text style={[textStyles.caption, styles.priceSplit]}>
-            {Math.round(price * 0.8)} ₽ врачу, {Math.round(price * 0.2)} ₽ клинике
+            {Math.round(price * 0.8)} ₽ врачу · {Math.round(price * 0.2)} ₽ клинике
           </Text>
           <TouchableOpacity
             style={[buttonStyles.buttonPrimary, buttonStyles.buttonMedium, styles.payButton]}
@@ -182,6 +219,11 @@ const styles = StyleSheet.create({
   backButton: { padding: spacing[1], marginRight: spacing[2] },
   headerTitle: { color: colors.text.primary },
   scrollContent: { padding: spacing[4], paddingBottom: spacing[8] },
+  pendingCard: {
+    flexDirection: 'row', alignItems: 'center',
+    padding: spacing[3], marginBottom: spacing[3],
+  },
+  pendingText: { marginLeft: spacing[2], flex: 1, color: colors.text.secondary },
   warnCard: {
     flexDirection: 'row', alignItems: 'center',
     padding: spacing[3], marginBottom: spacing[4],
