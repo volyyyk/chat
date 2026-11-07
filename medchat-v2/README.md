@@ -29,6 +29,7 @@ npm run dev                                 # 5. сервер: http://localhost:
 
 | Роль | Логин | Пароль | Особенность |
 |---|---|---|---|
+| Администратор клиники | `admin@medchat.test` | `Test1234!` | Видит чаты и баланс своей клиники |
 | Врач | `doctor@medchat.test` + код клиники `TESTCLINIC` | `Test1234!` | Подтвержден клиникой |
 | Пациент | `patient1@medchat.test` | `Test1234!` | Прием был 5 дней назад: сообщения бесплатные |
 | Пациент | `patient2@medchat.test` | `Test1234!` | Прием был 40 дней назад: сообщения платные (тестовый баланс) |
@@ -49,9 +50,11 @@ npm run dev                                 # 5. сервер: http://localhost:
 cd server
 npm test              # unit + integration (БД мокается, сервисы не нужны)
 npm run test:integration
+npm run seed:test     # тестовые данные: клиника, врач, два пациента, балансы
+npm run test:smoke    # e2e-смоук: сам поднимает сервер на порту 3990 и проверяет все стороны
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) на каждый push в main: unit/integration тесты сервера и dry-run сид-скрипта против чистого PostgreSQL.
+GitHub Actions (`.github/workflows/ci.yml`) на каждый push в main: unit-тесты сервера и e2e-smoke (PostgreSQL + Redis) против чистой тестовой БД.
 
 ## Документация
 
