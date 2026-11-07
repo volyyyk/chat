@@ -149,9 +149,14 @@ class ChatController {
       }
 
       // For clinic admins, only show chats from their clinic
+      // (prefer the clinic linked to the user account, fall back to adminId)
       if (req.user.role === 'clinic_admin') {
-        const clinic = await models.Clinic.findOne({ where: { adminId: req.user.id } });
-        if (clinic) where.clinicId = clinic.id;
+        let clinicId = req.user.clinicId;
+        if (!clinicId) {
+          const clinic = await models.Clinic.findOne({ where: { adminId: req.user.id } });
+          clinicId = clinic ? clinic.id : null;
+        }
+        if (clinicId) where.clinicId = clinicId;
       }
 
       const chats = await models.Chat.findAndCountAll({

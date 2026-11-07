@@ -242,23 +242,26 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
-// NOTE: middleware modules export objects, so we mount the actual functions.
+// NOTE: authMiddleware.authenticate is a FACTORY: it must be CALLED - otherwise
+// Express mounts the factory itself as middleware. The factory returns the
+// inner middleware but never calls next(), so every request would hang forever
+// (this exact bug made the smoke test fail with "fetch failed" at GET /api/chats).
 app.use('/api/auth', authRateLimiter, authRoutes);
-app.use('/api/users', authMiddleware.authenticate, userRoutes);
-app.use('/api/clinics', authMiddleware.authenticate, clinicRoutes);
-app.use('/api/doctors', authMiddleware.authenticate, doctorRoutes);
-app.use('/api/patients', authMiddleware.authenticate, patientRoutes);
-app.use('/api/chats', authMiddleware.authenticate, chatRoutes);
-app.use('/api/messages', authMiddleware.authenticate, messageRoutes);
-app.use('/api/files', authMiddleware.authenticate, fileRoutes);
-app.use('/api/payments', authMiddleware.authenticate, paymentRoutes);
-app.use('/api/transactions', authMiddleware.authenticate, transactionRoutes);
-app.use('/api/backups', authMiddleware.authenticate, backupRoutes);
+app.use('/api/users', authMiddleware.authenticate(), userRoutes);
+app.use('/api/clinics', authMiddleware.authenticate(), clinicRoutes);
+app.use('/api/doctors', authMiddleware.authenticate(), doctorRoutes);
+app.use('/api/patients', authMiddleware.authenticate(), patientRoutes);
+app.use('/api/chats', authMiddleware.authenticate(), chatRoutes);
+app.use('/api/messages', authMiddleware.authenticate(), messageRoutes);
+app.use('/api/files', authMiddleware.authenticate(), fileRoutes);
+app.use('/api/payments', authMiddleware.authenticate(), paymentRoutes);
+app.use('/api/transactions', authMiddleware.authenticate(), transactionRoutes);
+app.use('/api/backups', authMiddleware.authenticate(), backupRoutes);
 app.use('/api/specialties', specialtyRoutes);
-app.use('/api/reviews', authMiddleware.authenticate, reviewRoutes);
-app.use('/api/appointments', authMiddleware.authenticate, appointmentRoutes);
-app.use('/api/eprescriptions', authMiddleware.authenticate, eprescriptionRoutes);
-app.use('/api/reminders', authMiddleware.authenticate, reminderRoutes);
+app.use('/api/reviews', authMiddleware.authenticate(), reviewRoutes);
+app.use('/api/appointments', authMiddleware.authenticate(), appointmentRoutes);
+app.use('/api/eprescriptions', authMiddleware.authenticate(), eprescriptionRoutes);
+app.use('/api/reminders', authMiddleware.authenticate(), reminderRoutes);
 app.use('/api/webhooks', webhookRoutes);
 
 // 404 handler

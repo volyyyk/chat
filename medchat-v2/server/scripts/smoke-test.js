@@ -25,6 +25,8 @@ const PASSWORD = 'Test1234!';
 const serverRoot = path.resolve(__dirname, '..');
 
 let serverProcess = null;
+// Server stderr captured from spawn; printed on any failure for diagnostics.
+let serverStderrTail = '';
 let failures = 0;
 let checks = 0;
 
@@ -45,11 +47,29 @@ function sleep(ms) {
 async function request(method, urlPath, { token, body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = 'Bearer ' + token;
-  const res = await fetch(BASE + urlPath, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  // Hard per-request timeout: if the server never answers (e.g. a middleware
+  // swallows the request), fail fast with a clear message instead of waiting
+  // for undici's ~300s headers timeout and an opaque "fetch failed".
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  let res;
+  try {
+    res = await fetch(BASE + urlPath, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    const aborted = e && (e.name === 'AbortError' || /abort/i.test(String(e && e.cause && e.cause.name || e && e.message || '')));
+    if (aborted) {
+      throw new Error('REQUEST TIMEOUT (30s): ' + method + ' ' + urlPath + ' — server accepted the request but never responded (middleware hang?)');
+    }
+    const serverAlive = serverProcess && !serverProcess.killed && serverProcess.exitCode === null;
+    throw new Error('Request failed: ' + method + ' ' + urlPath + ' — ' + (e && e.message) + ' (server process alive: ' + !!serverAlive + ')');
+  }
+  clearTimeout(timer);
   let json = null;
   try {
     json = await res.json();
@@ -97,7 +117,7 @@ function startServer() {
 
   let stderrTail = '';
   serverProcess.stdout.on('data', (d) => { if (process.env.SMOKE_VERBOSE) process.stdout.write(d); });
-  serverProcess.stderr.on('data', (d) => { stderrTail += d.toString(); if (stderrTail.length > 4000) stderrTail = stderrTail.slice(-4000); });
+  serverProcess.stderr.on('data', (d) => { stderrTail += d.toString(); if (stderrTail.length > 4000) stderrTail = stderrTail.slice(-4000); serverStderrTail = stderrTail; });
   serverProcess.on('exit', (code) => {
     if (code && code !== 0 && !serverProcess.__stopped) {
       console.error('Server exited unexpectedly with code ' + code + ':\n' + stderrTail);
@@ -505,6 +525,10 @@ function stopServer() {
 
 main().catch(async (err) => {
   console.error('Smoke test crashed:', err && err.stack ? err.stack : err);
+  if (serverStderrTail) {
+    console.error('---- server stderr (tail) ----');
+    console.error(serverStderrTail);
+  }
   await stopServer();
   process.exit(1);
 });
