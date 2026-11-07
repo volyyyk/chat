@@ -1,151 +1,28 @@
-=== run 42419177683 job e2e-smoke Sat Nov  7 22:10:38 UTC 2026 ===
+=== run 42420029233 job e2e-smoke Sat Nov  7 22:20:38 UTC 2026 ===
 
 > medchat-server@2.0.0 seed:test
 > node src/seeds/testData.js
 
 Seeding MedChat test data...
 ✅ Database connection has been established successfully (test).
-Seed failed: Error
-    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
-    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
-    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
-    at async PostgresQueryInterface.insert (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
-    at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
-    at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
-    at async seedMessage (/home/runner/work/chat/chat/medchat-v2/server/src/seeds/testData.js:129:5)
-    at async main (/home/runner/work/chat/chat/medchat-v2/server/src/seeds/testData.js:304:3) {
-  name: 'SequelizeForeignKeyConstraintError',
-  parent: error: insert or update on table "messages" violates foreign key constraint "messages_sender_id_fkey"
-      at parseErrorMessage (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:306:11)
-      at Parser.handlePacket (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:143:27)
-      at Parser.parse (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:37:38)
-      at Socket.<anonymous> (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/index.js:12:42)
-      at Socket.emit (node:events:517:28)
-      at addChunk (node:internal/streams/readable:368:12)
-      at readableAddChunk (node:internal/streams/readable:341:9)
-      at Readable.push (node:internal/streams/readable:278:10)
-      at TCP.onStreamRead (node:internal/stream_base_commons:190:23) {
-    length: 297,
-    severity: 'ERROR',
-    code: '23503',
-    detail: 'Key (sender_id)=(7e8e3d17-5b31-4239-ab79-7cb141038b20) is not present in table "doctors".',
-    hint: undefined,
-    position: undefined,
-    internalPosition: undefined,
-    internalQuery: undefined,
-    where: undefined,
-    schema: 'public',
-    table: 'messages',
-    column: undefined,
-    dataType: undefined,
-    constraint: 'messages_sender_id_fkey',
-    file: 'ri_triggers.c',
-    line: '2596',
-    routine: 'ri_ReportViolation',
-    sql: 'INSERT INTO "messages" ("id","content","type","status","is_encrypted","attachments","metadata","read_by","delivered_to","priority","is_paid","payment_amount","payment_currency","is_free","free_message_reason","is_flagged","created_at","updated_at","chat_id","sender_id","receiver_id") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING "id","content","type","status","is_encrypted","encryption_key_id","attachments","reply_to_id","forwarded_from_id","metadata","read_by","delivered_to","priority","is_paid","payment_amount","payment_currency","payment_transaction_id","is_free","free_message_reason","sentiment","is_flagged","flag_reason","flagged_by","flagged_at","size","client_type","client_version","created_at","updated_at","deleted_at","appointment_id","chat_id","sender_id","receiver_id";',
-    parameters: [
-      '214ba284-8233-4aeb-9e02-2218aa1349e8',
-      'Здравствуйте, Петр! Как вы себя чувствуете после приема? Напомню: принимать лекарство нужно ежедневно в 14:00.',
-      'text',
-      'read',
-      true,
-      '[]',
-      '{}',
-      [],
-      [],
-      'normal',
-      false,
-      0,
-      'RUB',
-      true,
-      'within_30_days',
-      false,
-      '2026-11-07 22:10:41.480 +00:00',
-      '2026-11-07 22:10:41.480 +00:00',
-      'b01a9c66-6251-46b5-9726-84ec39ed92eb',
-      '7e8e3d17-5b31-4239-ab79-7cb141038b20',
-      '6fe4a582-9bc1-4398-82f8-ac3b7e3f04b7'
-    ]
-  },
-  original: error: insert or update on table "messages" violates foreign key constraint "messages_sender_id_fkey"
-      at parseErrorMessage (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:306:11)
-      at Parser.handlePacket (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:143:27)
-      at Parser.parse (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/parser.js:37:38)
-      at Socket.<anonymous> (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg-protocol/dist/index.js:12:42)
-      at Socket.emit (node:events:517:28)
-      at addChunk (node:internal/streams/readable:368:12)
-      at readableAddChunk (node:internal/streams/readable:341:9)
-      at Readable.push (node:internal/streams/readable:278:10)
-      at TCP.onStreamRead (node:internal/stream_base_commons:190:23) {
-    length: 297,
-    severity: 'ERROR',
-    code: '23503',
-    detail: 'Key (sender_id)=(7e8e3d17-5b31-4239-ab79-7cb141038b20) is not present in table "doctors".',
-    hint: undefined,
-    position: undefined,
-    internalPosition: undefined,
-    internalQuery: undefined,
-    where: undefined,
-    schema: 'public',
-    table: 'messages',
-    column: undefined,
-    dataType: undefined,
-    constraint: 'messages_sender_id_fkey',
-    file: 'ri_triggers.c',
-    line: '2596',
-    routine: 'ri_ReportViolation',
-    sql: 'INSERT INTO "messages" ("id","content","type","status","is_encrypted","attachments","metadata","read_by","delivered_to","priority","is_paid","payment_amount","payment_currency","is_free","free_message_reason","is_flagged","created_at","updated_at","chat_id","sender_id","receiver_id") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING "id","content","type","status","is_encrypted","encryption_key_id","attachments","reply_to_id","forwarded_from_id","metadata","read_by","delivered_to","priority","is_paid","payment_amount","payment_currency","payment_transaction_id","is_free","free_message_reason","sentiment","is_flagged","flag_reason","flagged_by","flagged_at","size","client_type","client_version","created_at","updated_at","deleted_at","appointment_id","chat_id","sender_id","receiver_id";',
-    parameters: [
-      '214ba284-8233-4aeb-9e02-2218aa1349e8',
-      'Здравствуйте, Петр! Как вы себя чувствуете после приема? Напомню: принимать лекарство нужно ежедневно в 14:00.',
-      'text',
-      'read',
-      true,
-      '[]',
-      '{}',
-      [],
-      [],
-      'normal',
-      false,
-      0,
-      'RUB',
-      true,
-      'within_30_days',
-      false,
-      '2026-11-07 22:10:41.480 +00:00',
-      '2026-11-07 22:10:41.480 +00:00',
-      'b01a9c66-6251-46b5-9726-84ec39ed92eb',
-      '7e8e3d17-5b31-4239-ab79-7cb141038b20',
-      '6fe4a582-9bc1-4398-82f8-ac3b7e3f04b7'
-    ]
-  },
-  sql: 'INSERT INTO "messages" ("id","content","type","status","is_encrypted","attachments","metadata","read_by","delivered_to","priority","is_paid","payment_amount","payment_currency","is_free","free_message_reason","is_flagged","created_at","updated_at","chat_id","sender_id","receiver_id") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING "id","content","type","status","is_encrypted","encryption_key_id","attachments","reply_to_id","forwarded_from_id","metadata","read_by","delivered_to","priority","is_paid","payment_amount","payment_currency","payment_transaction_id","is_free","free_message_reason","sentiment","is_flagged","flag_reason","flagged_by","flagged_at","size","client_type","client_version","created_at","updated_at","deleted_at","appointment_id","chat_id","sender_id","receiver_id";',
-  parameters: [
-    '214ba284-8233-4aeb-9e02-2218aa1349e8',
-    'Здравствуйте, Петр! Как вы себя чувствуете после приема? Напомню: принимать лекарство нужно ежедневно в 14:00.',
-    'text',
-    'read',
-    true,
-    '[]',
-    '{}',
-    [],
-    [],
-    'normal',
-    false,
-    0,
-    'RUB',
-    true,
-    'within_30_days',
-    false,
-    '2026-11-07 22:10:41.480 +00:00',
-    '2026-11-07 22:10:41.480 +00:00',
-    'b01a9c66-6251-46b5-9726-84ec39ed92eb',
-    '7e8e3d17-5b31-4239-ab79-7cb141038b20',
-    '6fe4a582-9bc1-4398-82f8-ac3b7e3f04b7'
-  ],
-  table: 'messages',
-  fields: null,
-  value: undefined,
-  index: 'messages_sender_id_fkey',
-  reltype: undefined
-}
+
+==============================================
+  Тестовые данные MedChat созданы / обновлены
+==============================================
+Клиника: Тестовая клиника «Здоровье»  код: TESTCLINIC
+
+АДМИНИСТРАТОР КЛИНИКИ:
+  email:    admin@medchat.test
+
+ВРАЧ (вход по email + пароль):
+  email:    doctor@medchat.test
+  код клиники: TESTCLINIC
+
+ПАЦИЕНТ 1 (бесплатные сообщения, прием был 5 дней назад, баланс 200):
+  email:    patient1@medchat.test
+
+ПАЦИЕНТ 2 (платные сообщения, прием был 40 дней назад, баланс 1000):
+  email:    patient2@medchat.test
+
+Пароль для всех аккаунтов: Test1234!
+==============================================
