@@ -42,7 +42,6 @@
     "tweetnacl": "^1.0.3",
     "uuid": "^9.0.1",
     "winston": "^3.11.0",
-    "yookassa": "^3.0.0",
     "joi": "^17.11.0",
     "swagger-ui-express": "^5.0.0",
     "yamljs": "^0.3.0",
