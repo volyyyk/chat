@@ -1,6 +1,6 @@
 /**
- * Test data seed: creates demo clinic, doctor and two patients
- * so both mobile apps (doctor and patient sides) can be tested
+ * Test data seed: creates demo clinic, clinic admin, doctor and two patients
+ * so every side of MedChat (clinic admin, doctor, patient) can be tested
  * immediately after starting the server.
  *
  * Usage:
@@ -8,9 +8,10 @@
  *   npm run seed:test
  *
  * Test accounts created (password for all: Test1234!):
+ *   admin@medchat.test    - clinic administrator (clinic TESTCLINIC)
  *   doctor@medchat.test   - verified doctor
- *   patient1@medchat.test - patient, last visit 5 days ago  (free messages)
- *   patient2@medchat.test - patient, last visit 40 days ago (paid messages)
+ *   patient1@medchat.test - patient, last visit 5 days ago  (free messages, balance 200)
+ *   patient2@medchat.test - patient, last visit 40 days ago (paid messages, balance 1000)
  */
 
 require('dotenv').config();
@@ -70,6 +71,58 @@ async function ensureChat(chatId, doctor, patient, clinic, title) {
   return chat;
 }
 
+async function ensureParticipant(chat, userId, role) {
+  const existing = await models.ChatParticipant.findOne({
+    where: { chatId: chat.id, userId },
+  });
+  if (!existing) {
+    await models.ChatParticipant.create({
+      chatId: chat.id,
+      userId,
+      role,
+      isActive: true,
+    });
+  }
+}
+
+async function ensureBalance(user, amount) {
+  const currency = 'RUB';
+  let balance = await models.Balance.findOne({ where: { userId: user.id, currency } });
+  if (!balance) {
+    balance = await models.Balance.create({
+      userId: user.id,
+      currency,
+      amount,
+      available: amount,
+      reserved: 0,
+      isTest: true,
+    });
+  } else {
+    await balance.update({ amount, available: amount, reserved: 0, isTest: true });
+  }
+  return balance;
+}
+
+async function ensureAppointment(doctor, patient, clinic, createdByUser, start, type) {
+  const existing = await models.Appointment.findOne({
+    where: { doctorId: doctor.id, patientId: patient.id, startTime: start },
+  });
+  if (!existing) {
+    await models.Appointment.create({
+      doctorId: doctor.id,
+      patientId: patient.id,
+      clinicId: clinic.id,
+      startTime: start,
+      endTime: new Date(start.getTime() + 30 * 60000),
+      type: type || 'in_person',
+      status: 'completed',
+      reason: 'Плановый прием',
+      reminderMinutes: 0,
+      createdBy: createdByUser.id,
+    });
+  }
+}
+
 async function seedMessage(chat, sender, receiver, content, opts = {}) {
   const existing = await models.Message.count({ where: { chatId: chat.id, content } });
   if (existing === 0) {
@@ -122,7 +175,18 @@ async function main() {
     await clinic.update({ status: 'active', verified: true });
   }
 
-  // 2. Doctor
+  // 2. Clinic administrator
+  const adminUser = await ensureUser(
+    'admin@medchat.test',
+    '+79001234570',
+    'clinic_admin',
+    'Анна',
+    'Администраторова',
+    { clinicId: clinic.id }
+  );
+  await clinic.update({ adminId: adminUser.id });
+
+  // 3. Doctor
   const doctorUser = await ensureUser(
     'doctor@medchat.test',
     '+79001234567',
@@ -159,7 +223,7 @@ async function main() {
     await doctor.update({ invitationStatus: 'accepted', verified: true, clinicId: clinic.id });
   }
 
-  // 3. Patient 1: recent visit -> free messages
+  // 4. Patient 1: recent visit -> free messages
   const patient1User = await ensureUser(
     'patient1@medchat.test',
     '+79001234568',
@@ -185,7 +249,7 @@ async function main() {
     await patient1.update({ doctorId: doctor.id, clinicId: clinic.id, lastAppointmentDate: daysAgo(5) });
   }
 
-  // 4. Patient 2: visit was long ago -> paid messages (for payment flow testing)
+  // 5. Patient 2: visit was long ago -> paid messages (for payment flow testing)
   const patient2User = await ensureUser(
     'patient2@medchat.test',
     '+79001234569',
@@ -211,7 +275,11 @@ async function main() {
     await patient2.update({ doctorId: doctor.id, clinicId: clinic.id, lastAppointmentDate: daysAgo(40) });
   }
 
-  // 5. Chats
+  // 6. Completed appointments (drive the free/paid message window)
+  await ensureAppointment(doctor, patient1, clinic, doctorUser, daysAgo(5), 'in_person');
+  await ensureAppointment(doctor, patient2, clinic, doctorUser, daysAgo(40), 'in_person');
+
+  // 7. Chats + participants
   const chat1 = await ensureChat(
     'test-chat-0001',
     doctor,
@@ -227,7 +295,12 @@ async function main() {
     'Иванов Иван (терапевт) — Сидорова Мария'
   );
 
-  // 6. Demo messages
+  await ensureParticipant(chat1, doctorUser.id, 'doctor');
+  await ensureParticipant(chat1, patient1User.id, 'patient');
+  await ensureParticipant(chat2, doctorUser.id, 'doctor');
+  await ensureParticipant(chat2, patient2User.id, 'patient');
+
+  // 8. Demo messages
   await seedMessage(
     chat1,
     doctorUser,
@@ -243,20 +316,29 @@ async function main() {
     { isFree: false, isPaid: true, paymentAmount: 100 }
   );
 
+  // 9. Test balances (test money only, no real gateways)
+  await ensureBalance(adminUser, 0);
+  await ensureBalance(doctorUser, 0);
+  await ensureBalance(patient1User, 200);
+  await ensureBalance(patient2User, 1000);
+
   console.log('');
   console.log('==============================================');
   console.log('  Тестовые данные MedChat созданы / обновлены');
   console.log('==============================================');
   console.log('Клиника: ' + clinic.name + '  код: ' + CLINIC_CODE);
   console.log('');
+  console.log('АДМИНИСТРАТОР КЛИНИКИ:');
+  console.log('  email:    admin@medchat.test');
+  console.log('');
   console.log('ВРАЧ (вход по email + пароль):');
   console.log('  email:    doctor@medchat.test');
   console.log('  код клиники: ' + CLINIC_CODE);
   console.log('');
-  console.log('ПАЦИЕНТ 1 (бесплатные сообщения, прием был 5 дней назад):');
+  console.log('ПАЦИЕНТ 1 (бесплатные сообщения, прием был 5 дней назад, баланс 200):');
   console.log('  email:    patient1@medchat.test');
   console.log('');
-  console.log('ПАЦИЕНТ 2 (платные сообщения, прием был 40 дней назад):');
+  console.log('ПАЦИЕНТ 2 (платные сообщения, прием был 40 дней назад, баланс 1000):');
   console.log('  email:    patient2@medchat.test');
   console.log('');
   console.log('Пароль для всех аккаунтов: ' + PASSWORD);

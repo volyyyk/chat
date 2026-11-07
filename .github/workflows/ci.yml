@@ -37,8 +37,8 @@ jobs:
           JWT_EXPIRES_IN: 15m
           JWT_REFRESH_EXPIRES_IN: 30d
 
-  seed-check:
-    name: Test data seed (dry run)
+  e2e-smoke:
+    name: E2E smoke (seed + все стороны, real-time, платежи)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -46,6 +46,8 @@ jobs:
         env:
           POSTGRES_USER: medchat
           POSTGRES_PASSWORD: medchat
+          # NOTE: with NODE_ENV=test the server appends "_test" to DB_NAME,
+          # so the real database name here must be DB_NAME + "_test"
           POSTGRES_DB: medchat_test
         ports:
           - 5432:5432
@@ -53,7 +55,31 @@ jobs:
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: medchat
+      DB_PASSWORD: medchat
+      DB_NAME: medchat
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_SECRET: ci-e2e-secret
+      JWT_EXPIRES_IN: 30m
+      JWT_REFRESH_EXPIRES_IN: 30d
+      MESSAGE_PRICE_RUB: 50
+      FREE_MESSAGE_DAYS: 30
+      DOCTOR_SHARE_PERCENT: 80
     defaults:
       run:
         working-directory: medchat-v2/server
@@ -69,13 +95,23 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run test data seed
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            nc -z localhost 5432 && echo "Postgres is up" && exit 0
+            sleep 2
+          done
+          echo "Postgres did not become ready" && exit 1
+
+      - name: Seed test data
         run: npm run seed:test
-        env:
-          NODE_ENV: test
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USER: medchat
-          DB_PASSWORD: medchat
-          DB_NAME: medchat_test
-          DATABASE_URL: postgres://medchat:medchat@localhost:5432/medchat_test
+
+      - name: Run E2E smoke test
+        run: npm run test:smoke
+
+      - name: Print server logs on failure
+        if: failure()
+        run: |
+          echo "Smoke test failed. Recent server output:"
+          ls -la logs 2>/dev/null || true
+          tail -n 200 logs/error.log 2>/dev/null || true
