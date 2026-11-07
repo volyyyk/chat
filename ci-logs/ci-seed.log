@@ -1,22 +1,22 @@
-=== run 42416764299 job e2e-smoke Sat Nov  7 21:40:04 UTC 2026 ===
+=== run 42417525023 job e2e-smoke Sat Nov  7 21:49:45 UTC 2026 ===
 
 > medchat-server@2.0.0 seed:test
 > node src/seeds/testData.js
 
-/home/runner/work/chat/chat/medchat-v2/server/src/models/Specialty.js:82
-          where: { code: { [sequelize.Op.ne]: null } },
-                                         ^
+/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/associations/helpers.js:4
+    throw new Error(`Naming collision between attribute '${association.as}' and association '${association.as}' on model ${association.source.name}. To remedy this, change either foreignKey or as in your association definition`);
+    ^
 
-TypeError: Cannot read properties of undefined (reading 'ne')
-    at module.exports (/home/runner/work/chat/chat/medchat-v2/server/src/models/Specialty.js:82:42)
-    at /home/runner/work/chat/chat/medchat-v2/server/src/models/index.js:18:54
+Error: Naming collision between attribute 'specialties' and association 'specialties' on model Doctor. To remedy this, change either foreignKey or as in your association definition
+    at Object.checkNamingCollision (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/associations/helpers.js:4:11)
+    at BelongsToMany._injectAttributes (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/associations/belongs-to-many.js:292:13)
+    at Doctor.belongsToMany (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/associations/mixin.js:45:17)
+    at Doctor.associate (/home/runner/work/chat/chat/medchat-v2/server/src/models/Doctor.js:271:12)
+    at /home/runner/work/chat/chat/medchat-v2/server/src/models/index.js:28:19
     at Array.forEach (<anonymous>)
-    at Object.<anonymous> (/home/runner/work/chat/chat/medchat-v2/server/src/models/index.js:17:4)
+    at Object.<anonymous> (/home/runner/work/chat/chat/medchat-v2/server/src/models/index.js:26:17)
     at Module._compile (node:internal/modules/cjs/loader:1364:14)
     at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
     at Module.load (node:internal/modules/cjs/loader:1203:32)
-    at Module._load (node:internal/modules/cjs/loader:1019:12)
-    at Module.require (node:internal/modules/cjs/loader:1231:19)
-    at require (node:internal/modules/helpers:177:18)
 
 Node.js v18.20.8
