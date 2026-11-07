@@ -278,7 +278,7 @@ class ChatController {
       // Mark messages as delivered for this user (best-effort)
       try {
         await models.Message.update(
-          { deliveredTo: models.Sequelize.fn('array_append', models.Sequelize.col('deliveredTo'), req.user.id) },
+          { deliveredTo: models.Sequelize.fn('array_append', models.Sequelize.col('delivered_to'), req.user.id) },
           { where: { chatId: id, senderId: { [models.Sequelize.Op.ne]: req.user.id }, deliveredTo: { [models.Sequelize.Op.notContains]: [req.user.id] } } }
         );
       } catch (e) {
@@ -425,22 +425,22 @@ class ChatController {
 
       // Update chat last message + unread counters in one atomic update
       const unreadUpdate = userId === doctorUserId
-        ? { unreadCountPatient: models.Sequelize.literal('unreadCountPatient + 1') }
-        : { unreadCountDoctor: models.Sequelize.literal('unreadCountDoctor + 1') };
+        ? { unreadCountPatient: models.Sequelize.literal('unread_count_patient + 1') }
+        : { unreadCountDoctor: models.Sequelize.literal('unread_count_doctor + 1') };
 
       await chat.update({
         lastMessageId: message.id,
         lastMessageText: content || '',
         lastMessageSenderId: userId,
         lastMessageAt: new Date(),
-        totalMessages: models.Sequelize.literal('totalMessages + 1'),
+        totalMessages: models.Sequelize.literal('total_messages + 1'),
         firstMessageAt: chat.firstMessageAt || new Date(),
         ...(isPaid
           ? {
-              totalPaidMessages: models.Sequelize.literal('totalPaidMessages + 1'),
+              totalPaidMessages: models.Sequelize.literal('total_paid_messages + 1'),
               lastPaidMessageAt: new Date(),
             }
-          : { totalFreeMessages: models.Sequelize.literal('totalFreeMessages + 1') }),
+          : { totalFreeMessages: models.Sequelize.literal('total_free_messages + 1') }),
         ...unreadUpdate,
       });
 
@@ -506,7 +506,7 @@ class ChatController {
 
       await models.Message.update(
         {
-          readBy: models.Sequelize.fn('array_append', models.Sequelize.col('readBy'), userId),
+          readBy: models.Sequelize.fn('array_append', models.Sequelize.col('read_by'), userId),
           status: 'read',
         },
         { where }

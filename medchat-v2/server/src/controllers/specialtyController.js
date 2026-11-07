@@ -286,7 +286,7 @@ class SpecialtyController {
           attributes: [],
           through: { attributes: [] },
         }],
-        order: [[models.Sequelize.literal('COUNT("Doctors->DoctorSpecialty"."specialtyId")'), 'DESC']],
+        order: [[models.Sequelize.literal('COUNT("Doctors->DoctorSpecialty"."specialty_id")'), 'DESC']],
         limit: parseInt(limit),
         group: ['Specialty.id'],
       });

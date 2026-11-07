@@ -210,7 +210,7 @@ class MessageController {
       // Security: only messages addressed to this user can be marked read
       await models.Message.update(
         {
-          readBy: models.Sequelize.fn('array_append', models.Sequelize.col('readBy'), userId),
+          readBy: models.Sequelize.fn('array_append', models.Sequelize.col('read_by'), userId),
           status: 'read',
         },
         { where: { id: messageIds, receiverId: userId } }

@@ -27,6 +27,7 @@ const serverRoot = path.resolve(__dirname, '..');
 let serverProcess = null;
 // Server stderr captured from spawn; printed on any failure for diagnostics.
 let serverStderrTail = '';
+let serverStdoutTail = '';
 let failures = 0;
 let checks = 0;
 
@@ -528,6 +529,8 @@ main().catch(async (err) => {
   if (serverStderrTail) {
     console.error('---- server stderr (tail) ----');
     console.error(serverStderrTail);
+    console.error('--- SERVER STDOUT TAIL (winston logs go here!) ---');
+    console.error(serverStdoutTail || '(empty)');
   }
   await stopServer();
   process.exit(1);
