@@ -117,7 +117,7 @@ function startServer() {
   });
 
   let stderrTail = '';
-  serverProcess.stdout.on('data', (d) => { if (process.env.SMOKE_VERBOSE) process.stdout.write(d); });
+  serverProcess.stdout.on('data', (d) => { serverStdoutTail = (serverStdoutTail + d.toString()).slice(-4000); if (process.env.SMOKE_VERBOSE) process.stdout.write(d); });
   serverProcess.stderr.on('data', (d) => { stderrTail += d.toString(); if (stderrTail.length > 4000) stderrTail = stderrTail.slice(-4000); serverStderrTail = stderrTail; });
   serverProcess.on('exit', (code) => {
     if (code && code !== 0 && !serverProcess.__stopped) {
@@ -529,8 +529,10 @@ main().catch(async (err) => {
   if (serverStderrTail) {
     console.error('---- server stderr (tail) ----');
     console.error(serverStderrTail);
-    console.error('--- SERVER STDOUT TAIL (winston logs go here!) ---');
-    console.error(serverStdoutTail || '(empty)');
+  }
+  if (serverStdoutTail) {
+    console.error('--- SERVER STDOUT TAIL (winston writes error logs to stdout!) ---');
+    console.error(serverStdoutTail);
   }
   await stopServer();
   process.exit(1);
