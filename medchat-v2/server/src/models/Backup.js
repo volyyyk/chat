@@ -87,16 +87,16 @@ module.exports = (sequelize, DataTypes) => {
       tableName: 'backups',
       indexes: [
         {
-          fields: ['userId'],
+          fields: ['user_id'],
         },
         {
           fields: ['status'],
         },
         {
-          fields: ['createdAt'],
+          fields: ['created_at'],
         },
         {
-          fields: ['restoredAt'],
+          fields: ['restored_at'],
         },
       ],
     }

@@ -35,8 +35,8 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'verification_tokens',
     indexes: [
       { unique: true, fields: ['token'] },
-      { fields: ['userId'] },
-      { fields: ['expiresAt'] },
+      { fields: ['user_id'] },
+      { fields: ['expires_at'] },
     ],
   });
 

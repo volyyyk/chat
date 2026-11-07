@@ -63,16 +63,16 @@ module.exports = (sequelize, DataTypes) => {
           fields: ['token'],
         },
         {
-          fields: ['userId'],
+          fields: ['user_id'],
         },
         {
-          fields: ['isRevoked'],
+          fields: ['is_revoked'],
         },
         {
-          fields: ['expiresAt'],
+          fields: ['expires_at'],
         },
         {
-          fields: ['createdAt'],
+          fields: ['created_at'],
         },
       ],
     }

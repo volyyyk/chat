@@ -30,9 +30,9 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'chat_read_receipts',
     indexes: [
-      { unique: true, fields: ['chatId', 'userId'] },
-      { fields: ['chatId'] },
-      { fields: ['userId'] },
+      { unique: true, fields: ['chat_id', 'user_id'] },
+      { fields: ['chat_id'] },
+      { fields: ['user_id'] },
     ],
   });
 

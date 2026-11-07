@@ -30,9 +30,9 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'transaction_logs',
     indexes: [
-      { fields: ['transactionId'] },
+      { fields: ['transaction_id'] },
       { fields: ['status'] },
-      { fields: ['createdAt'] },
+      { fields: ['created_at'] },
     ],
   });
 

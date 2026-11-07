@@ -26,8 +26,8 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'message_reactions',
     indexes: [
-      { unique: true, fields: ['messageId', 'userId'] },
-      { fields: ['userId'] },
+      { unique: true, fields: ['message_id', 'user_id'] },
+      { fields: ['user_id'] },
       { fields: ['reaction'] },
     ],
   });

@@ -30,8 +30,8 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'file_downloads',
     indexes: [
-      { fields: ['fileId'] },
-      { fields: ['userId'] },
+      { fields: ['file_id'] },
+      { fields: ['user_id'] },
     ],
   });
 

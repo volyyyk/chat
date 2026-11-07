@@ -26,8 +26,8 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'chat_typing_indicators',
     indexes: [
-      { unique: true, fields: ['chatId', 'userId'] },
-      { fields: ['chatId'] },
+      { unique: true, fields: ['chat_id', 'user_id'] },
+      { fields: ['chat_id'] },
     ],
   });
 

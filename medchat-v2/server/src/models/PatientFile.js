@@ -51,10 +51,10 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'patient_files',
     indexes: [
-      { fields: ['patientId'] },
-      { fields: ['fileId'] },
-      { fields: ['uploadedBy'] },
-      { fields: ['expiresAt'] },
+      { fields: ['patient_id'] },
+      { fields: ['file_id'] },
+      { fields: ['uploaded_by'] },
+      { fields: ['expires_at'] },
     ],
   });
 

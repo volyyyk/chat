@@ -39,8 +39,8 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'password_reset_tokens',
     indexes: [
       { unique: true, fields: ['token'] },
-      { fields: ['userId'] },
-      { fields: ['expiresAt'] },
+      { fields: ['user_id'] },
+      { fields: ['expires_at'] },
     ],
   });
 
