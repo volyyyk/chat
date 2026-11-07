@@ -7,6 +7,8 @@ require('dotenv').config();
 require('./config/database'); // Initialize database connection
 require('./config/redis'); // Initialize Redis connection
 
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -14,8 +16,14 @@ const compression = require('compression');
 const morgan = require('morgan');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
-const winston = require('winston');
-const path = require('path');
+
+// Logger (also sets global.logger)
+const logger = require('./utils/logger');
+
+// Ensure log directory exists before any file transports are added
+if (process.env.LOG_TO_FILE === 'true') {
+  fs.mkdirSync(path.join(process.cwd(), 'logs'), { recursive: true });
+}
 
 // Initialize models
 const models = require('./models');
@@ -41,7 +49,7 @@ const webhookRoutes = require('./routes/webhooks');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
-const rateLimiter = require('./middleware/rateLimiter');
+const { rateLimiter, authRateLimiter } = require('./middleware/rateLimiter');
 const authMiddleware = require('./middleware/auth');
 const requestLogger = require('./middleware/requestLogger');
 
@@ -81,45 +89,44 @@ io.use((socket, next) => {
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
-  console.log(`✅ User connected: ${socket.id}`);
+  logger.info('User connected: ' + socket.id);
 
   // Join user's personal room
   if (socket.user) {
-    socket.join(`user:${socket.user.id}`);
-    socket.join(`role:${socket.user.role}`);
-    
+    socket.join('user:' + socket.user.id);
+    socket.join('role:' + socket.user.role);
+
     if (socket.user.clinicId) {
-      socket.join(`clinic:${socket.user.clinicId}`);
+      socket.join('clinic:' + socket.user.clinicId);
     }
-    
+
     if (socket.user.doctorId) {
-      socket.join(`doctor:${socket.user.doctorId}`);
+      socket.join('doctor:' + socket.user.doctorId);
     }
-    
+
     if (socket.user.patientId) {
-      socket.join(`patient:${socket.user.patientId}`);
+      socket.join('patient:' + socket.user.patientId);
     }
   }
 
   // Handle chat joining
   socket.on('joinChat', (chatId) => {
     if (socket.user) {
-      socket.join(`chat:${chatId}`);
-      console.log(`User ${socket.user.id} joined chat ${chatId}`);
+      socket.join('chat:' + chatId);
+      logger.debug('User ' + socket.user.id + ' joined chat ' + chatId);
     }
   });
 
   // Handle chat leaving
   socket.on('leaveChat', (chatId) => {
-    socket.leave(`chat:${chatId}`);
-    console.log(`User ${socket.user?.id || socket.id} left chat ${chatId}`);
+    socket.leave('chat:' + chatId);
   });
 
   // Handle typing indicator
   socket.on('typing', (data) => {
-    const { chatId, isTyping } = data;
+    const { chatId, isTyping } = data || {};
     if (socket.user && chatId) {
-      socket.to(`chat:${chatId}`).emit('userTyping', {
+      socket.to('chat:' + chatId).emit('userTyping', {
         userId: socket.user.id,
         isTyping,
         chatId,
@@ -129,9 +136,9 @@ io.on('connection', (socket) => {
 
   // Handle message read
   socket.on('messageRead', (data) => {
-    const { chatId, messageId } = data;
+    const { chatId, messageId } = data || {};
     if (socket.user && chatId) {
-      socket.to(`chat:${chatId}`).emit('messageRead', {
+      socket.to('chat:' + chatId).emit('messageRead', {
         userId: socket.user.id,
         messageId,
         chatId,
@@ -141,43 +148,12 @@ io.on('connection', (socket) => {
 
   // Handle disconnect
   socket.on('disconnect', () => {
-    console.log(`❌ User disconnected: ${socket.id}`);
+    logger.debug('User disconnected: ' + socket.id);
   });
 });
 
 // Make io accessible to routes and services
 app.set('io', io);
-
-// Configure Winston logger
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      ),
-    }),
-    new winston.transports.File({
-      filename: process.env.LOG_FILE || 'logs/medchat.log',
-      maxsize: 10 * 1024 * 1024, // 10MB
-      maxFiles: 5,
-    }),
-  ],
-  exceptionHandlers: [
-    new winston.transports.File({ filename: 'logs/exceptions.log' }),
-  ],
-  rejectionHandlers: [
-    new winston.transports.File({ filename: 'logs/rejections.log' }),
-  ],
-});
-
-// Global logger
-global.logger = logger;
 
 // Security middleware
 app.use(helmet());
@@ -192,7 +168,7 @@ app.use(cors({
   maxAge: 86400, // 24 hours
 }));
 
-// Rate limiting
+// Rate limiting (global + stricter limiter for auth endpoints)
 app.use(rateLimiter);
 
 // Request logging
@@ -210,11 +186,20 @@ if (process.env.NODE_ENV === 'development') {
 // Static files
 app.use('/static', express.static(path.join(__dirname, 'public')));
 
-// API Documentation (Swagger)
-const swaggerUi = require('swagger-ui-express');
-const YAML = require('yamljs');
-const swaggerDocument = YAML.load(path.join(__dirname, '../docs/api.yaml'));
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// API Documentation (Swagger) - fail-safe if the spec file is missing
+try {
+  const swaggerUi = require('swagger-ui-express');
+  const YAML = require('yamljs');
+  const swaggerPath = path.join(__dirname, '../docs/api.yaml');
+  if (fs.existsSync(swaggerPath)) {
+    const swaggerDocument = YAML.load(swaggerPath);
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  } else {
+    logger.warn('Swagger spec not found at ' + swaggerPath + ', /api-docs disabled');
+  }
+} catch (err) {
+  logger.warn('Swagger UI disabled: ' + err.message);
+}
 
 // Health check
 app.get('/health', (req, res) => {
@@ -222,44 +207,38 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', authMiddleware, userRoutes);
-app.use('/api/clinics', authMiddleware, clinicRoutes);
-app.use('/api/doctors', authMiddleware, doctorRoutes);
-app.use('/api/patients', authMiddleware, patientRoutes);
-app.use('/api/chats', authMiddleware, chatRoutes);
-app.use('/api/messages', authMiddleware, messageRoutes);
-app.use('/api/files', authMiddleware, fileRoutes);
-app.use('/api/payments', authMiddleware, paymentRoutes);
-app.use('/api/transactions', authMiddleware, transactionRoutes);
-app.use('/api/backups', authMiddleware, backupRoutes);
+// NOTE: middleware modules export objects, so we mount the actual functions.
+app.use('/api/auth', authRateLimiter, authRoutes);
+app.use('/api/users', authMiddleware.authenticate, userRoutes);
+app.use('/api/clinics', authMiddleware.authenticate, clinicRoutes);
+app.use('/api/doctors', authMiddleware.authenticate, doctorRoutes);
+app.use('/api/patients', authMiddleware.authenticate, patientRoutes);
+app.use('/api/chats', authMiddleware.authenticate, chatRoutes);
+app.use('/api/messages', authMiddleware.authenticate, messageRoutes);
+app.use('/api/files', authMiddleware.authenticate, fileRoutes);
+app.use('/api/payments', authMiddleware.authenticate, paymentRoutes);
+app.use('/api/transactions', authMiddleware.authenticate, transactionRoutes);
+app.use('/api/backups', authMiddleware.authenticate, backupRoutes);
 app.use('/api/specialties', specialtyRoutes);
-app.use('/api/reviews', authMiddleware, reviewRoutes);
-app.use('/api/appointments', authMiddleware, appointmentRoutes);
-app.use('/api/eprescriptions', authMiddleware, eprescriptionRoutes);
-app.use('/api/reminders', authMiddleware, reminderRoutes);
+app.use('/api/reviews', authMiddleware.authenticate, reviewRoutes);
+app.use('/api/appointments', authMiddleware.authenticate, appointmentRoutes);
+app.use('/api/eprescriptions', authMiddleware.authenticate, eprescriptionRoutes);
+app.use('/api/reminders', authMiddleware.authenticate, reminderRoutes);
 app.use('/api/webhooks', webhookRoutes);
 
 // 404 handler
-app.use((req, res, next) => {
-  res.status(404).json({
-    error: 'Not Found',
-    message: `Route ${req.method} ${req.path} not found`,
-  });
-});
+app.use(errorHandler.notFound);
 
-// Error handler
-app.use(errorHandler);
+// Global error handler (logs every error, masks internals in production)
+app.use(errorHandler.errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 3000;
-const WS_PORT = process.env.WS_PORT || 3001;
 
 httpServer.listen(PORT, () => {
-  logger.info(`✅ MedChat Server v2.0 running on port ${PORT}`);
-  logger.info(`✅ WebSocket server running on port ${WS_PORT}`);
-  logger.info(`✅ API Documentation: http://localhost:${PORT}/api-docs`);
-  logger.info(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info('MedChat Server v2.0 running on port ' + PORT);
+  logger.info('API Documentation: http://localhost:' + PORT + '/api-docs');
+  logger.info('Environment: ' + (process.env.NODE_ENV || 'development'));
 });
 
 // Graceful shutdown
@@ -281,8 +260,7 @@ process.on('SIGINT', () => {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-  logger.error('Unhandled Rejection:', err);
-  // Shutdown after 5 seconds
+  logger.error('Unhandled Rejection:', { message: err && err.message, stack: err && err.stack });
   setTimeout(() => {
     process.exit(1);
   }, 5000);
@@ -290,8 +268,7 @@ process.on('unhandledRejection', (err) => {
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  logger.error('Uncaught Exception:', err);
-  // Shutdown after 5 seconds
+  logger.error('Uncaught Exception:', { message: err.message, stack: err.stack });
   setTimeout(() => {
     process.exit(1);
   }, 5000);
