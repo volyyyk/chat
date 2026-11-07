@@ -9,7 +9,7 @@ const Joi = require('joi');
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 // Email validation
-const emailValidation = Joi.string().email().required().messages({
+const emailValidation = Joi.string().email({ tlds: { allow: false } }).required().messages({
   'string.email': 'Please provide a valid email address',
   'any.required': 'Email is required',
 });

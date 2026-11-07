@@ -3,6 +3,8 @@
  * Represents a medical specialty
  */
 
+const { Op } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
   const Specialty = sequelize.define(
     'Specialty',
@@ -79,7 +81,7 @@ module.exports = (sequelize, DataTypes) => {
         {
           unique: true,
           fields: ['code'],
-          where: { code: { [sequelize.Op.ne]: null } },
+          where: { code: { [Op.ne]: null } },
         },
         {
           fields: ['category'],

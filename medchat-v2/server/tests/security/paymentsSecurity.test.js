@@ -2,6 +2,14 @@
  * Security tests: server-side price pinning for payments.
  * A client must never be able to choose how much a message/file/subscription
  * costs, nor pass arbitrary amounts through the validators.
+ *
+ * NOTE: this suite intentionally does NOT depend on whether jest.mock()
+ * interception replaces the real modules or not. The jest.mock factories are
+ * kept (they keep the suite DB-free when interception works), and beforeEach
+ * additionally installs jest.spyOn() guards on the required module objects.
+ * spyOn works both on mock factories and on the real Sequelize model classes,
+ * so the suite stays green in either module-resolution scenario while the
+ * production require-graph of paymentService stays under test.
  */
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
@@ -41,13 +49,19 @@ const chat = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  jest.restoreAllMocks();
   delete process.env.MESSAGE_PRICE_RUB;
   delete process.env.FILE_PRICE_RUB;
-  models.sequelize.transaction.mockImplementation(async (fn) => fn({}));
-  models.Chat.findByPk.mockResolvedValue(chat);
-  BalanceService.charge.mockResolvedValue({ success: true, balanceBefore: 100, balanceAfter: 50 });
-  models.Transaction.create.mockResolvedValue({ id: 'tx-1' });
+
+  // Guards that work both for the mocked modules and for the real ones:
+  // if the jest.mock factories were applied, these spyOn() calls simply wrap
+  // the factory jest.fn()s; if the real modules were loaded (Sequelize model
+  // classes / the BalanceService class), they override the static methods.
+  jest.spyOn(models.sequelize, 'transaction').mockImplementation(async (fn) => fn({}));
+  jest.spyOn(models.Chat, 'findByPk').mockResolvedValue(chat);
+  jest.spyOn(BalanceService, 'charge').mockResolvedValue({ success: true, balanceBefore: 100, balanceAfter: 50 });
+  jest.spyOn(BalanceService, 'deposit').mockResolvedValue({ success: true });
+  jest.spyOn(models.Transaction, 'create').mockResolvedValue({ id: 'tx-1' });
 });
 
 describe('Server-side price pinning (services/paymentService.js)', () => {

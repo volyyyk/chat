@@ -115,7 +115,7 @@ const doctorProfileSchema = Joi.object({
 
 // Invite doctor schema (by clinic admin)
 const inviteDoctorSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
   firstName: Joi.string().min(1).max(100).required(),
   lastName: Joi.string().min(1).max(100).required(),
   specialties: Joi.array().items(Joi.string().uuid()).optional().default([]),
