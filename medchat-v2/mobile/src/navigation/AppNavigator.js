@@ -4,7 +4,6 @@
  */
 
 import React, { useContext } from 'react';
-import { View, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -31,23 +30,12 @@ import PaymentScreen from '../screens/PaymentScreen';
 import PatientFilesScreen from '../screens/PatientFilesScreen';
 import ConsentScreen from '../screens/ConsentScreen';
 import BackupScreen from '../screens/BackupScreen';
+import AppointmentsScreen from '../screens/AppointmentsScreen';
+import EPrescriptionsScreen from '../screens/EPrescriptionsScreen';
 
 // Create navigators
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-
-// Placeholder for features under development
-function ComingSoonScreen({ route }) {
-  const title = (route.params && route.params.title) || 'Раздел в разработке';
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background.primary }}>
-      <MaterialIcons name="construction" size={48} color={colors.text.tertiary} />
-      <Text style={{ marginTop: spacing[2], color: colors.text.secondary, fontSize: 16 }}>
-        {title}
-      </Text>
-    </View>
-  );
-}
 
 // Tab icons
 const getTabIcon = (routeName, focused, color, size) => {
@@ -99,6 +87,7 @@ function PatientTabNavigator() {
       <Tab.Screen name="Home" component={PatientHomeScreen} options={{ title: 'Главная' }} />
       <Tab.Screen name="Chats" component={ChatListScreen} options={{ title: 'Чаты' }} />
       <Tab.Screen name="QRScanner" component={PatientSetupScreen} options={{ title: 'QR' }} />
+      <Tab.Screen name="Appointments" component={AppointmentsScreen} options={{ title: 'Записи' }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Настройки' }} />
     </Tab.Navigator>
   );
@@ -126,7 +115,7 @@ function DoctorTabNavigator() {
     >
       <Tab.Screen name="Home" component={DoctorHomeScreen} options={{ title: 'Главная' }} />
       <Tab.Screen name="Chats" component={ChatListScreen} options={{ title: 'Чаты' }} />
-      <Tab.Screen name="Appointments" component={ComingSoonScreen} options={{ title: 'Записи' }} />
+      <Tab.Screen name="Appointments" component={AppointmentsScreen} options={{ title: 'Записи' }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Настройки' }} />
     </Tab.Navigator>
   );
@@ -172,6 +161,8 @@ function PatientStackNavigator() {
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="Consent" component={ConsentScreen} />
       <Stack.Screen name="Backup" component={BackupScreen} />
+      <Stack.Screen name="Appointments" component={AppointmentsScreen} />
+      <Stack.Screen name="EPrescriptions" component={EPrescriptionsScreen} />
       <Stack.Screen name="QRCode" component={QRCodeScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
@@ -196,8 +187,8 @@ function DoctorStackNavigator() {
       <Stack.Screen name="DoctorInfo" component={DoctorInfoScreen} />
       <Stack.Screen name="Consent" component={ConsentScreen} />
       <Stack.Screen name="Backup" component={BackupScreen} />
-      <Stack.Screen name="Appointments" component={ComingSoonScreen} />
-      <Stack.Screen name="EPrescriptions" component={ComingSoonScreen} />
+      <Stack.Screen name="Appointments" component={AppointmentsScreen} />
+      <Stack.Screen name="EPrescriptions" component={EPrescriptionsScreen} />
       <Stack.Screen name="QRCode" component={QRCodeScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
