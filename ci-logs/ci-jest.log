@@ -1,0 +1,298 @@
+=== run 42416764299 job server-tests Sat Nov  7 21:39:09 UTC 2026 ===
+
+> medchat-server@2.0.0 test
+> jest --ci --runInBand
+
+FAIL tests/integration/auth.test.js
+  POST /api/auth/login
+    ✓ rejects an invalid body with 400 (validation layer) (21 ms)
+    ✕ logs in an active patient and returns tokens (10 ms)
+    ✕ returns 401 for a wrong password (4 ms)
+    ✕ returns 401 for an unknown email (no user enumeration) (2 ms)
+    ✕ blocks a doctor whose clinic has not verified them yet (3 ms)
+    ✕ blocks an inactive account (4 ms)
+  POST /api/auth/register
+    ✕ registers a patient and returns tokens (201) (3 ms)
+    ✓ rejects a doctor registration without a clinic code (400) (2 ms)
+    ✕ rejects a doctor registration with an unknown clinic code (400) (3 ms)
+    ✓ rejects a weak password (400) (2 ms)
+  unknown routes
+    ✓ falls through to the 404 handler with structured JSON (2 ms)
+
+  ● POST /api/auth/login › logs in an active patient and returns tokens
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 400
+
+    [0m [90m  97 |[39m       [33m.[39msend({ email[33m:[39m [32m'patient1@medchat.test'[39m[33m,[39m password[33m:[39m [33mPASSWORD[39m })[33m;[39m
+     [90m  98 |[39m
+    [31m[1m>[22m[39m[90m  99 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m200[39m)[33m;[39m
+     [90m     |[39m                        [31m[1m^[22m[39m
+     [90m 100 |[39m     expect(res[33m.[39mbody[33m.[39maccessToken)[33m.[39mtoBeDefined()[33m;[39m
+     [90m 101 |[39m     expect(res[33m.[39mbody[33m.[39mrefreshToken)[33m.[39mtoBeDefined()[33m;[39m
+     [90m 102 |[39m     expect(res[33m.[39mbody[33m.[39muser[33m.[39memail)[33m.[39mtoBe([32m'patient1@medchat.test'[39m)[33m;[39m[0m
+
+      at Object.toBe (tests/integration/auth.test.js:99:24)
+
+  ● POST /api/auth/login › returns 401 for a wrong password
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 401
+    Received: 400
+
+    [0m [90m 114 |[39m       [33m.[39msend({ email[33m:[39m [32m'patient1@medchat.test'[39m[33m,[39m password[33m:[39m [32m'Wrong1234!'[39m })[33m;[39m
+     [90m 115 |[39m
+    [31m[1m>[22m[39m[90m 116 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m401[39m)[33m;[39m
+     [90m     |[39m                        [31m[1m^[22m[39m
+     [90m 117 |[39m   })[33m;[39m
+     [90m 118 |[39m
+     [90m 119 |[39m   it([32m'returns 401 for an unknown email (no user enumeration)'[39m[33m,[39m [36masync[39m () [33m=>[39m {[0m
+
+      at Object.toBe (tests/integration/auth.test.js:116:24)
+
+  ● POST /api/auth/login › returns 401 for an unknown email (no user enumeration)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 401
+    Received: 400
+
+    [0m [90m 124 |[39m       [33m.[39msend({ email[33m:[39m [32m'ghost@medchat.test'[39m[33m,[39m password[33m:[39m [33mPASSWORD[39m })[33m;[39m
+     [90m 125 |[39m
+    [31m[1m>[22m[39m[90m 126 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m401[39m)[33m;[39m
+     [90m     |[39m                        [31m[1m^[22m[39m
+     [90m 127 |[39m   })[33m;[39m
+     [90m 128 |[39m
+     [90m 129 |[39m   it([32m'blocks a doctor whose clinic has not verified them yet'[39m[33m,[39m [36masync[39m () [33m=>[39m {[0m
+
+      at Object.toBe (tests/integration/auth.test.js:126:24)
+
+  ● POST /api/auth/login › blocks a doctor whose clinic has not verified them yet
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 401
+    Received: 400
+
+    [0m [90m 141 |[39m       [33m.[39msend({ email[33m:[39m [32m'doctor@medchat.test'[39m[33m,[39m password[33m:[39m [33mPASSWORD[39m })[33m;[39m
+     [90m 142 |[39m
+    [31m[1m>[22m[39m[90m 143 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m401[39m)[33m;[39m
+     [90m     |[39m                        [31m[1m^[22m[39m
+     [90m 144 |[39m     expect([33mString[39m(res[33m.[39mbody[33m.[39merror))[33m.[39mtoContain([32m'not verified'[39m)[33m;[39m
+     [90m 145 |[39m   })[33m;[39m
+     [90m 146 |[39m[0m
+
+      at Object.toBe (tests/integration/auth.test.js:143:24)
+
+  ● POST /api/auth/login › blocks an inactive account
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 401
+    Received: 400
+
+    [0m [90m 152 |[39m       [33m.[39msend({ email[33m:[39m [32m'patient1@medchat.test'[39m[33m,[39m password[33m:[39m [33mPASSWORD[39m })[33m;[39m
+     [90m 153 |[39m
+    [31m[1m>[22m[39m[90m 154 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m401[39m)[33m;[39m
+     [90m     |[39m                        [31m[1m^[22m[39m
+     [90m 155 |[39m   })[33m;[39m
+     [90m 156 |[39m })[33m;[39m
+     [90m 157 |[39m[0m
+
+      at Object.toBe (tests/integration/auth.test.js:154:24)
+
+  ● POST /api/auth/register › registers a patient and returns tokens (201)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 400
+
+    [0m [90m 166 |[39m     })[33m;[39m
+     [90m 167 |[39m
+    [31m[1m>[22m[39m[90m 168 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m201[39m)[33m;[39m
+     [90m     |[39m                        [31m[1m^[22m[39m
+     [90m 169 |[39m     expect(res[33m.[39mbody[33m.[39maccessToken)[33m.[39mtoBeDefined()[33m;[39m
+     [90m 170 |[39m     expect(res[33m.[39mbody[33m.[39mrefreshToken)[33m.[39mtoBeDefined()[33m;[39m
+     [90m 171 |[39m     expect(models[33m.[39m[33mPatient[39m[33m.[39mcreate)[33m.[39mtoHaveBeenCalled()[33m;[39m[0m
+
+      at Object.toBe (tests/integration/auth.test.js:168:24)
+
+  ● POST /api/auth/register › rejects a doctor registration with an unknown clinic code (400)
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: "clinic code"
+    Received string:    "Validation Error"
+
+    [0m [90m 200 |[39m
+     [90m 201 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m400[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 202 |[39m     expect([33mString[39m(res[33m.[39mbody[33m.[39merror))[33m.[39mtoContain([32m'clinic code'[39m)[33m;[39m
+     [90m     |[39m                                    [31m[1m^[22m[39m
+     [90m 203 |[39m   })[33m;[39m
+     [90m 204 |[39m
+     [90m 205 |[39m   it([32m'rejects a weak password (400)'[39m[33m,[39m [36masync[39m () [33m=>[39m {[0m
+
+      at Object.toContain (tests/integration/auth.test.js:202:36)
+
+PASS tests/security/transactionsIdor.test.js
+  Transaction IDOR (controllers/transactionController.js)
+    ✓ refund of a foreign transaction is forbidden (403) (8 ms)
+    ✓ cancel of a foreign transaction is forbidden (403) (3 ms)
+    ✓ reading a foreign transaction is forbidden (403) (2 ms)
+    ✓ refund of your own completed transaction succeeds (200) (2 ms)
+    ✓ test-balance deposit rejects a negative amount (400) (3 ms)
+  canAccessChat (utils/chatAccess.js)
+    ✓ a stranger gets false
+    ✓ an explicit participant gets true
+    ✓ the doctor of the chat gets true
+    ✓ the clinic admin of the chat clinic gets true
+    ✓ a clinic admin of another clinic gets false (1 ms)
+    ✓ a system admin gets true without any DB checks
+
+PASS tests/paymentService.test.js
+  PaymentService
+    findChat
+      ✓ resolves a chat by UUID primary key (1 ms)
+      ✓ resolves a chat by public chatId string without touching findByPk (1 ms)
+    resolveMessageFree
+      ✓ doctor messages are always free (doctor_initiated)
+      ✓ first message in a chat is free
+      ✓ completed appointment within the window makes messages free
+      ✓ without appointment in the window the message is paid
+    chargeMessagePayment
+      ✓ returns failure when the patient has insufficient balance (1 ms)
+      ✓ charges the default price and creates a completed transaction
+      ✓ credits the doctor share after a successful charge (1 ms)
+    isMessageFree
+      ✓ returns paid for an unknown chat without throwing
+
+PASS tests/errorHandler.test.js
+  errorHandler middleware
+    notFound
+      ✓ returns 404 with structured JSON and endpoint info (1 ms)
+    errorHandler
+      ✓ uses the error status and code when provided
+      ✓ logs the error with request context (method, url, code, status) (4 ms)
+      ✓ includes the stack trace in the log for 500 errors
+      ✓ defaults to 500 INTERNAL_ERROR for unknown errors (1 ms)
+      ✓ hides internal error messages from clients in production (2 ms)
+      ✓ never leaks error messages with status < 500 even in production
+    wrapAsync
+      ✓ passes errors from rejected async handlers to next()
+      ✓ does not call next for successful handlers
+
+FAIL tests/security/registerSecurity.test.js
+  Privilege escalation via role (validators/auth.js)
+    ✓ rejects self-registration as clinic_admin (7 ms)
+    ✓ rejects self-registration as system_admin (2 ms)
+    ✕ a normal patient registration still works (201) (1 ms)
+  Mass assignment / unknown fields
+    ✓ unknown fields (isAdmin, status) never reach User.create (2 ms)
+  Prototype pollution via __proto__
+    ✓ a __proto__ payload neither poisons Object.prototype nor crashes (no 500) (2 ms)
+
+  ● Privilege escalation via role (validators/auth.js) › a normal patient registration still works (201)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 400
+
+    [0m [90m  96 |[39m       lastName[33m:[39m [32m'Пациент'[39m[33m,[39m
+     [90m  97 |[39m     })[33m;[39m
+    [31m[1m>[22m[39m[90m  98 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m201[39m)[33m;[39m
+     [90m     |[39m                        [31m[1m^[22m[39m
+     [90m  99 |[39m   })[33m;[39m
+     [90m 100 |[39m })[33m;[39m
+     [90m 101 |[39m[0m
+
+      at Object.toBe (tests/security/registerSecurity.test.js:98:24)
+
+FAIL tests/security/paymentsSecurity.test.js
+  ● Test suite failed to run
+
+    TypeError: Cannot read properties of undefined (reading 'ne')
+
+    [0m [90m 80 |[39m           unique[33m:[39m [36mtrue[39m[33m,[39m
+     [90m 81 |[39m           fields[33m:[39m [[32m'code'[39m][33m,[39m
+    [31m[1m>[22m[39m[90m 82 |[39m           where[33m:[39m { code[33m:[39m { [sequelize[33m.[39m[33mOp[39m[33m.[39mne][33m:[39m [36mnull[39m } }[33m,[39m
+     [90m    |[39m                                          [31m[1m^[22m[39m
+     [90m 83 |[39m         }[33m,[39m
+     [90m 84 |[39m         {
+     [90m 85 |[39m           fields[33m:[39m [[32m'category'[39m][33m,[39m[0m
+
+      at ne (src/models/Specialty.js:82:42)
+      at src/models/index.js:18:54
+          at Array.forEach (<anonymous>)
+      at Object.forEach (src/models/index.js:17:4)
+      at Object.require (src/services/paymentService.js:9:16)
+      at Object.require (tests/security/paymentsSecurity.test.js:28:24)
+
+  console.error
+    ❌ Unable to connect to the database: ConnectionRefusedError [SequelizeConnectionRefusedError]: connect ECONNREFUSED ::1:5432
+        at Client._connectionCallback (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/src/dialects/postgres/connection-manager.js:184:24)
+        at Client._handleErrorWhileConnecting (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/client.js:408:19)
+        at Client._handleErrorEvent (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/client.js:418:19)
+        at Connection.emit (node:events:517:28)
+        at Socket.reportStreamError (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/connection.js:59:12)
+        at Socket.emit (node:events:517:28)
+        at emitErrorNT (node:internal/streams/destroy:151:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:116:3)
+        at processTicksAndRejections (node:internal/process/task_queues:82:21) {
+      parent: Error: connect ECONNREFUSED ::1:5432
+          at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
+        errno: -111,
+        code: 'ECONNREFUSED',
+        syscall: 'connect',
+        address: '::1',
+        port: 5432
+      },
+      original: Error: connect ECONNREFUSED ::1:5432
+          at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
+        errno: -111,
+        code: 'ECONNREFUSED',
+        syscall: 'connect',
+        address: '::1',
+        port: 5432
+      }
+    }
+
+    [0m [90m 102 |[39m       ][33m,[39m
+     [90m 103 |[39m       max[33m:[39m [35m10[39m[33m,[39m
+    [31m[1m>[22m[39m[90m 104 |[39m     }[33m,[39m
+     [90m     |[39m           [31m[1m^[22m[39m
+     [90m 105 |[39m   }[33m,[39m
+     [90m 106 |[39m }[33m;[39m
+     [90m 107 |[39m[0m
+
+      at src/config/database.js:104:11
+
+PASS tests/security/jwtSecurity.test.js
+  JWT security (middleware/auth.js)
+    ✓ accepts a valid HS256 token (16 ms)
+    ✓ rejects a forged alg:none token (2 ms)
+    ✓ rejects a token signed with the wrong secret (2 ms)
+    ✓ rejects an expired token (2 ms)
+    ✓ rejects a tampered payload (signature mismatch) (2 ms)
+    ✓ rejects a missing or malformed Authorization header (2 ms)
+
+PASS tests/cryptoService.test.js
+  CryptoService
+    ✓ generates a valid X25519 key pair (21 ms)
+    ✓ both sides derive the same shared secret (ECDH) (40 ms)
+    ✓ encrypts and decrypts a message (2 ms)
+    ✓ rejects decryption with a wrong key (7 ms)
+    ✓ encrypts and decrypts objects (JSON)
+    ✓ encrypts and decrypts file buffers
+    ✓ hash functions are deterministic
+    ✓ HMAC verify works and rejects tampering
+
+Test Suites: 3 failed, 5 passed, 8 total
+Tests:       8 failed, 52 passed, 60 total
+Snapshots:   0 total
+Time:        1.483 s
+Ran all test suites.
