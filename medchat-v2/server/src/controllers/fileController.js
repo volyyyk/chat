@@ -577,6 +577,198 @@ class FileController {
   }
 
   /**
+   * Update medical file metadata (POST /:id/metadata).
+   * fileMetadataSchema allows: patientId, appointmentId, diagnosis, notes.
+   * appointmentId has no own column on files, so it is stored in the JSONB
+   * metadata column together with diagnosis and notes.
+   */
+  static async updateMetadata(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { patientId, appointmentId, diagnosis, notes } = req.body;
+
+      const file = await models.File.findByPk(id);
+      if (!file) {
+        throw new AppError('File not found', 404, 'NOT_FOUND');
+      }
+
+      // Only the owner/uploader or a system admin may edit metadata
+      if (req.user.role !== 'system_admin' && req.user.id !== file.ownerId && req.user.id !== file.uploaderId) {
+        throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+      }
+
+      const metadata = Object.assign({}, file.metadata || {});
+      if (appointmentId !== undefined) metadata.appointmentId = appointmentId;
+      if (diagnosis !== undefined) metadata.diagnosis = diagnosis;
+      if (notes !== undefined) metadata.notes = notes;
+
+      const updateData = { metadata };
+      if (patientId !== undefined) updateData.patientId = patientId;
+
+      await file.update(updateData);
+
+      res.json(file);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get file preview (GET /:id/preview).
+   * Streams images and PDFs inline with the same access rules as download.
+   */
+  static async getPreview(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      const file = await models.File.findByPk(id);
+      if (!file) {
+        throw new AppError('File not found', 404, 'NOT_FOUND');
+      }
+
+      // Same access rules as download
+      if (file.visibility === 'private') {
+        if (req.user.role !== 'system_admin' && req.user.id !== file.ownerId && req.user.id !== file.uploaderId) {
+          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+        }
+      } else if (file.visibility === 'doctor_only') {
+        if (req.user.role !== 'system_admin' && req.user.role !== 'doctor' && req.user.id !== file.ownerId) {
+          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+        }
+      } else if (file.visibility === 'patient_only') {
+        if (req.user.role !== 'system_admin' && req.user.role !== 'patient' && req.user.id !== file.ownerId) {
+          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+        }
+      }
+
+      if (file.deleteAt && new Date() > new Date(file.deleteAt)) {
+        throw new AppError('File has been deleted', 410, 'GONE');
+      }
+
+      // Only images and PDFs are previewable in this implementation
+      if (file.fileType !== 'image' && file.mimeType !== 'application/pdf') {
+        throw new AppError('Preview not available for this file type', 415, 'UNSUPPORTED_MEDIA_TYPE');
+      }
+
+      const fileStream = await new Promise((resolve, reject) => {
+        minioClient.getObject({ Bucket: bucketName, Key: file.storagePath }, (err, dataStream) => {
+          if (err) reject(err);
+          else resolve(dataStream);
+        });
+      });
+
+      res.set({
+        'Content-Type': file.mimeType || 'application/octet-stream',
+        'Content-Disposition': `inline; filename="${encodeURIComponent(file.originalFilename)}"`,
+        'Content-Length': file.size,
+      });
+      fileStream.pipe(res);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * List files uploaded by a doctor (GET /doctor/:doctorId).
+   * Access: the doctor themself, their clinic admin, or a system admin.
+   */
+  static async listByDoctor(req, res, next) {
+    try {
+      const { doctorId } = req.params;
+      const { chatId, patientId, page = 1, limit = 20 } = req.query;
+      const offset = (page - 1) * limit;
+
+      const doctor = await models.Doctor.findByPk(doctorId);
+      if (!doctor) {
+        throw new AppError('Doctor not found', 404, 'NOT_FOUND');
+      }
+
+      if (req.user.role !== 'system_admin') {
+        const isSelf = doctor.userId === req.user.id ||
+          String(req.user.doctorId || '') === String(doctorId);
+        const isClinicAdmin = req.user.role === 'clinic_admin' &&
+          String(req.user.clinicId || '') === String(doctor.clinicId);
+        if (!isSelf && !isClinicAdmin) {
+          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+        }
+      }
+
+      const where = { ownerType: 'doctor', ownerId: doctorId };
+      if (chatId) where.chatId = chatId;
+      if (patientId) where.patientId = patientId;
+
+      const files = await models.File.findAndCountAll({
+        where,
+        include: [{ model: models.User, as: 'uploader' }],
+        order: [['createdAt', 'DESC']],
+        offset,
+        limit,
+      });
+
+      res.json({
+        data: files.rows,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: files.count,
+          totalPages: Math.ceil(files.count / limit),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * List files of a patient (GET /patient/:patientId).
+   * Access: the patient themself, doctors, clinic admins, or a system admin
+   * (medical context: treating staff may access patient files).
+   */
+  static async listByPatient(req, res, next) {
+    try {
+      const { patientId } = req.params;
+      const { chatId, page = 1, limit = 20 } = req.query;
+      const offset = (page - 1) * limit;
+
+      const patient = await models.Patient.findByPk(patientId);
+      if (!patient) {
+        throw new AppError('Patient not found', 404, 'NOT_FOUND');
+      }
+
+      if (req.user.role === 'patient') {
+        const isSelf = patient.userId === req.user.id ||
+          String(req.user.patientId || '') === String(patientId);
+        if (!isSelf) {
+          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+        }
+      }
+
+      const where = { ownerType: 'patient', ownerId: patientId };
+      if (chatId) where.chatId = chatId;
+
+      const files = await models.File.findAndCountAll({
+        where,
+        include: [{ model: models.User, as: 'uploader' }],
+        order: [['createdAt', 'DESC']],
+        offset,
+        limit,
+      });
+
+      res.json({
+        data: files.rows,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: files.count,
+          totalPages: Math.ceil(files.count / limit),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Clean up expired files
    * @param {Object} req - Request object
    * @param {Object} res - Response object
