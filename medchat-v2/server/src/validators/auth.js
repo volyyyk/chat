@@ -28,8 +28,10 @@ const registerSchema = Joi.object({
   phone: Joi.string().pattern(/^\+?[0-9\s-()]{10,20}$/).optional().allow(null, '').messages({
     'string.pattern.base': 'Please provide a valid phone number',
   }),
-  role: Joi.string().valid('doctor', 'patient', 'clinic_admin').required().messages({
-    'any.only': 'Role must be one of: doctor, patient, clinic_admin',
+  // SECURITY: privileged roles cannot be self-registered.
+  // clinic_admin / system_admin accounts are created by a system admin only.
+  role: Joi.string().valid('doctor', 'patient').required().messages({
+    'any.only': 'Role must be one of: doctor, patient',
     'any.required': 'Role is required',
   }),
   firstName: Joi.string().min(1).max(100).required().messages({

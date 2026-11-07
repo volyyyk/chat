@@ -39,7 +39,8 @@ function authenticate() {
       const token = authHeader.split(' ')[1];
 
       // Verify token
-      const decoded = jwt.verify(token, JWT_SECRET);
+      // SECURITY: algorithm pinning - forged alg:none tokens are rejected
+      const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
       // Get user from database
       const user = await models.User.findByPk(decoded.id, {

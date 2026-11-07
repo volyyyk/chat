@@ -111,7 +111,7 @@ class PaymentController {
           }
           result = await PaymentService.processMessagePayment(
             userId,
-            amount, // falls back to MESSAGE_PRICE_RUB when not passed
+            null, // SECURITY: the price is always server-defined (MESSAGE_PRICE_RUB)
             currency,
             chatId,
             messageId || null,
@@ -126,7 +126,7 @@ class PaymentController {
           }
           result = await PaymentService.processFilePayment(
             userId,
-            amount || 100, // Default file price
+            null, // SECURITY: the price is always server-defined (FILE_PRICE_RUB)
             currency,
             fileId,
             description

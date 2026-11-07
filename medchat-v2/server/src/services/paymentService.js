@@ -12,6 +12,8 @@ const BalanceService = require('./balanceService');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MESSAGE_PRICE = () => parseFloat(process.env.MESSAGE_PRICE_RUB || '50');
+const FILE_PRICE = () => parseFloat(process.env.FILE_PRICE_RUB || '100');
+const SUBSCRIPTION_PRICES = { monthly: 500, yearly: 5000 };
 const FREE_MESSAGE_DAYS = () => parseInt(process.env.FREE_MESSAGE_DAYS || '30', 10);
 const DOCTOR_SHARE_PERCENT = () => parseInt(process.env.DOCTOR_SHARE_PERCENT || '80', 10);
 
@@ -95,7 +97,8 @@ class PaymentService {
    * @returns {Promise<{success: boolean, error?: string, transaction?: Object}>}
    */
   static async chargeMessagePayment(userId, chat, { messageId = null, amount = null, description = null } = {}) {
-    const price = Number(amount) > 0 ? Number(amount) : MESSAGE_PRICE();
+    // SECURITY: the price is always server-defined; a client can never set it.
+    const price = MESSAGE_PRICE();
     const currency = 'RUB';
 
     const doctorPct = chat && chat.clinic && Number.isFinite(Number(chat.clinic.doctorSharePercent))
@@ -189,7 +192,8 @@ class PaymentService {
         };
       }
 
-      const amt = Number(amount) > 0 ? Number(amount) : MESSAGE_PRICE();
+      // SECURITY: ignore the client-provided amount; the price is server-defined.
+      const amt = MESSAGE_PRICE();
 
       const result = await this.chargeMessagePayment(userId, chat, {
         messageId,
@@ -213,7 +217,8 @@ class PaymentService {
    */
   static async processFilePayment(userId, amount, currency = 'RUB', fileId, description) {
     try {
-      const amt = Number(amount) > 0 ? Number(amount) : 100;
+      // SECURITY: fixed server-side file price; the client amount is ignored.
+      const amt = FILE_PRICE();
 
       const result = await models.sequelize.transaction(async (t) => {
         const charge = await BalanceService.charge(userId, amt, currency, description || 'Оплата файла', { transaction: t });
@@ -263,7 +268,8 @@ class PaymentService {
    */
   static async processSubscriptionPayment(userId, amount, currency = 'RUB', subscriptionType, description) {
     try {
-      const amt = Number(amount) > 0 ? Number(amount) : 500;
+      // SECURITY: fixed server-side subscription price; the client amount is ignored.
+      const amt = SUBSCRIPTION_PRICES[subscriptionType] || SUBSCRIPTION_PRICES.monthly;
 
       const result = await models.sequelize.transaction(async (t) => {
         const charge = await BalanceService.charge(userId, amt, currency, description || 'Оплата подписки', { transaction: t });
