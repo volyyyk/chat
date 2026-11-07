@@ -1,4 +1,4 @@
-=== run 42423056300 job e2e-smoke Sat Nov  7 23:00:05 UTC 2026 ===
+=== run 42423703893 job e2e-smoke Sat Nov  7 23:08:48 UTC 2026 ===
 
 > medchat-server@2.0.0 test:smoke
 > node scripts/smoke-test.js
@@ -26,47 +26,59 @@ Base URL: http://127.0.0.1:3990
   ✓ врач всегда пишет бесплатно
 
 [4] Отправка бесплатного сообщения (последовательная связь)
-  ✗ сообщение отправлено и помечено как бесплатное :: 500
-  ✗ ответ врача отправлен :: 500
+  ✓ сообщение отправлено и помечено как бесплатное
+  ✓ ответ врача отправлен
   ✓ история сообщений читается обеими сторонами
 
 [5] Платный поток: process -> отправка с paymentTransactionId
   ✓ платеж обработан (тестовый баланс)
   ✓ транзакция: message_payment/completed/50
   ✓ сплит дохода 80/20: врач 40, клиника 10
-  ✗ платное сообщение отправлено с paymentTransactionId :: 500
+  ✓ платное сообщение отправлено с paymentTransactionId
   ✓ повторное использование транзакции отклонено (409)
   ✓ баланс пациента 2 доступен
   ✓ баланс врача получил доход (>= 40)
   ✓ баланс клиники доступен администратору
 
 [6] Одновременная связь: 40 параллельных сообщений
-  ✗ 40/40 параллельных сообщений доставлено :: "0/40"
+  ✓ 40/40 параллельных сообщений доставлено
 
 [7] Socket.IO: комнаты, права, real-time доставка
   ✓ оба сокета подключены с JWT
   ✓ пациент 1 вошел в свой чат
   ✓ пациент 1 НЕ может войти в чужой чат (forbidden)
   ✓ индикатор печати доставлен врачу в реальном времени
-Smoke test crashed: Error: timeout waiting for "newMessage"
-    at Timeout._onTimeout (/home/runner/work/chat/chat/medchat-v2/server/scripts/smoke-test.js:153:43)
-    at listOnTimeout (node:internal/timers:569:17)
-    at process.processTimers (node:internal/timers:512:7)
----- server stderr (tail) ----
-❌ Error initializing MinIO bucket: Error: connect ECONNREFUSED ::1:9000
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-  errno: -111,
-  code: 'ECONNREFUSED',
-  syscall: 'connect',
-  address: '::1',
-  port: 9000
-}
-❌ Error setting bucket policy: Error: connect ECONNREFUSED ::1:9000
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-  errno: -111,
-  code: 'ECONNREFUSED',
-  syscall: 'connect',
-  address: '::1',
-  port: 9000
-}
+  ✓ новое сообщение доставлено врачу через Socket.IO
+  ✓ сокеты отключены
 
+[8] Приёмы (Appointments)
+  ✓ пациент 1 записался на приём
+  ✓ у пациента 1 есть приёмы (прошлый + новый)
+  ✓ врач подтвердил приём
+  ✓ врач видит приёмы пациентов
+  ✗ пациент 2 не видит чужой приём :: 500
+
+[9] Электронные рецепты (E-Prescriptions)
+  ✗ врач создал рецепт :: 500
+  ✗ medications сохранились как массив
+  ✗ врач подписал рецепт (route /:id/sign) :: 500
+  ✗ повторная подписка идемпотентна :: 500
+  ✗ пациент 1 видит свой рецепт
+  ✗ пациент 2 не видит чужой рецепт :: 500
+  ✓ GET /api/eprescriptions/statistics не перехватывается как /:id
+
+[10] Облачные бэкапы
+  ✓ бэкап создан
+  ✓ список бэкапов доступен
+  ✓ verify-password отвечает
+
+[11] Порядок роутов и статистика
+  ✗ GET /api/messages/unread-count отвечает 200 (не 404) :: 500
+  ✓ GET /api/payments/statistics отвечает 200
+  ✓ GET /api/transactions не 404
+  ✓ врач видит свои транзакции
+
+==============================================
+Проверок: 50, ошибок: 8
+==============================================
+SMOKE TEST FAILED
