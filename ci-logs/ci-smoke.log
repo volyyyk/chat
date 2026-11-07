@@ -1,4 +1,4 @@
-=== run 42421926139 job e2e-smoke Sat Nov  7 22:45:06 UTC 2026 ===
+=== run 42423056300 job e2e-smoke Sat Nov  7 23:00:05 UTC 2026 ===
 
 > medchat-server@2.0.0 test:smoke
 > node scripts/smoke-test.js
@@ -10,7 +10,63 @@ Base URL: http://127.0.0.1:3990
 [1] Аутентификация всех сторон
   ✓ логин: admin, doctor, patient1, patient2
   ✓ неверный пароль отклоняется (401)
-Smoke test crashed: TypeError: fetch failed
-    at node:internal/deps/undici/undici:12637:11
-    at async request (/home/runner/work/chat/chat/medchat-v2/server/scripts/smoke-test.js:48:15)
-    at async main (/home/runner/work/chat/chat/medchat-v2/server/scripts/smoke-test.js:172:19)
+  ✓ запрос без токена отклоняется (401)
+
+[2] Чаты и контроль доступа
+  ✓ врач видит оба чата
+  ✓ чаты test-chat-0001/0002 доступны по chatId
+  ✓ администратор клиники видит чаты своей клиники
+  ✓ пациент 1 видит свой чат
+  ✓ пациент 1 НЕ видит чужой чат (403)
+  ✓ пациент 2 НЕ видит чужой чат (403)
+
+[3] Бесплатные/платные сообщения (check-free)
+  ✓ пациент 1: сообщение бесплатно (прием был 5 дней назад)
+  ✓ пациент 2: сообщение платно (прием был 40 дней назад)
+  ✓ врач всегда пишет бесплатно
+
+[4] Отправка бесплатного сообщения (последовательная связь)
+  ✗ сообщение отправлено и помечено как бесплатное :: 500
+  ✗ ответ врача отправлен :: 500
+  ✓ история сообщений читается обеими сторонами
+
+[5] Платный поток: process -> отправка с paymentTransactionId
+  ✓ платеж обработан (тестовый баланс)
+  ✓ транзакция: message_payment/completed/50
+  ✓ сплит дохода 80/20: врач 40, клиника 10
+  ✗ платное сообщение отправлено с paymentTransactionId :: 500
+  ✓ повторное использование транзакции отклонено (409)
+  ✓ баланс пациента 2 доступен
+  ✓ баланс врача получил доход (>= 40)
+  ✓ баланс клиники доступен администратору
+
+[6] Одновременная связь: 40 параллельных сообщений
+  ✗ 40/40 параллельных сообщений доставлено :: "0/40"
+
+[7] Socket.IO: комнаты, права, real-time доставка
+  ✓ оба сокета подключены с JWT
+  ✓ пациент 1 вошел в свой чат
+  ✓ пациент 1 НЕ может войти в чужой чат (forbidden)
+  ✓ индикатор печати доставлен врачу в реальном времени
+Smoke test crashed: Error: timeout waiting for "newMessage"
+    at Timeout._onTimeout (/home/runner/work/chat/chat/medchat-v2/server/scripts/smoke-test.js:153:43)
+    at listOnTimeout (node:internal/timers:569:17)
+    at process.processTimers (node:internal/timers:512:7)
+---- server stderr (tail) ----
+❌ Error initializing MinIO bucket: Error: connect ECONNREFUSED ::1:9000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '::1',
+  port: 9000
+}
+❌ Error setting bucket policy: Error: connect ECONNREFUSED ::1:9000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '::1',
+  port: 9000
+}
+
