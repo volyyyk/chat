@@ -1,6 +1,10 @@
 /**
  * Chat Service
- * Handles chat API calls and WebSocket connections
+ * Handles chat API calls and WebSocket connections.
+ * Matches the MedChat v2 server API (see src/index.js socket handlers):
+ *   joinChat(chatRef, cb) -> cb({ ok } | { error })
+ *   'typing' { chatId, isTyping }  ->  'userTyping' { userId, isTyping, chatId }
+ *   server emits: newMessage, chatUpdated, messageRead
  */
 
 import io from 'socket.io-client';
@@ -13,6 +17,9 @@ class ChatService {
     this.socket = null;
     this.token = null;
     this.user = null;
+    this.connectPromise = null;
+    // Handlers survive socket re-creation and are re-attached on connect
+    this._handlers = {};
   }
 
   /**
@@ -24,17 +31,32 @@ class ChatService {
   }
 
   /**
-   * Connect to WebSocket server
+   * Connect to WebSocket server (idempotent, safe to call repeatedly).
+   * Returns the connected socket. Falls back to REST-only mode on failure
+   * after the configured number of attempts.
    */
-  async connectWebSocket() {
-    return new Promise((resolve, reject) => {
-      if (this.socket && this.socket.connected) {
-        resolve(this.socket);
-        return;
+  async connectWebSocket(tokenArg) {
+    if (tokenArg) {
+      this.token = tokenArg;
+    }
+
+    if (this.socket && this.socket.connected) {
+      return this.socket;
+    }
+
+    if (this.connectPromise) {
+      return this.connectPromise;
+    }
+
+    this.connectPromise = new Promise((resolve, reject) => {
+      // A previously disconnected socket object cannot be reused reliably
+      if (this.socket) {
+        try { this.socket.disconnect(); } catch (e) { /* ignore */ }
+        this.socket = null;
       }
 
       const socket = io(WS_BASE_URL, {
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
         auth: {
           token: this.token,
         },
@@ -43,24 +65,114 @@ class ChatService {
         reconnectionDelay: 1000,
       });
 
-      socket.on('connect', () => {
-        this.socket = socket;
-        resolve(socket);
-      });
+      const cleanup = () => {
+        socket.off('connect', onConnect);
+        socket.off('connect_error', onError);
+      };
 
-      socket.on('connect_error', (err) => {
-        console.error('WebSocket connection error:', err);
+      const onConnect = () => {
+        this.socket = socket;
+        this.connectPromise = null;
+        cleanup();
+        this._attachHandlers(socket);
+        resolve(socket);
+      };
+
+      const onError = (err) => {
+        this.connectPromise = null;
+        cleanup();
         reject(err);
-      });
+      };
+
+      socket.on('connect', onConnect);
+      socket.on('connect_error', onError);
 
       socket.on('disconnect', () => {
-        console.log('WebSocket disconnected');
-      });
-
-      socket.on('reconnect', () => {
-        console.log('WebSocket reconnected');
+        // socket.io will auto-reconnect; handlers stay attached
       });
     });
+
+    return this.connectPromise;
+  }
+
+  /**
+   * (Re)attach recorded event handlers to a socket
+   */
+  _attachHandlers(socket) {
+    Object.keys(this._handlers).forEach((event) => {
+      this._handlers[event].forEach((cb) => {
+        socket.off(event, cb);
+        socket.on(event, cb);
+      });
+    });
+  }
+
+  /**
+   * Subscribe to a socket event (also survives reconnections)
+   */
+  on(event, callback) {
+    if (!this._handlers[event]) {
+      this._handlers[event] = [];
+    }
+    this._handlers[event].push(callback);
+    if (this.socket) {
+      this.socket.on(event, callback);
+    }
+    return () => this.off(event, callback);
+  }
+
+  /**
+   * Unsubscribe from a socket event
+   */
+  off(event, callback) {
+    if (this._handlers[event]) {
+      this._handlers[event] = this._handlers[event].filter((cb) => cb !== callback);
+    }
+    if (this.socket) {
+      if (callback) {
+        this.socket.off(event, callback);
+      } else {
+        this.socket.off(event);
+      }
+    }
+  }
+
+  /**
+   * Emit a socket event if connected
+   */
+  emit(event, payload) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit(event, payload);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Join a chat room (server verifies membership against the DB)
+   */
+  joinChat(chatRef, callback) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('joinChat', chatRef, callback || (() => {}));
+    } else if (typeof callback === 'function') {
+      callback({ error: 'not_connected' });
+    }
+  }
+
+  /**
+   * Leave a chat room
+   */
+  leaveChat(chatRef) {
+    if (this.socket) {
+      this.socket.emit('leaveChat', chatRef);
+    }
+  }
+
+  /**
+   * Typing indicator
+   */
+  setTypingStatus(chatId, isTyping) {
+    return this.emit('typing', { chatId, isTyping: !!isTyping });
   }
 
   /**
@@ -71,6 +183,10 @@ class ChatService {
       this.socket.disconnect();
       this.socket = null;
     }
+    this.connectPromise = null;
+    this.token = null;
+    this.user = null;
+    this._handlers = {};
   }
 
   /**
@@ -96,7 +212,7 @@ class ChatService {
   }
 
   /**
-   * Get chat by ID
+   * Get chat by ID (UUID) or human-readable chatId
    */
   async getChat(token, chatId) {
     try {
@@ -141,7 +257,7 @@ class ChatService {
   }
 
   /**
-   * Join chat via QR code
+   * Resolve a chat by its human-readable chatId (QR code flow)
    */
   async joinChatViaQR(token, qrData) {
     try {
@@ -232,29 +348,68 @@ class ChatService {
   }
 
   /**
-   * Upload file
+   * Upload file (multipart). Returns the raw file record on success
+   * or { success: false, message } on failure.
    */
-  async uploadFile(token, chatId, file) {
+  async uploadFile(tokenArg, chatId, file) {
+    const token = tokenArg || this.token;
     try {
       const formData = new FormData();
       formData.append('file', {
         uri: file.uri,
-        name: file.name,
+        name: file.name || 'file',
         type: file.type || 'application/octet-stream',
       });
       formData.append('chatId', chatId);
       formData.append('type', 'patient_upload');
       formData.append('visibility', 'shared');
-      formData.append('autoDelete', 'true');
-      formData.append('deleteAfterDays', '3');
 
+      // NOTE: do not set Content-Type manually - React Native must set
+      // the multipart boundary itself, otherwise the request fails.
       const response = await fetch(`${API_URL}/files/upload`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`,
         },
         body: formData,
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: data.error || data.message || 'Ошибка загрузки файла',
+        };
+      }
+
+      // Server returns the raw file record (201) or { success, data }
+      if (data && data.id) {
+        return data;
+      }
+      if (data && data.data) {
+        return data.data;
+      }
+      return data;
+    } catch (err) {
+      return {
+        success: false,
+        message: err.message,
+      };
+    }
+  }
+
+  /**
+   * List files of a chat
+   */
+  async getFiles(token, chatId, limit = 100) {
+    try {
+      const response = await fetch(`${API_URL}/files?chatId=${chatId}&limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       return await response.json();
@@ -262,6 +417,7 @@ class ChatService {
       return {
         success: false,
         message: err.message,
+        data: [],
       };
     }
   }

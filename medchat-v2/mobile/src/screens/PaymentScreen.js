@@ -1,7 +1,8 @@
 /**
  * Payment Screen
  * Pay for a message when the free period is over (test balance).
- * If a pendingMessage was passed from ChatScreen, it is sent after payment.
+ * If a pendingMessage was passed from ChatScreen, it is sent after payment
+ * with the paymentTransactionId, so the server does not charge twice.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -26,7 +27,7 @@ const PACKAGES = [
 ];
 
 const PaymentScreen = ({ navigation, route }) => {
-  const { chatId, messageId, messagePrice, pendingMessage } = route.params || {};
+  const { chatId, messagePrice, pendingMessage } = route.params || {};
   const { token } = useAuth();
   const [pricing, setPricing] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +36,8 @@ const PaymentScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     (async () => {
-      const result = await paymentService.getPricing(token);
+      const storedToken = token || (await AsyncStorage.getItem('authToken'));
+      const result = await paymentService.getPricing(storedToken);
       if (result.success && result.pricing) {
         setPricing(result.pricing);
       }
@@ -43,20 +45,26 @@ const PaymentScreen = ({ navigation, route }) => {
     })();
   }, [token]);
 
-  const price = messagePrice || (pricing && pricing.messagePrice) || 50;
+  const price = messagePrice || (pricing && (pricing.messagePrice || pricing.message_price)) || 50;
 
-  // Send the pending message after successful payment
-  const sendPendingMessage = async () => {
+  // Send the pending message after successful payment, linking the
+  // payment transaction so the server marks the message paid without
+  // charging the balance a second time.
+  const sendPendingMessage = async (transactionId) => {
     if (!pendingMessage || !chatId) return true;
     try {
       const storedToken = token || (await AsyncStorage.getItem('authToken'));
+      const body = { content: pendingMessage, type: 'text' };
+      if (transactionId) {
+        body.paymentTransactionId = transactionId;
+      }
       const response = await fetch(API_BASE_URL + '/api/chats/' + chatId + '/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + storedToken,
         },
-        body: JSON.stringify({ content: pendingMessage, type: 'text' }),
+        body: JSON.stringify(body),
       });
       return response.ok;
     } catch (err) {
@@ -67,19 +75,21 @@ const PaymentScreen = ({ navigation, route }) => {
   const handlePayMessage = async () => {
     setIsPaying(true);
     const result = await paymentService.process(token, {
+      type: 'message',
       chatId,
-      messageId,
       amount: price,
-      paymentMethod: 'test_balance',
       description: 'Оплата сообщения',
     });
     setIsPaying(false);
 
     if (result.success) {
-      const sent = await sendPendingMessage();
+      const transactionId = result.transaction && result.transaction.id;
+      const sent = await sendPendingMessage(transactionId);
       Alert.alert(
         'Оплачено',
-        sent ? 'Сообщение отправлено (тестовый баланс)' : 'Оплата прошла, но сообщение не удалось отправить',
+        sent
+          ? 'Сообщение отправлено (тестовый баланс)'
+          : 'Оплата прошла, но сообщение не удалось отправить',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } else {
@@ -94,10 +104,9 @@ const PaymentScreen = ({ navigation, route }) => {
     }
     setIsPaying(true);
     const result = await paymentService.process(token, {
+      type: 'package',
       chatId,
-      packageId: selectedPackage.id,
       amount: selectedPackage.price,
-      paymentMethod: 'test_balance',
       description: 'Покупка пакета: ' + selectedPackage.name,
     });
     setIsPaying(false);
@@ -106,7 +115,7 @@ const PaymentScreen = ({ navigation, route }) => {
       Alert.alert(
         'Готово',
         selectedPackage.messages
-          ? 'Пакет куплен, теперь это сообщение бесплатно'
+          ? 'Пакет куплен, средства зачислены на тестовый баланс'
           : 'Безлимит на месяц активирован',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
@@ -171,7 +180,7 @@ const PaymentScreen = ({ navigation, route }) => {
           </Text>
         </View>
 
-        <Text style={[textStyles.h5, styles.packagesTitle]}>Или купите пакет</Text>
+        <Text style={[textStyles.h5, styles.packagesTitle]}>Или пополните тестовый баланс</Text>
         {PACKAGES.map((pkg) => (
           <TouchableOpacity
             key={pkg.id}

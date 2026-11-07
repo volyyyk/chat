@@ -1,25 +1,107 @@
 /**
  * MedChat Mobile App - useChat Hook
- * Chat state and actions for patient and doctor
+ * Server-first chat state and actions for patient and doctor.
+ *
+ * All data comes from the MedChat v2 REST API; Socket.IO is used only for
+ * real-time updates (newMessage, userTyping) and degrades gracefully to
+ * REST-only mode when the socket is unavailable.
  */
 
-import { useState, useEffect, useCallback, useContext, useRef } from 'react';
-import { ChatContext } from '../context/ChatContext';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { chatService } from '../services/chatService';
-import { database } from '../services/database';
-import { encryptionService } from '../services/encryptionService';
-import config from '../config/config';
-import { generateChatId, generateMessageId, isFileExpired, getFileExpirationDate } from '../utils/helpers';
-import { formatMessageTime, formatDateTime } from '../utils/formatters';
-import { debounce } from '../utils/helpers';
+import config, { API_BASE_URL } from '../config/config';
+
+const getToken = async () => (await AsyncStorage.getItem('authToken')) || null;
+
+const getUser = async () => {
+  try {
+    const raw = await AsyncStorage.getItem('userData');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const fullName = (u) => (u ? [u.firstName, u.lastName].filter(Boolean).join(' ') : '');
+
+const fileUrl = (f) => (f && f.id ? `${API_BASE_URL}/api/files/${f.id}/download` : null);
+
+const mapFile = (f) => ({
+  id: f.id,
+  name: f.originalFilename || f.filename || 'Файл',
+  size: f.size || 0,
+  type: f.mimeType || f.fileType || '',
+  mimeType: f.mimeType || '',
+  url: fileUrl(f),
+  createdAt: f.createdAt,
+});
+
+/**
+ * Map a server message to the shape ChatScreen renders:
+ * { id, content, sender: 'patient'|'doctor'|'system', createdAt, status, file }
+ */
+const mapMessage = (msg, myUser) => {
+  if (!msg) return null;
+
+  const myId = myUser && myUser.id;
+  const myRole = (myUser && myUser.role) || 'patient';
+
+  let sender;
+  if (msg.type === 'system') {
+    sender = 'system';
+  } else if (myId && msg.senderId === myId) {
+    sender = myRole === 'doctor' ? 'doctor' : 'patient';
+  } else {
+    sender = myRole === 'doctor' ? 'patient' : 'doctor';
+  }
+
+  let file = null;
+  if (Array.isArray(msg.files) && msg.files.length > 0) {
+    file = mapFile(msg.files[0]);
+  } else if (Array.isArray(msg.attachments) && msg.attachments.length > 0 && typeof msg.attachments[0] === 'object') {
+    file = mapFile(msg.attachments[0]);
+  }
+
+  return {
+    id: msg.id,
+    chatId: msg.chatId,
+    content: msg.content || '',
+    sender,
+    createdAt: msg.createdAt || new Date().toISOString(),
+    status: msg.status || 'delivered',
+    isPaid: !!msg.isPaid,
+    isFree: msg.isFree !== false,
+    file,
+  };
+};
+
+/**
+ * Map a server chat row to the shape ChatListScreen renders
+ */
+const mapChatListItem = (c, myUser) => {
+  const isDoctor = myUser && myUser.role === 'doctor';
+  return {
+    id: c.id,
+    chatId: c.chatId,
+    title: c.title || '',
+    doctorName: c.doctor && c.doctor.user ? fullName(c.doctor.user) : '',
+    doctorId: c.doctorId,
+    clinicName: (c.clinic && c.clinic.name) || '',
+    specialtyName: (c.doctor && (c.doctor.category || c.doctor.specialtyName)) || '',
+    patientLogin: (c.patient && (c.patient.patientNumber || (c.patient.user && fullName(c.patient.user)))) || '',
+    patientId: c.patientId,
+    lastMessage: { content: c.lastMessageText || '' },
+    unreadCount: isDoctor ? (c.unreadCountDoctor || 0) : (c.unreadCountPatient || 0),
+    updatedAt: c.lastMessageAt || c.updatedAt,
+  };
+};
 
 /**
  * Custom hook for chat functionality
- * @param {string} chatId - Current chat ID
- * @returns {Object} - Chat state and actions
+ * @param {string} chatId - Current chat ID (UUID)
  */
 export const useChat = (chatId) => {
-  const { state: chatState, dispatch: chatDispatch } = useContext(ChatContext);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -31,81 +113,76 @@ export const useChat = (chatId) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [files, setFiles] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
-  
+
   const messagesEndRef = useRef(null);
   const pageRef = useRef(1);
+  const typingTimeoutRef = useRef(null);
+  const myUserRef = useRef(null);
 
-  // Load chat messages
-  const loadMessages = useCallback(async (reset = false) => {
+  // Resolve the current user from storage once
+  useEffect(() => {
+    let cancelled = false;
+    getUser().then((u) => {
+      if (!cancelled) myUserRef.current = u;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // ---- REST helper ----
+  const apiFetch = useCallback(async (path, options = {}) => {
+    const token = await getToken();
+    const headers = { ...(options.headers || {}) };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    if (options.body && !(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+    const response = await fetch(API_BASE_URL + path, { ...options, headers });
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      data = null;
+    }
+    return { ok: response.ok, status: response.status, data };
+  }, []);
+
+  const errText = (result, fallback) =>
+    (result.data && (result.data.error || result.data.message)) || fallback;
+
+  // ---- Load messages (server-first, newest first for the inverted FlatList) ----
+  const loadMessages = useCallback(async (reset = true) => {
     if (!chatId) return;
 
     try {
       setIsLoading(true);
       setError(null);
 
-      const currentPage = reset ? 1 : pageRef.current;
-      
-      // Load from local database first
-      const localMessages = await database.getMessages(chatId, {
-        page: currentPage,
-        limit: config.PAGINATION_LIMIT,
-      });
+      const page = reset ? 1 : pageRef.current;
+      const result = await apiFetch(`/api/chats/${chatId}/messages?page=${page}&limit=50`);
 
-      if (localMessages.length > 0) {
-        // Sort by date (newest first)
-        const sortedMessages = localMessages.sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-        );
-
-        setMessages(reset ? sortedMessages : [...messages, ...sortedMessages]);
-        setHasMore(sortedMessages.length === config.PAGINATION_LIMIT);
-        pageRef.current = reset ? 1 : currentPage + 1;
-      } else {
-        // If no local messages, try to load from server (for doctor)
-        const result = await chatService.getMessages(chatId, {
-          page: currentPage,
-          limit: config.PAGINATION_LIMIT,
-        });
-
-        if (result.success && result.messages.length > 0) {
-          // Decrypt messages
-          const decryptedMessages = await Promise.all(
-            result.messages.map(async (msg) => {
-              try {
-                if (msg.encrypted) {
-                  const decrypted = await encryptionService.decryptMessage(
-                    msg.content,
-                    msg.iv
-                  );
-                  return { ...msg, content: decrypted, decrypted: true };
-                }
-                return msg;
-              } catch (err) {
-                console.error('Decryption error:', err);
-                return msg;
-              }
-            })
-          );
-
-          // Save to local database
-          await database.saveMessages(chatId, decryptedMessages);
-
-          // Sort and set
-          const sortedMessages = decryptedMessages.sort(
-            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-          );
-
-          setMessages(reset ? sortedMessages : [...messages, ...sortedMessages]);
-          setHasMore(decryptedMessages.length === config.PAGINATION_LIMIT);
-          pageRef.current = reset ? 1 : currentPage + 1;
-        }
+      if (!result.ok) {
+        throw new Error(errText(result, 'Не удалось загрузить сообщения'));
       }
+
+      const myUser = myUserRef.current || (await getUser());
+      const rows = (result.data && result.data.data) || [];
+      const mapped = rows.map((m) => mapMessage(m, myUser)).filter(Boolean);
+
+      // Server returns chronological order; the FlatList is inverted,
+      // so the display array must be newest-first.
+      mapped.reverse();
+
+      setMessages((prev) => (reset ? mapped : [...prev, ...mapped]));
+
+      const pagination = result.data && result.data.pagination;
+      setHasMore(!!(pagination && Number(pagination.page) < Number(pagination.totalPages)));
+      pageRef.current = reset ? 2 : page + 1;
     } catch (err) {
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  }, [chatId, messages]);
+  }, [chatId, apiFetch]);
 
   // Load more messages (pagination)
   const loadMoreMessages = useCallback(() => {
@@ -120,377 +197,290 @@ export const useChat = (chatId) => {
     loadMessages(true);
   }, [loadMessages]);
 
-  // Send message
-  const sendMessage = useCallback(async (content, file = null) => {
+  // ---- Send a text message ----
+  const sendMessage = useCallback(async (content, options = {}) => {
     if (!chatId || !content) return null;
 
+    const myUser = myUserRef.current || (await getUser());
+    const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const optimistic = {
+      id: tempId,
+      chatId,
+      content,
+      sender: (myUser && myUser.role) === 'doctor' ? 'doctor' : 'patient',
+      createdAt: new Date().toISOString(),
+      status: 'sending',
+      file: options.file || null,
+    };
+
+    setMessages((prev) => [optimistic, ...prev]);
+    setIsSending(true);
+
     try {
-      setIsSending(true);
-      setError(null);
-
-      const messageId = generateMessageId();
-      const timestamp = new Date().toISOString();
-
-      // Create message object
-      const message = {
-        id: messageId,
-        chatId,
+      const body = {
         content,
-        sender: 'patient', // Will be updated based on user role
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        status: 'sending',
-        encrypted: false,
-        file: file ? {
-          id: file.id,
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          url: file.url,
-        } : null,
+        type: options.type || 'text',
+        clientType: 'mobile',
+        clientVersion: config.APP_VERSION,
       };
+      if (options.attachments) body.attachments = options.attachments;
+      if (options.paymentTransactionId) body.paymentTransactionId = options.paymentTransactionId;
 
-      // Encrypt message content
-      try {
-        const encrypted = await encryptionService.encryptMessage(content);
-        message.content = encrypted.encrypted;
-        message.iv = encrypted.iv;
-        message.encrypted = true;
-      } catch (err) {
-        console.warn('Encryption failed, sending unencrypted:', err);
-      }
-
-      // Save to local database
-      await database.saveMessage(chatId, message);
-
-      // Add to messages list
-      setMessages([message, ...messages]);
-
-      // Send via WebSocket
-      const result = await chatService.sendMessage(chatId, {
-        content: message.content,
-        iv: message.iv,
-        encrypted: message.encrypted,
-        file: message.file,
+      const result = await apiFetch(`/api/chats/${chatId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify(body),
       });
 
-      if (result.success) {
-        // Update message status
-        await database.updateMessage(chatId, messageId, { status: 'delivered' });
-        setMessages(messages.map(m => 
-          m.id === messageId ? { ...m, status: 'delivered' } : m
-        ));
-      } else {
-        throw new Error(result.message || 'Ошибка отправки сообщения');
-      }
-
-      // Scroll to bottom
-      setTimeout(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollToEnd({ animated: true });
+      if (!result.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        if (result.status === 402) {
+          throw new Error('Недостаточно средств на тестовом балансе для платного сообщения');
         }
-      }, 100);
-
-      return message;
-    } catch (err) {
-      setError(err.message);
-      return null;
-    } finally {
-      setIsSending(false);
-    }
-  }, [chatId, messages]);
-
-  // Send file
-  const sendFile = useCallback(async (file) => {
-    if (!chatId) return null;
-
-    try {
-      setIsSending(true);
-      setError(null);
-
-      // Upload file first
-      const uploadResult = await chatService.uploadFile(file);
-
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.message || 'Ошибка загрузки файла');
+        throw new Error(errText(result, 'Ошибка отправки сообщения'));
       }
 
-      // Send message with file
-      const message = await sendMessage(`[Файл] ${file.name}`, {
-        id: uploadResult.file.id,
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        url: uploadResult.file.url,
-      });
-
-      return message;
+      const mapped = mapMessage(result.data, myUser);
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? (mapped || { ...m, status: 'delivered' }) : m)));
+      return mapped || optimistic;
     } catch (err) {
       setError(err.message);
       return null;
     } finally {
       setIsSending(false);
     }
-  }, [chatId, sendMessage]);
+  }, [chatId, apiFetch]);
 
-  // Load chat info
+  // ---- Chat info ----
   const loadChatInfo = useCallback(async () => {
     if (!chatId) return;
 
     try {
-      // Load from local database
-      const chat = await database.getChat(chatId);
+      const result = await apiFetch(`/api/chats/${chatId}`);
+      if (!result.ok) return;
 
-      if (chat) {
-        setDoctorInfo(chat.doctor);
-        setPatientInfo(chat.patient);
-        setConvenientTime(chat.convenientTime || config.DEFAULT_CONVENIENT_TIME);
-      } else {
-        // Try to load from server
-        const result = await chatService.getChat(chatId);
+      const chat = result.data || {};
+      const doctor = chat.doctor || {};
+      const doctorUser = doctor.user || {};
+      const patient = chat.patient || {};
+      const patientUser = patient.user || {};
 
-        if (result.success) {
-          setDoctorInfo(result.chat.doctor);
-          setPatientInfo(result.chat.patient);
-          setConvenientTime(result.chat.convenientTime || config.DEFAULT_CONVENIENT_TIME);
+      setDoctorInfo({
+        id: doctor.id,
+        firstName: doctorUser.firstName || '',
+        lastName: doctorUser.lastName || '',
+        fullName: fullName(doctorUser),
+        specialtyName: doctor.category || doctor.specialtyName || '',
+        category: doctor.category || '',
+        clinicName: (chat.clinic && chat.clinic.name) || '',
+        convenientResponseTime: doctor.convenientResponseTime || '',
+      });
 
-          // Save to local database
-          await database.saveChat(chatId, {
-            ...result.chat,
-            convenientTime: result.chat.convenientTime || config.DEFAULT_CONVENIENT_TIME,
-          });
-        }
-      }
+      setPatientInfo({
+        id: patient.id,
+        login: patient.patientNumber || fullName(patientUser),
+        fullName: fullName(patientUser),
+      });
+
+      setConvenientTime(doctor.convenientResponseTime || config.DEFAULT_CONVENIENT_TIME);
     } catch (err) {
-      console.error('Error loading chat info:', err);
+      console.warn('loadChatInfo:', err.message);
     }
-  }, [chatId]);
+  }, [chatId, apiFetch]);
 
-  // Load files for doctor
+  // ---- Files of the chat ----
   const loadFiles = useCallback(async () => {
     if (!chatId) return;
 
     try {
-      const result = await chatService.getFiles(chatId);
-
-      if (result.success) {
-        // Filter out expired files
-        const validFiles = result.files.filter(file => !isFileExpired(file.createdAt));
-        setFiles(validFiles);
+      const result = await apiFetch(`/api/files?chatId=${chatId}&limit=100`);
+      if (result.ok && result.data && Array.isArray(result.data.data)) {
+        setFiles(result.data.data.map(mapFile));
+      } else {
+        setFiles([]);
       }
     } catch (err) {
-      console.error('Error loading files:', err);
+      console.warn('loadFiles:', err.message);
     }
-  }, [chatId]);
+  }, [chatId, apiFetch]);
 
-  // Upload file to patient card (doctor only)
-  const uploadPatientFile = useCallback(async (file, patientLogin) => {
+  // ---- Send a file / voice message (upload then message) ----
+  const sendFile = useCallback(async (file) => {
+    if (!chatId || !file) return null;
+
+    setIsSending(true);
     try {
-      const result = await chatService.uploadPatientFile(chatId, patientLogin, file);
+      const token = await getToken();
+      const upload = await chatService.uploadFile(token, chatId, file);
 
-      if (result.success) {
-        // Reload files
-        await loadFiles();
-        return result.file;
-      } else {
-        throw new Error(result.message || 'Ошибка загрузки файла');
+      if (!upload || upload.success === false) {
+        throw new Error((upload && upload.message) || 'Ошибка загрузки файла');
       }
+
+      const record = upload.id ? upload : (upload.data || upload.file);
+      if (!record || !record.id) {
+        throw new Error('Ошибка загрузки файла');
+      }
+
+      const isAudio = String(file.type || '').indexOf('audio') === 0;
+
+      const message = await sendMessage(file.name || 'Файл', {
+        type: isAudio ? 'audio' : 'file',
+        attachments: [record.id],
+        file: {
+          id: record.id,
+          name: record.originalFilename || file.name,
+          size: record.size || file.size || 0,
+          type: record.mimeType || file.type || '',
+          url: `${API_BASE_URL}/api/files/${record.id}/download`,
+        },
+      });
+
+      // Refresh the files panel
+      loadFiles();
+      return message;
     } catch (err) {
       setError(err.message);
       return null;
+    } finally {
+      setIsSending(false);
     }
-  }, [chatId, loadFiles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId, sendMessage, loadFiles]);
 
-  // Delete file
-  const deleteFile = useCallback(async (fileId) => {
-    try {
-      const result = await chatService.deleteFile(fileId);
-
-      if (result.success) {
-        setFiles(files.filter(f => f.id !== fileId));
-        return true;
-      } else {
-        throw new Error(result.message || 'Ошибка удаления файла');
-      }
-    } catch (err) {
-      setError(err.message);
-      return false;
-    }
-  }, [files]);
-
-  // Mark messages as read
+  // ---- Mark messages as read ----
   const markMessagesAsRead = useCallback(async () => {
     if (!chatId) return;
 
     try {
-      // Mark as read in local database
-      await database.markMessagesAsRead(chatId);
-
-      // Mark as read on server
-      await chatService.markMessagesAsRead(chatId);
-
-      // Update unread count
+      await apiFetch(`/api/chats/${chatId}/read`, { method: 'POST', body: JSON.stringify({}) });
       setUnreadCount(0);
-
-      // Update in chat context
-      chatDispatch({
-        type: 'MARK_CHAT_READ',
-        payload: { chatId },
-      });
     } catch (err) {
-      console.error('Error marking messages as read:', err);
+      console.warn('markMessagesAsRead:', err.message);
     }
-  }, [chatId, chatDispatch]);
+  }, [chatId, apiFetch]);
 
-  // Set typing status
-  const setTypingStatus = useCallback(async (isTyping) => {
+  // ---- Typing indicator ----
+  const setTypingStatus = useCallback(async (typing) => {
     if (!chatId) return;
-
     try {
-      setIsTyping(isTyping);
-      await chatService.setTypingStatus(chatId, isTyping);
+      const socket = await chatService.connectWebSocket(await getToken());
+      socket.emit('typing', { chatId, isTyping: !!typing });
     } catch (err) {
-      console.error('Error setting typing status:', err);
+      // Socket unavailable: typing indicators are best-effort only
     }
   }, [chatId]);
 
-  // Update convenient time (doctor only)
-  const updateConvenientTime = useCallback(async (timeRange) => {
-    try {
-      const result = await chatService.updateConvenientTime(chatId, timeRange);
-
-      if (result.success) {
-        setConvenientTime(timeRange);
-        
-        // Update in local database
-        const chat = await database.getChat(chatId);
-        if (chat) {
-          await database.saveChat(chatId, { ...chat, convenientTime: timeRange });
-        }
-
-        return true;
-      } else {
-        throw new Error(result.message || 'Ошибка обновления времени');
-      }
-    } catch (err) {
-      setError(err.message);
-      return false;
-    }
-  }, [chatId]);
-
-  // Get chat list
+  // ---- Chat list ----
   const getChatList = useCallback(async () => {
     try {
-      const chats = await database.getChats();
-      return chats;
+      const myUser = myUserRef.current || (await getUser());
+      const result = await apiFetch('/api/chats?page=1&limit=100');
+      if (!result.ok) {
+        throw new Error(errText(result, 'Не удалось загрузить чаты'));
+      }
+      const rows = (result.data && result.data.data) || [];
+      return rows.map((c) => mapChatListItem(c, myUser));
     } catch (err) {
-      console.error('Error getting chat list:', err);
+      setError(err.message);
       return [];
     }
-  }, []);
+  }, [apiFetch]);
 
-  // Create new chat (patient)
+  // ---- Search (client-side filter over the server chat list) ----
+  const searchChats = useCallback(async (query) => {
+    const chats = await getChatList();
+    if (!query || !query.trim()) return chats;
+
+    const q = query.trim().toLowerCase();
+    return chats.filter((chat) =>
+      (chat.title && chat.title.toLowerCase().includes(q)) ||
+      (chat.doctorName && chat.doctorName.toLowerCase().includes(q)) ||
+      (chat.clinicName && chat.clinicName.toLowerCase().includes(q)) ||
+      (chat.specialtyName && chat.specialtyName.toLowerCase().includes(q)) ||
+      (chat.patientLogin && chat.patientLogin.toLowerCase().includes(q))
+    );
+  }, [getChatList]);
+
+  // ---- Unread count for a chat ----
+  const getUnreadCount = useCallback(async (targetId) => {
+    try {
+      const list = await getChatList();
+      const chat = list.find((c) => c.id === targetId || c.chatId === targetId);
+      return chat ? chat.unreadCount || 0 : 0;
+    } catch (err) {
+      return 0;
+    }
+  }, [getChatList]);
+
+  // ---- Create chat (patient side, after scanning a doctor QR) ----
   const createChat = useCallback(async (doctorId, clinicId, patientLogin) => {
     try {
-      const chatId = generateChatId(doctorId, patientLogin);
+      const myUser = myUserRef.current || (await getUser());
+      const patientId = (myUser && myUser.patientProfile && myUser.patientProfile.id) || null;
 
-      // Check if chat already exists
-      const existingChat = await database.getChat(chatId);
-      if (existingChat) {
-        return existingChat;
-      }
-
-      // Create new chat
-      const chat = {
-        id: chatId,
+      const body = {
         doctorId,
-        clinicId,
-        patientLogin,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        unreadCount: 0,
+        patientId,
+        createdBy: 'patient',
       };
+      if (clinicId) body.clinicId = clinicId;
 
-      // Save to local database
-      await database.saveChat(chatId, chat);
-
-      // Add to chat context
-      chatDispatch({
-        type: 'ADD_CHAT',
-        payload: chat,
-      });
-
-      return chat;
+      const result = await apiFetch('/api/chats', { method: 'POST', body: JSON.stringify(body) });
+      if (!result.ok) {
+        throw new Error(errText(result, 'Не удалось создать чат'));
+      }
+      const myUser2 = myUserRef.current || myUser;
+      return mapChatListItem(result.data, myUser2);
     } catch (err) {
-      console.error('Error creating chat:', err);
+      setError(err.message);
       return null;
     }
-  }, [chatDispatch]);
+  }, [apiFetch]);
 
-  // Join chat via QR code
+  // ---- Join chat via QR code ----
   const joinChatViaQR = useCallback(async (qrData) => {
     try {
-      const data = JSON.parse(qrData);
-
-      if (data.type !== 'medchat_doctor') {
-        throw new Error('Неверный QR код');
+      let payload = null;
+      try {
+        payload = typeof qrData === 'string' ? JSON.parse(qrData) : qrData;
+      } catch (e) {
+        payload = null;
       }
 
-      // Create chat
-      const chat = await createChat(data.doctorId, data.clinicId, '');
+      // Case 1: QR contains the human-readable chatId
+      if (typeof qrData === 'string' && !payload) {
+        const token = await getToken();
+        const result = await chatService.joinChatViaQR(token, qrData);
+        if (result && result.id) {
+          return { success: true, chatId: result.id, chat: result };
+        }
+      }
 
-      if (chat) {
-        return { success: true, chatId: chat.id, chat };
-      } else {
+      // Case 2: QR contains doctor info (patient starts a new chat)
+      if (payload && (payload.type === 'medchat_doctor' || payload.doctorId)) {
+        const chat = await createChat(payload.doctorId, payload.clinicId, '');
+        if (chat) {
+          return { success: true, chatId: chat.id, chat };
+        }
         throw new Error('Ошибка создания чата');
       }
+
+      throw new Error('Неверный QR код');
     } catch (err) {
       setError(err.message);
       return { success: false, message: err.message };
     }
   }, [createChat]);
 
-  // Search chats
-  const searchChats = useCallback(async (query) => {
-    try {
-      const chats = await database.getChats();
-      
-      const filtered = chats.filter(chat => {
-        const searchLower = query.toLowerCase();
-        return (
-          (chat.doctorName && chat.doctorName.toLowerCase().includes(searchLower)) ||
-          (chat.clinicName && chat.clinicName.toLowerCase().includes(searchLower)) ||
-          (chat.specialtyName && chat.specialtyName.toLowerCase().includes(searchLower)) ||
-          (chat.patientLogin && chat.patientLogin.toLowerCase().includes(searchLower))
-        );
-      });
-
-      return filtered;
-    } catch (err) {
-      console.error('Error searching chats:', err);
-      return [];
-    }
-  }, []);
-
-  // Get unread count for a chat
-  const getUnreadCount = useCallback(async (chatId) => {
-    try {
-      const count = await database.getUnreadCount(chatId);
-      return count;
-    } catch (err) {
-      console.error('Error getting unread count:', err);
-      return 0;
-    }
-  }, []);
-
-  // Clear error
+  // ---- Clear error ----
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
-  // Initialize chat when chatId changes
+  // ---- Initialize when chatId changes ----
   useEffect(() => {
     if (chatId) {
+      pageRef.current = 1;
       loadMessages(true);
       loadChatInfo();
       loadFiles();
@@ -503,62 +493,86 @@ export const useChat = (chatId) => {
     }
   }, [chatId, loadMessages, loadChatInfo, loadFiles, markMessagesAsRead]);
 
-  // Scroll to bottom when new messages arrive
+  // ---- Real-time updates over Socket.IO ----
   useEffect(() => {
-    if (messages.length > 0 && messagesEndRef.current) {
-      setTimeout(() => {
-        messagesEndRef.current.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [messages]);
+    if (!chatId) return undefined;
 
-  // Listen for new messages from WebSocket
-  useEffect(() => {
-    if (!chatId) return;
+    let disposed = false;
+    let socket = null;
+    let joinHandler = null;
 
-    const handleNewMessage = async (message) => {
-      if (message.chatId === chatId) {
-        // Decrypt message if needed
-        let decryptedMessage = message;
-        
-        try {
-          if (message.encrypted) {
-            const decrypted = await encryptionService.decryptMessage(
-              message.content,
-              message.iv
-            );
-            decryptedMessage = { ...message, content: decrypted, decrypted: true };
-          }
-        } catch (err) {
-          console.error('Decryption error:', err);
-        }
+    const handleNewMessage = (msg) => {
+      if (!msg) return;
+      if (msg.chatId && msg.chatId !== chatId) return;
 
-        // Save to local database
-        await database.saveMessage(chatId, decryptedMessage);
+      const myUser = myUserRef.current;
+      // Own messages are already added optimistically by sendMessage
+      if (myUser && msg.senderId === myUser.id) return;
 
-        // Add to messages list
-        setMessages(prev => [decryptedMessage, ...prev]);
+      const mapped = mapMessage(msg, myUser);
+      if (!mapped) return;
 
-        // Mark as read after a delay
-        setTimeout(() => {
-          markMessagesAsRead();
-        }, 1000);
+      setMessages((prev) => (prev.some((m) => m.id === mapped.id) ? prev : [mapped, ...prev]));
+      markMessagesAsRead();
+    };
+
+    const handleUserTyping = (data) => {
+      if (!data) return;
+      if (data.chatId && data.chatId !== chatId) return;
+
+      const myUser = myUserRef.current;
+      if (myUser && data.userId === myUser.id) return;
+
+      setIsTyping(!!data.isTyping);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (data.isTyping) {
+        typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 4000);
       }
     };
 
-    // Subscribe to new messages
-    chatService.on('newMessage', handleNewMessage);
+    (async () => {
+      try {
+        socket = await chatService.connectWebSocket(await getToken());
+        if (disposed) return;
 
-    // Subscribe to typing status
-    chatService.on('typingStatus', (data) => {
-      if (data.chatId === chatId) {
-        setIsTyping(data.isTyping);
+        socket.on('newMessage', handleNewMessage);
+        socket.on('userTyping', handleUserTyping);
+
+        // (Re)join the chat room; server verifies membership in the DB
+        joinHandler = () => {
+          socket.emit('joinChat', chatId, (resp) => {
+            if (resp && resp.error) {
+              console.warn('joinChat:', resp.error);
+            }
+          });
+        };
+        joinHandler();
+        socket.on('connect', joinHandler);
+      } catch (err) {
+        // REST-only mode: messages still work, just without live updates
+        console.warn('WebSocket unavailable, REST-only mode:', err.message);
       }
-    });
+    })();
 
     return () => {
-      chatService.off('newMessage', handleNewMessage);
-      chatService.off('typingStatus');
+      disposed = true;
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (socket) {
+        if (joinHandler) {
+          socket.off('connect', joinHandler);
+        }
+        socket.off('newMessage', handleNewMessage);
+        socket.off('userTyping', handleUserTyping);
+        try {
+          socket.emit('leaveChat', chatId);
+        } catch (e) {
+          // ignore
+        }
+      }
     };
   }, [chatId, markMessagesAsRead]);
 
@@ -585,11 +599,8 @@ export const useChat = (chatId) => {
     sendFile,
     loadChatInfo,
     loadFiles,
-    uploadPatientFile,
-    deleteFile,
     markMessagesAsRead,
     setTypingStatus,
-    updateConvenientTime,
     getChatList,
     createChat,
     joinChatViaQR,

@@ -409,6 +409,15 @@ class ChatController {
         await usedTransaction.update({ messageId: message.id }).catch(() => {});
       }
 
+      // Link uploaded attachment files to the message (best-effort) so that
+      // the "files" include on the reloaded message populates for both sides.
+      if (Array.isArray(attachments) && attachments.length > 0) {
+        await models.File.update(
+          { messageId: message.id },
+          { where: { id: { [models.Sequelize.Op.in]: attachments } } }
+        ).catch(() => {});
+      }
+
       // Update chat last message + unread counters in one atomic update
       const unreadUpdate = userId === doctorUserId
         ? { unreadCountPatient: models.Sequelize.literal('unreadCountPatient + 1') }

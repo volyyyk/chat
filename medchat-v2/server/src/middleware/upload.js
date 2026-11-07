@@ -33,8 +33,9 @@ const fileFilter = (req, file, cb) => {
     'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
     // Videos
     'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo',
-    // Audio
+    // Audio (m4a/mp4/aac cover voice messages recorded with expo-av)
     'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/x-m4a',
+    'audio/m4a', 'audio/mp4', 'audio/aac', 'audio/webm',
     // Documents
     'application/pdf',
     'application/msword',
@@ -92,7 +93,7 @@ const uploadMiddleware = (fieldName = 'file', maxCount = 1) => {
         if (err) {
           // Clean up uploaded file if error
           if (req.file) {
-            fs.unlinkSync(req.file.path);
+            try { fs.unlinkSync(req.file.path); } catch (e) { /* non-fatal */ }
           }
           return next(err);
         }
@@ -104,7 +105,7 @@ const uploadMiddleware = (fieldName = 'file', maxCount = 1) => {
           // Clean up uploaded files if error
           if (req.files) {
             req.files.forEach(file => {
-              fs.unlinkSync(file.path);
+              try { fs.unlinkSync(file.path); } catch (e) { /* non-fatal */ }
             });
           }
           return next(err);

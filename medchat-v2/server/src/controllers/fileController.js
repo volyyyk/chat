@@ -21,12 +21,14 @@ class FileController {
       const { chatId, messageId, type, category, description, tags, visibility, autoDelete, deleteAfterDays } = req.body;
       const userId = req.user.id;
 
+      // multer's upload.single('file') sets req.file; upload.array sets req.files.
+      // Accept both shapes so the route configuration cannot silently break uploads.
+      const file = req.file || (req.files && req.files[0]);
+
       // Check if file is provided
-      if (!req.files || req.files.length === 0) {
+      if (!file) {
         throw new AppError('No file provided', 400, 'VALIDATION_ERROR');
       }
-
-      const file = req.files[0];
 
       // Validate file size (max 50MB)
       const maxSize = 50 * 1024 * 1024; // 50MB
@@ -35,12 +37,14 @@ class FileController {
       }
 
       // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp',
-        'video/mp4', 'video/webm', 'video/quicktime',
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+        'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo',
         'audio/mpeg', 'audio/wav', 'audio/ogg',
+        'audio/m4a', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/webm',
         'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'text/plain', 'application/json', 'application/zip', 'application/x-rar-compressed'];
+        'text/plain', 'application/json', 'application/xml',
+        'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed', 'application/gzip'];
 
       if (!allowedTypes.includes(file.mimetype)) {
         throw new AppError('File type not allowed', 400, 'VALIDATION_ERROR');
@@ -79,18 +83,23 @@ class FileController {
       // Get file dimensions for images/videos
       let width, height, duration;
       if (fileType === 'image') {
-        // In production, use image processing library to get dimensions
-        // For now, set to null
         width = null;
         height = null;
       } else if (fileType === 'video' || fileType === 'audio') {
-        // In production, use ffprobe to get duration
         duration = null;
       }
 
       // Determine owner
       const ownerType = req.user.role === 'doctor' ? 'doctor' : 'patient';
       const ownerId = req.user.doctorId || req.user.patientId || req.user.id;
+
+      // Checksum: with diskStorage there is no file.buffer, read from the temp file
+      let checksum = null;
+      try {
+        checksum = CryptoService.hashSHA256(fs.readFileSync(file.path));
+      } catch (e) {
+        checksum = null;
+      }
 
       // Create file record
       const fileRecord = await models.File.create({
@@ -118,7 +127,7 @@ class FileController {
         deleteAt: autoDelete ? new Date(Date.now() + deleteAfterDays * 24 * 60 * 60 * 1000) : null,
         description: description || null,
         tags: tags || [],
-        checksum: CryptoService.hashSHA256(file.buffer),
+        checksum,
         virusScanStatus: 'pending',
       });
 
@@ -130,13 +139,22 @@ class FileController {
       }
 
       // Clean up temporary file
-      fs.unlinkSync(file.path);
+      try {
+        fs.unlinkSync(file.path);
+      } catch (e) {
+        // non-fatal
+      }
 
       res.status(201).json(fileRecord);
     } catch (error) {
       // Clean up temporary file on error
-      if (req.files && req.files[0] && req.files[0].path) {
-        fs.unlinkSync(req.files[0].path);
+      const tmp = req.file || (req.files && req.files[0]);
+      if (tmp && tmp.path) {
+        try {
+          fs.unlinkSync(tmp.path);
+        } catch (e) {
+          // non-fatal
+        }
       }
       next(error);
     }
@@ -268,7 +286,7 @@ class FileController {
       const offset = (page - 1) * limit;
 
       const where = {};
-      
+
       if (chatId) where.chatId = chatId;
       if (messageId) where.messageId = messageId;
       if (uploaderId) where.uploaderId = uploaderId;
@@ -600,7 +618,7 @@ class FileController {
           await file.destroy();
           deletedCount++;
         } catch (error) {
-          logger.error(`Error deleting file ${file.id}:`, error);
+          console.error(`Error deleting file ${file.id}:`, error.message);
         }
       }
 

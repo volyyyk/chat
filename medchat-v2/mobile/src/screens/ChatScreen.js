@@ -311,8 +311,8 @@ const ChatScreen = ({ navigation, route }) => {
       ? [chatStyles.messageText, chatStyles.messageTextPatient]
       : [chatStyles.messageText, chatStyles.messageTextDoctor];
 
-    // Handle file messages
-    if (item.file) {
+    // Handle file messages (audio is handled by the voice branch below)
+    if (item.file && String(item.file.type || item.file.mimeType || '').indexOf('audio') !== 0) {
       return (
         <View style={bubbleStyle}>
           <View style={styles.fileMessage}>

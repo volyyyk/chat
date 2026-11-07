@@ -1,23 +1,24 @@
 /**
  * MedChat Mobile App - Chat List Screen
- * List of all chats for patient or doctor
+ * List of all chats for patient or doctor (server data via useChat)
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, SafeAreaView, TextInput, ActivityIndicator } from 'react-native';
+import {
+  View, Text, TouchableOpacity, StyleSheet, FlatList, SafeAreaView,
+  TextInput, ActivityIndicator, RefreshControl,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useChat } from '../hooks/useChat';
 import { useAuth } from '../hooks/useAuth';
-import { database } from '../services/database';
 import { colors } from '../styles/colors';
 import { spacing } from '../styles/spacing';
 import { textStyles, buttonStyles, chatStyles } from '../styles/commonStyles';
-import { formatDateTime, formatChatTitle, truncateText } from '../utils/formatters';
-import { parsePatientIdentifier } from '../utils/helpers';
+import { formatDateTime, truncateText } from '../utils/formatters';
 
 const ChatListScreen = ({ navigation, route }) => {
-  const { user, isAuthenticated } = useAuth();
-  const { getChatList, searchChats, getUnreadCount } = useChat();
+  const { user } = useAuth();
+  const { getChatList, searchChats } = useChat();
   const [chats, setChats] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredChats, setFilteredChats] = useState([]);
@@ -25,21 +26,13 @@ const ChatListScreen = ({ navigation, route }) => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load chats
+  // Load chats from the server
   const loadChats = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
       const chatList = await getChatList();
-      
-      if (chatList.length === 0) {
-        // If no local chats, try to get from server (for doctor)
-        if (user?.role === 'doctor') {
-          // For doctor, we would fetch from server
-          // This is a placeholder - actual implementation would call API
-        }
-      }
 
       setChats(chatList);
       setFilteredChats(chatList);
@@ -48,9 +41,9 @@ const ChatListScreen = ({ navigation, route }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [getChatList, user]);
+  }, [getChatList]);
 
-  // Search chats
+  // Search chats (client-side filter over server data)
   const handleSearch = useCallback(async (query) => {
     setSearchQuery(query);
 
@@ -94,6 +87,14 @@ const ChatListScreen = ({ navigation, route }) => {
     loadChats();
   }, [loadChats]);
 
+  // Re-load chats when the screen comes into focus (new chat created elsewhere)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadChats();
+    });
+    return unsubscribe;
+  }, [navigation, loadChats]);
+
   // Filter chats when search query changes
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
@@ -106,29 +107,27 @@ const ChatListScreen = ({ navigation, route }) => {
   // Render chat item
   const renderChatItem = useCallback(({ item }) => {
     const isPatient = user?.role === 'patient';
-    const { doctorId, patientLogin } = parsePatientIdentifier(item.id);
 
     // Determine chat title based on user role
-    let title = formatChatTitle(item);
+    let title = '';
     let subtitle = '';
 
     if (isPatient) {
       // For patient, show doctor info
       title = item.doctorName || item.clinicName || 'Врач';
-      subtitle = item.specialtyName ? `${item.specialtyName}, ${item.clinicName}` : item.clinicName || '';
+      subtitle = item.specialtyName
+        ? `${item.specialtyName}${item.clinicName ? ', ' + item.clinicName : ''}`
+        : item.clinicName || '';
     } else {
-      // For doctor, show patient login
-      title = patientLogin || item.patientLogin || 'Пациент';
+      // For doctor, show patient name
+      title = item.patientLogin || 'Пациент';
       subtitle = item.clinicName || '';
     }
 
     // Get last message preview
     let lastMessage = '';
-    if (item.lastMessage) {
+    if (item.lastMessage && item.lastMessage.content) {
       lastMessage = truncateText(item.lastMessage.content, 50);
-      if (item.lastMessage.encrypted) {
-        lastMessage = '[Зашифровано]';
-      }
     }
 
     // Get unread count
@@ -315,7 +314,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.primary,
   },
-  
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -324,39 +323,39 @@ const styles = StyleSheet.create({
     paddingTop: spacing[6],
     paddingBottom: spacing[2],
   },
-  
+
   headerTitle: {
     color: colors.text.primary,
   },
-  
+
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
   },
-  
+
   headerAction: {
     padding: spacing[1],
   },
-  
+
   listContent: {
     paddingBottom: spacing[4],
   },
-  
+
   chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  
+
   noMessages: {
     color: colors.text.tertiary,
     fontStyle: 'italic',
   },
-  
+
   subtitle: {
     marginTop: spacing[0.5],
   },
-  
+
   emptyButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -364,25 +363,20 @@ const styles = StyleSheet.create({
     marginTop: spacing[4],
     gap: spacing[1],
   },
-  
+
   emptyButtonText: {
     marginLeft: spacing[1],
   },
-  
+
   errorSubtitle: {
     marginTop: spacing[2],
     textAlign: 'center',
     color: colors.text.secondary,
   },
-  
+
   retryButton: {
     marginTop: spacing[4],
   },
 });
-
-// Add RefreshControl for iOS
-const RefreshControl = Platform.OS === 'ios' 
-  ? require('react-native').RefreshControl 
-  : ({ refreshing, onRefresh, children }) => children;
 
 export default ChatListScreen;

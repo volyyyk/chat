@@ -1,6 +1,6 @@
 /**
  * Appointments Screen
- * Patient appointments (list, cancel, reminders)
+ * Appointments for patient and doctor (list, confirm by doctor, cancel)
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -27,15 +27,18 @@ const formatDateTime = (iso) => {
 };
 
 const STATUS_LABELS = {
+  pending: 'Ожидает подтверждения',
   scheduled: 'Запланирован',
   confirmed: 'Подтвержден',
   completed: 'Завершен',
   cancelled: 'Отменен',
+  canceled: 'Отменен',
   no_show: 'Неявка',
+  rescheduled: 'Перенесен',
 };
 
 const AppointmentsScreen = ({ navigation }) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,11 +47,11 @@ const AppointmentsScreen = ({ navigation }) => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch(API_BASE_URL + '/api/appointments?limit=50', {
+      const response = await fetch(API_BASE_URL + '/api/appointments/my?limit=100', {
         headers: { 'Authorization': 'Bearer ' + token },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Не удалось загрузить записи');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || data.error || 'Не удалось загрузить записи');
       setAppointments(data.data || []);
     } catch (err) {
       setError(err.message);
@@ -60,7 +63,7 @@ const AppointmentsScreen = ({ navigation }) => {
   useEffect(() => { load(); }, [load]);
 
   const handleCancel = (appointment) => {
-    Alert.alert('Отменить запись?', 'Врач будет уведомлен об отмене.', [
+    Alert.alert('Отменить запись?', 'Собеседник будет уведомлен об отмене.', [
       { text: 'Нет', style: 'cancel' },
       {
         text: 'Да, отменить',
@@ -75,11 +78,11 @@ const AppointmentsScreen = ({ navigation }) => {
                   'Content-Type': 'application/json',
                   'Authorization': 'Bearer ' + token,
                 },
-                body: JSON.stringify({ reason: 'Отменено пациентом' }),
+                body: JSON.stringify({ reason: 'Отменено пользователем' }),
               }
             );
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Не удалось отменить');
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || data.error || 'Не удалось отменить');
             load();
           } catch (err) {
             Alert.alert('Ошибка', err.message);
@@ -89,6 +92,36 @@ const AppointmentsScreen = ({ navigation }) => {
     ]);
   };
 
+  // Doctors confirm pending appointments
+  const handleConfirm = async (appointment) => {
+    try {
+      const response = await fetch(
+        API_BASE_URL + '/api/appointments/' + appointment.id + '/confirm',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+          },
+          body: JSON.stringify({}),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || data.error || 'Не удалось подтвердить');
+      load();
+    } catch (err) {
+      Alert.alert('Ошибка', err.message);
+    }
+  };
+
+  const personName = (item) => {
+    const person = user?.role === 'doctor' ? item.patient : item.doctor;
+    if (person && person.user) {
+      return [person.user.firstName, person.user.lastName].filter(Boolean).join(' ');
+    }
+    return '';
+  };
+
   const renderItem = ({ item }) => (
     <View style={[cardStyles.cardBase, cardStyles.cardElevated, styles.item]}>
       <View style={styles.itemIcon}>
@@ -96,21 +129,28 @@ const AppointmentsScreen = ({ navigation }) => {
       </View>
       <View style={styles.itemInfo}>
         <Text style={[textStyles.bodySmall, styles.itemTitle]}>
-          {(item.doctor && (item.doctor.fullName || item.doctorName)) || 'Прием'}
+          {personName(item) || 'Прием'}
         </Text>
         <Text style={[textStyles.caption, styles.itemMeta]}>
-          {formatDateTime(item.scheduledAt || item.date)}
+          {formatDateTime(item.startTime)}
         </Text>
         <Text style={[textStyles.caption, styles.itemStatus]}>
           {STATUS_LABELS[item.status] || item.status || ''}
           {item.type ? ' · ' + item.type : ''}
         </Text>
       </View>
-      {(item.status === 'scheduled' || item.status === 'confirmed') && (
-        <TouchableOpacity style={styles.itemAction} onPress={() => handleCancel(item)}>
-          <MaterialIcons name="cancel" size={22} color={colors.error[500]} />
-        </TouchableOpacity>
-      )}
+      <View style={styles.itemActions}>
+        {user?.role === 'doctor' && item.status === 'pending' && (
+          <TouchableOpacity style={styles.itemAction} onPress={() => handleConfirm(item)}>
+            <MaterialIcons name="check-circle" size={22} color={colors.success[600]} />
+          </TouchableOpacity>
+        )}
+        {(item.status === 'pending' || item.status === 'scheduled' || item.status === 'confirmed') && (
+          <TouchableOpacity style={styles.itemAction} onPress={() => handleCancel(item)}>
+            <MaterialIcons name="cancel" size={22} color={colors.error[500]} />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 
@@ -150,7 +190,9 @@ const AppointmentsScreen = ({ navigation }) => {
               <MaterialIcons name="event-busy" size={48} color={colors.text.tertiary} />
               <Text style={[textStyles.bodySmall, styles.emptyText]}>Записей нет</Text>
               <Text style={[textStyles.caption, styles.emptyHint]}>
-                Запись доступна через администратора клиники
+                {user?.role === 'doctor'
+                  ? 'Пациенты смогут записаться к вам через клинику'
+                  : 'Запись доступна через администратора клиники'}
               </Text>
             </View>
           }
@@ -183,6 +225,7 @@ const styles = StyleSheet.create({
   itemTitle: { color: colors.text.primary },
   itemMeta: { color: colors.text.secondary, marginTop: spacing[0.5] },
   itemStatus: { color: colors.text.tertiary, marginTop: spacing[0.5] },
+  itemActions: { flexDirection: 'row', alignItems: 'center' },
   itemAction: { padding: spacing[1], marginLeft: spacing[2] },
   errorText: { marginTop: spacing[2], color: colors.text.secondary, textAlign: 'center' },
   retryButton: { marginTop: spacing[4] },

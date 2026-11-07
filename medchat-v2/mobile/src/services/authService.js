@@ -1,49 +1,67 @@
 /**
  * Auth Service
- * Handles authentication API calls
+ * Handles authentication API calls.
+ * Matches the MedChat v2 server API:
+ *   POST /api/auth/login      { email, password } -> { user, accessToken, refreshToken, expiresIn }
+ *   POST /api/auth/register   { email, password, role, firstName, lastName, clinicCode? }
+ *   POST /api/auth/refresh    { refreshToken }
+ *   GET  /api/auth/me         (Bearer token)
+ *   POST /api/auth/logout     (Bearer token)
  */
 
 import { API_BASE_URL } from '../config/config';
-import { encryptionService } from './encryptionService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = `${API_BASE_URL}/api/auth`;
 
+const safeJson = async (response) => {
+  try {
+    return await response.json();
+  } catch (e) {
+    return {};
+  }
+};
+
 class AuthService {
   /**
-   * Login user
+   * Login user (email + password)
    */
-  static async login(usernameOrEmail, password) {
+  static async login(emailOrUsername, password) {
     try {
+      const email = String(emailOrUsername || '').trim();
+
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: usernameOrEmail,
-          email: usernameOrEmail.includes('@') ? usernameOrEmail : undefined,
+          email,
           password,
         }),
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
       if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+        throw new Error(data.error || data.message || 'Login failed');
       }
 
-      // Generate encryption keys for the user
-      const keys = encryptionService.generateKeyPair();
+      const token = data.accessToken || data.token || null;
+      const refreshToken = data.refreshToken || null;
+
+      // Persist refresh token for silent renewal
+      if (refreshToken) {
+        await AsyncStorage.setItem('refreshToken', refreshToken);
+      }
 
       return {
         success: true,
-        token: data.token,
-        refreshToken: data.refreshToken,
-        user: {
-          ...data.user,
-          publicKey: keys.publicKey,
-          privateKey: keys.privateKey,
-        },
+        token,
+        accessToken: token,
+        refreshToken,
+        user: data.user || null,
+        expiresIn: data.expiresIn,
       };
     } catch (err) {
       return {
@@ -54,27 +72,44 @@ class AuthService {
   }
 
   /**
-   * Register patient
+   * Register user (patient by default, doctor if data.role === 'doctor')
    */
   static async register(data) {
     try {
-      const response = await fetch(`${API_URL}/register/patient`, {
+      const role = data.role || 'patient';
+
+      const body = {
+        email: data.email,
+        password: data.password,
+        role,
+        firstName: data.firstName,
+        lastName: data.lastName,
+      };
+
+      if (data.middleName) body.middleName = data.middleName;
+      if (data.phone) body.phone = data.phone;
+      if (role === 'doctor' && data.clinicCode) body.clinicCode = data.clinicCode;
+      if (data.consentGiven !== undefined) body.consentGiven = data.consentGiven;
+
+      const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(body),
       });
 
-      const result = await response.json();
+      const result = await safeJson(response);
 
       if (!response.ok) {
-        throw new Error(result.message || 'Registration failed');
+        throw new Error(result.error || result.message || 'Registration failed');
       }
 
       return {
         success: true,
-        ...result,
+        user: result.user || null,
+        token: result.accessToken || null,
+        refreshToken: result.refreshToken || null,
       };
     } catch (err) {
       return {
@@ -85,34 +120,10 @@ class AuthService {
   }
 
   /**
-   * Register doctor
+   * Register doctor (requires clinicCode)
    */
   static async registerDoctor(data) {
-    try {
-      const response = await fetch(`${API_URL}/register/doctor`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Registration failed');
-      }
-
-      return {
-        success: true,
-        ...result,
-      };
-    } catch (err) {
-      return {
-        success: false,
-        message: err.message,
-      };
-    }
+    return AuthService.register({ ...data, role: 'doctor' });
   }
 
   /**
@@ -128,10 +139,10 @@ class AuthService {
         body: JSON.stringify({ email }),
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to send reset email');
+        throw new Error(data.error || data.message || 'Failed to send reset email');
       }
 
       return {
@@ -159,10 +170,10 @@ class AuthService {
         body: JSON.stringify({ token, newPassword }),
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
       if (!response.ok) {
-        throw new Error(data.message || 'Password reset failed');
+        throw new Error(data.error || data.message || 'Password reset failed');
       }
 
       return {
@@ -190,10 +201,10 @@ class AuthService {
         },
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
       if (!response.ok) {
-        throw new Error(data.message || 'Logout failed');
+        throw new Error(data.error || data.message || 'Logout failed');
       }
 
       return {
@@ -209,11 +220,11 @@ class AuthService {
   }
 
   /**
-   * Verify token
+   * Verify the access token is still valid (GET /api/auth/me)
    */
   static async verifyToken(token) {
     try {
-      const response = await fetch(`${API_URL}/verify`, {
+      const response = await fetch(`${API_URL}/me`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -227,10 +238,17 @@ class AuthService {
   }
 
   /**
-   * Refresh token
+   * Refresh the access token.
+   * Uses the stored refresh token when no argument is passed.
    */
-  static async refreshToken(refreshToken) {
+  static async refreshToken(refreshTokenArg) {
     try {
+      const refreshToken = refreshTokenArg || (await AsyncStorage.getItem('refreshToken'));
+
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+
       const response = await fetch(`${API_URL}/refresh`, {
         method: 'POST',
         headers: {
@@ -239,16 +257,24 @@ class AuthService {
         body: JSON.stringify({ refreshToken }),
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
       if (!response.ok) {
-        throw new Error(data.message || 'Token refresh failed');
+        throw new Error(data.error || data.message || 'Token refresh failed');
+      }
+
+      const token = data.accessToken || data.token || null;
+      const newRefresh = data.refreshToken || refreshToken;
+
+      if (newRefresh) {
+        await AsyncStorage.setItem('refreshToken', newRefresh);
       }
 
       return {
         success: true,
-        token: data.token,
-        refreshToken: data.refreshToken,
+        token,
+        accessToken: token,
+        refreshToken: newRefresh,
       };
     } catch (err) {
       return {
@@ -259,7 +285,7 @@ class AuthService {
   }
 
   /**
-   * Update profile
+   * Update profile (PUT /api/users/me)
    */
   static async updateProfile(token, data) {
     try {
@@ -272,15 +298,15 @@ class AuthService {
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
+      const result = await safeJson(response);
 
       if (!response.ok) {
-        throw new Error(result.message || 'Profile update failed');
+        throw new Error(result.error || result.message || 'Profile update failed');
       }
 
       return {
         success: true,
-        user: result.data,
+        user: result.data || result,
       };
     } catch (err) {
       return {
@@ -291,23 +317,23 @@ class AuthService {
   }
 
   /**
-   * Change password
+   * Change password (POST /api/auth/change-password)
    */
   static async changePassword(token, currentPassword, newPassword) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/me/password`, {
-        method: 'PUT',
+      const response = await fetch(`${API_URL}/change-password`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ currentPassword, newPassword, confirmPassword: newPassword }),
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
       if (!response.ok) {
-        throw new Error(data.message || 'Password change failed');
+        throw new Error(data.error || data.message || 'Password change failed');
       }
 
       return {
@@ -323,27 +349,7 @@ class AuthService {
   }
 
   /**
-   * Check username availability
-   */
-  static async checkUsername(username) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/users/check-username`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username }),
-      });
-
-      const data = await response.json();
-      return data.data?.available || false;
-    } catch (err) {
-      return false;
-    }
-  }
-
-  /**
-   * Check email availability
+   * Check email availability (best-effort)
    */
   static async checkEmail(email) {
     try {
@@ -355,8 +361,8 @@ class AuthService {
         body: JSON.stringify({ email }),
       });
 
-      const data = await response.json();
-      return data.data?.available || false;
+      const data = await safeJson(response);
+      return !!(data.data && data.data.available);
     } catch (err) {
       return false;
     }
