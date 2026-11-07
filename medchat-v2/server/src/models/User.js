@@ -3,6 +3,8 @@
  * Base model for all user types (Clinic Admin, Doctor, Patient)
  */
 
+const { Op } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define(
     'User',
@@ -167,6 +169,11 @@ module.exports = (sequelize, DataTypes) => {
         },
         field: 'notification_settings',
       },
+      backupSettings: {
+        type: DataTypes.JSONB,
+        defaultValue: {},
+        field: 'backup_settings',
+      },
       language: {
         type: DataTypes.STRING(10),
         defaultValue: 'ru',
@@ -188,7 +195,7 @@ module.exports = (sequelize, DataTypes) => {
         {
           unique: true,
           fields: ['phone'],
-          where: { phone: { [Sequelize.Op.ne]: null } },
+          where: { phone: { [Op.ne]: null } },
         },
         {
           fields: ['role'],

@@ -17,6 +17,7 @@ module.exports = (sequelize, DataTypes) => {
       type: {
         type: DataTypes.ENUM(
           'message_payment',
+          'file_payment',
           'consultation_payment',
           'subscription_payment',
           'refund',
@@ -55,6 +56,7 @@ module.exports = (sequelize, DataTypes) => {
       // Payment method
       paymentMethod: {
         type: DataTypes.ENUM(
+          'test_balance',
           'yoo_money',
           'tinkoff',
           'stripe',

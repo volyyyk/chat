@@ -13,6 +13,18 @@ const extract = require('extract-zip');
 const models = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 
+// Safe logger: never crash this service if winston is not loadable
+let logger;
+try {
+  logger = require('../utils/logger');
+} catch (e) {
+  logger = global.logger || {
+    error: (...args) => console.error('[error]', ...args),
+    warn: (...args) => console.warn('[warn]', ...args),
+    info: (...args) => console.info('[info]', ...args),
+  };
+}
+
 const mkdir = promisify(fs.mkdir);
 const writeFile = promisify(fs.writeFile);
 const readFile = promisify(fs.readFile);
@@ -77,6 +89,50 @@ class BackupService {
   }
 
   /**
+   * Verify backup password without restoring
+   * @param {Object} backup - Backup DB record
+   * @param {string} password - Password to verify
+   * @returns {Promise<{valid: boolean}>}
+   */
+  static async verifyBackupPassword(backup, password) {
+    if (!backup || !password) {
+      return { valid: false };
+    }
+
+    // Read backup file
+    const backupPath = path.join(__dirname, '../../backups', backup.filename);
+    let encryptedData;
+    try {
+      encryptedData = await readFile(backupPath);
+    } catch (error) {
+      logger.warn(`Backup file not found for verification: ${backup.filename}`);
+      return { valid: false };
+    }
+
+    // Get salt from metadata
+    if (!backup.metadata || !backup.metadata.salt) {
+      return { valid: false };
+    }
+
+    const salt = Buffer.from(backup.metadata.salt, 'hex');
+
+    let key;
+    try {
+      const generated = await this.generateKey(password, salt);
+      key = generated.key;
+    } catch (error) {
+      return { valid: false };
+    }
+
+    try {
+      this.decrypt(encryptedData, key);
+      return { valid: true };
+    } catch (error) {
+      return { valid: false };
+    }
+  }
+
+  /**
    * Create backup
    * @param {string} userId - User ID
    * @param {string} name - Backup name
@@ -92,6 +148,11 @@ class BackupService {
       throw new AppError('User not found', 404, 'NOT_FOUND');
     }
 
+    // Normalize data types (fall back to 'all' when not provided)
+    const types = Array.isArray(dataTypes) && dataTypes.length > 0
+      ? dataTypes
+      : ['all'];
+
     // Generate salt and key
     const salt = crypto.randomBytes(SALT_LENGTH);
     const { key, iv } = await this.generateKey(password, salt);
@@ -103,7 +164,7 @@ class BackupService {
     backupData.user = this.sanitizeUser(user);
 
     // Include selected data types
-    for (const dataType of dataTypes) {
+    for (const dataType of types) {
       try {
         backupData[dataType] = await this.exportData(dataType, userId);
       } catch (error) {
@@ -119,7 +180,7 @@ class BackupService {
       userId,
       name,
       description,
-      dataTypes,
+      dataTypes: types,
       format,
       salt: salt.toString('hex'),
       iv: iv.toString('hex'),
@@ -139,7 +200,7 @@ class BackupService {
       description,
       filename: `${userId}_${Date.now()}.${format === 'zip' ? 'zip' : 'enc'}`,
       size: encryptedData.length,
-      dataTypes,
+      dataTypes: types,
       format,
       encrypted: true,
       status: 'completed',
@@ -210,7 +271,8 @@ class BackupService {
 
     // Restore data
     const restoreResults = {};
-    for (const dataType of backupData.dataTypes) {
+    const types = Array.isArray(backupData.dataTypes) ? backupData.dataTypes : [];
+    for (const dataType of types) {
       if (backupData[dataType]) {
         try {
           restoreResults[dataType] = await this.importData(dataType, backupData[dataType], user.id);
@@ -311,6 +373,36 @@ class BackupService {
    * @returns {Promise<Array>} Exported data
    */
   static async exportData(dataType, userId) {
+    if (dataType === 'all') {
+      const allTypes = ['users', 'chats', 'messages', 'files', 'transactions', 'appointments'];
+      const result = {};
+      for (const t of allTypes) {
+        try {
+          result[t] = await this.exportData(t, userId);
+        } catch (error) {
+          logger.warn(`Skipping export of ${t}: ${error.message}`);
+        }
+      }
+      return result;
+    }
+
+    if (dataType === 'settings') {
+      const user = await models.User.findByPk(userId);
+      return user ? { notificationSettings: user.notificationSettings, backupSettings: user.backupSettings } : {};
+    }
+
+    if (dataType === 'contacts' || dataType === 'chats') {
+      // Chats where the user participates (via ChatParticipant or as doctor/patient)
+      const { QueryTypes } = require('sequelize');
+      const chatIds = await models.sequelize.query(
+        'SELECT DISTINCT "chatId" FROM chat_participants WHERE "userId" = $1',
+        { bind: [userId], type: QueryTypes.SELECT }
+      );
+      const ids = chatIds.map((c) => c.chatId);
+      if (ids.length === 0) return [];
+      return models.Chat.findAll({ where: { id: ids } });
+    }
+
     const model = models[dataType.charAt(0).toUpperCase() + dataType.slice(1)];
     if (!model) {
       throw new Error(`Model ${dataType} not found`);
@@ -332,6 +424,19 @@ class BackupService {
    * @returns {Promise<Object>} Import result
    */
   static async importData(dataType, data, userId) {
+    if (dataType === 'all' && data && typeof data === 'object' && !Array.isArray(data)) {
+      const results = {};
+      for (const [t, d] of Object.entries(data)) {
+        if (t === 'users') continue; // never re-import users blindly
+        try {
+          results[t] = await this.importData(t, d, userId);
+        } catch (error) {
+          results[t] = { success: false, error: error.message };
+        }
+      }
+      return results;
+    }
+
     const model = models[dataType.charAt(0).toUpperCase() + dataType.slice(1)];
     if (!model) {
       throw new Error(`Model ${dataType} not found`);
@@ -444,7 +549,7 @@ class BackupService {
     delete sanitized.twoFactorSecret;
     delete sanitized.ipAddress;
     delete sanitized.userAgent;
-    
+
     return sanitized;
   }
 
@@ -540,15 +645,19 @@ class BackupService {
     });
 
     archive.on('error', (err) => {
-      throw err;
+      logger.error('ZIP backup error:', err);
     });
 
     archive.pipe(output);
 
     // Add each data type as a separate JSON file
     for (const dataType of dataTypes) {
-      const data = await this.exportData(dataType, userId);
-      archive.append(JSON.stringify(data, null, 2), { name: `${dataType}.json` });
+      try {
+        const data = await this.exportData(dataType, userId);
+        archive.append(JSON.stringify(data, null, 2), { name: `${dataType}.json` });
+      } catch (error) {
+        logger.warn(`Skipping ${dataType} in ZIP backup: ${error.message}`);
+      }
     }
 
     await archive.finalize();

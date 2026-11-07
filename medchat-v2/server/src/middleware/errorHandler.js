@@ -3,8 +3,6 @@
  * Catches all errors, logs them and returns a consistent JSON response.
  */
 
-const path = require('path');
-
 // Use the app logger if available, fall back to console so the handler
 // itself can never crash (previously logger was used without import).
 let logger;
@@ -16,6 +14,32 @@ try {
     warn: (...args) => console.warn('[warn]', ...args),
     info: (...args) => console.info('[info]', ...args),
   };
+}
+
+/**
+ * Application error with HTTP status and machine-readable code.
+ * Used across services/controllers for operational (4xx/5xx) errors.
+ */
+class AppError extends Error {
+  /**
+   * @param {string} message - Human-readable error message
+   * @param {number} status - HTTP status code (default 500)
+   * @param {string} code - Machine-readable error code (default INTERNAL_ERROR)
+   * @param {*} details - Optional extra details (validation errors etc.)
+   */
+  constructor(message, status = 500, code = 'INTERNAL_ERROR', details = null) {
+    super(message);
+    this.name = 'AppError';
+    this.message = message;
+    this.status = status;
+    this.statusCode = status;
+    this.code = code;
+    this.details = details;
+    this.isOperational = true;
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
+  }
 }
 
 const ErrorHandler = {
@@ -52,6 +76,10 @@ const ErrorHandler = {
       code,
     };
 
+    if (err.details && status < 500) {
+      response.details = err.details;
+    }
+
     res.status(status).json(response);
   },
 
@@ -64,5 +92,9 @@ const ErrorHandler = {
     next();
   },
 };
+
+// AppError is available both as a property and via destructuring:
+// const { AppError } = require('../middleware/errorHandler');
+ErrorHandler.AppError = AppError;
 
 module.exports = ErrorHandler;

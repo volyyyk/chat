@@ -9,6 +9,18 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const models = require('../models');
 
+// Safe logger: never crash auth flows if winston is not loadable
+let logger;
+try {
+  logger = require('../utils/logger');
+} catch (e) {
+  logger = global.logger || {
+    error: (...args) => console.error('[error]', ...args),
+    warn: (...args) => console.warn('[warn]', ...args),
+    info: (...args) => console.info('[info]', ...args),
+  };
+}
+
 const {
   JWT_SECRET,
   JWT_EXPIRES_IN,
@@ -44,7 +56,7 @@ class AuthService {
   static async generateRefreshToken(user) {
     const token = crypto.randomBytes(64).toString('hex');
     const expiresAt = new Date();
-    
+
     // Set expiration based on environment
     const expiresIn = NODE_ENV === 'production' ? JWT_REFRESH_EXPIRES_IN : '30d';
     expiresAt.setDate(expiresAt.getDate() + parseInt(expiresIn));
@@ -450,7 +462,7 @@ class AuthService {
     delete sanitized.passwordHash;
     delete sanitized.privateKey;
     delete sanitized.twoFactorSecret;
-    
+
     return sanitized;
   }
 
@@ -463,13 +475,13 @@ class AuthService {
     if (!userAgent) return 'unknown';
 
     const lowerAgent = userAgent.toLowerCase();
-    
+
     if (lowerAgent.includes('mobile')) return 'mobile';
     if (lowerAgent.includes('tablet')) return 'tablet';
     if (lowerAgent.includes('ipad')) return 'tablet';
     if (lowerAgent.includes('android')) return 'mobile';
     if (lowerAgent.includes('iphone')) return 'mobile';
-    
+
     return 'desktop';
   }
 
@@ -500,23 +512,23 @@ class AuthService {
    */
   static validatePassword(password) {
     const errors = [];
-    
+
     if (password.length < 8) {
       errors.push('Password must be at least 8 characters long');
     }
-    
+
     if (!/[A-Z]/.test(password)) {
       errors.push('Password must contain at least one uppercase letter');
     }
-    
+
     if (!/[a-z]/.test(password)) {
       errors.push('Password must contain at least one lowercase letter');
     }
-    
+
     if (!/[0-9]/.test(password)) {
       errors.push('Password must contain at least one number');
     }
-    
+
     if (!/[^A-Za-z0-9]/.test(password)) {
       errors.push('Password must contain at least one special character');
     }
