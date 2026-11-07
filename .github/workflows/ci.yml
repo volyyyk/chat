@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+# CI нужен доступ на запись, чтобы при падении опубликовать логи шагов
+# обратно в репозиторий (папка ci-logs/). Пуши от GITHUB_TOKEN по правилам
+# GitHub сами по себе НЕ запускают новые прогоны CI, а сообщение коммита
+# дополнительно содержит [skip ci] — рекурсии нет.
+permissions:
+  contents: write
+
 jobs:
   server-tests:
     name: Server tests (unit + integration)
@@ -40,12 +47,35 @@ jobs:
         continue-on-error: true
 
       - name: Run unit and integration tests
-        run: npm test -- --ci --runInBand
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; npm test -- --ci --runInBand; } 2>&1 | tee ../../ci-jest.log
         env:
           NODE_ENV: test
           JWT_SECRET: ci-test-secret
           JWT_EXPIRES_IN: 15m
           JWT_REFRESH_EXPIRES_IN: 30d
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-jest.log ]; then
+            cp ci-jest.log ci-logs/ci-jest.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
 
   e2e-smoke:
     name: E2E smoke (seed + все стороны, real-time, платежи)
@@ -114,10 +144,38 @@ jobs:
           echo "Postgres did not become ready" && exit 1
 
       - name: Seed test data
-        run: npm run seed:test
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; npm run seed:test; } 2>&1 | tee ../../ci-seed.log
 
       - name: Run E2E smoke test
-        run: npm run test:smoke
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; npm run test:smoke; } 2>&1 | tee ../../ci-smoke.log
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-seed.log ]; then
+            cp ci-seed.log ci-logs/ci-seed.log
+          fi
+          if [ -f ci-smoke.log ]; then
+            cp ci-smoke.log ci-logs/ci-smoke.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
 
       - name: Print server logs on failure
         if: failure()
