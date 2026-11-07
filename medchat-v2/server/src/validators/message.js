@@ -15,6 +15,9 @@ const createMessageSchema = Joi.object({
   metadata: Joi.object().optional().default({}),
   clientType: Joi.string().valid('mobile', 'web', 'desktop').optional(),
   clientVersion: Joi.string().max(50).optional().allow(null, ''),
+  // Pre-paid message: transaction from /api/payments/process,
+  // prevents double charging when sending
+  paymentTransactionId: Joi.string().uuid().optional().allow(null),
 });
 
 // Update message schema

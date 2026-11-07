@@ -165,11 +165,15 @@ class AuthService {
     const passwordHash = await this.hashPassword(password);
 
     // Create user
+    // NOTE: status defaults to 'pending' in the model; a freshly registered
+    // user must be able to log in right away (email verification is a
+    // separate optional flow), so we activate the account here.
     const user = await models.User.create({
       email,
       phone,
       passwordHash,
       role,
+      status: 'active',
       ...rest,
     });
 

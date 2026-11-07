@@ -1,12 +1,38 @@
 /**
  * Transaction Controller
- * Handles all transaction-related operations including test balance
+ * Handles all transaction-related operations including test balance.
+ *
+ * Fixes vs previous version:
+ * - $gte/$lte legacy Sequelize operators replaced with Op.gte/Op.lte.
+ * - User has no `username` column and Doctor/Patient have no `fullName`
+ *   column; includes now select real columns.
+ * - `req.user.roles` never existed; access control uses req.user.role.
+ * - getBalance no longer queries a non-existent BalanceReserve.released column.
  */
 
 const models = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 const BalanceService = require('../services/balanceService');
-const CryptoService = require('../services/cryptoService');
+const { Op } = require('sequelize');
+
+const USER_ATTRS = ['id', 'email', 'firstName', 'lastName'];
+const TRANSACTION_INCLUDES = [
+  { model: models.User, as: 'user', attributes: USER_ATTRS },
+  { model: models.Doctor, as: 'doctor', attributes: ['id', 'userId'] },
+  { model: models.Patient, as: 'patient', attributes: ['id', 'userId'] },
+  { model: models.Clinic, as: 'clinic', attributes: ['id', 'name'] },
+  { model: models.Chat, as: 'chat', attributes: ['id', 'chatId'] },
+];
+
+const isSystemAdmin = (req) => req.user.role === 'system_admin';
+
+const applyDateFilter = (where, startDate, endDate, field = 'createdAt') => {
+  if (startDate || endDate) {
+    where[field] = {};
+    if (startDate) where[field][Op.gte] = new Date(startDate);
+    if (endDate) where[field][Op.lte] = new Date(endDate);
+  }
+};
 
 class TransactionController {
   /**
@@ -32,7 +58,7 @@ class TransactionController {
       const currentUserId = req.user.id;
 
       // Validate user
-      if (userId && userId !== currentUserId && !req.user.roles?.includes('admin')) {
+      if (userId && userId !== currentUserId && !isSystemAdmin(req)) {
         throw new AppError('Cannot create transaction for another user', 403, 'FORBIDDEN');
       }
 
@@ -44,7 +70,7 @@ class TransactionController {
           targetUserId,
           amount,
           currency,
-          description || `Test deposit from ${currentUserId}`
+          description || 'Test deposit'
         );
 
         return res.status(201).json({
@@ -54,7 +80,7 @@ class TransactionController {
         });
       }
 
-      // For real payments (placeholder - not implemented per user request)
+      // For real payments (placeholder - not implemented per project requirements)
       const transaction = await models.Transaction.create({
         userId: targetUserId,
         doctorId,
@@ -65,7 +91,7 @@ class TransactionController {
         amount,
         currency,
         paymentMethod,
-        status: paymentMethod === 'test_balance' ? 'completed' : 'pending',
+        status: 'pending',
         description,
         referenceId,
         metadata,
@@ -74,12 +100,18 @@ class TransactionController {
 
       // If this is a message payment, reserve the amount
       if (type === 'message_payment' || type === 'file_payment') {
-        await BalanceService.reserve(
-          targetUserId,
-          amount,
-          currency,
-          `transaction_${transaction.id}`
-        );
+        try {
+          await BalanceService.reserve(
+            targetUserId,
+            amount,
+            currency,
+            'transaction_' + transaction.id
+          );
+        } catch (reserveError) {
+          // The transaction itself stays pending; the reserve failure is logged
+          const logger = require('../utils/logger');
+          logger.warn('Failed to reserve balance for transaction ' + transaction.id + ': ' + reserveError.message);
+        }
       }
 
       res.status(201).json({
@@ -112,15 +144,15 @@ class TransactionController {
         limit = 20,
       } = req.query;
 
+      const where = {};
+
       // Access control
-      if (userId && userId !== req.user.id && !req.user.roles?.includes('admin')) {
+      if (userId && userId !== req.user.id && !isSystemAdmin(req)) {
         throw new AppError('Cannot access other user transactions', 403, 'FORBIDDEN');
       }
 
-      const where = {};
-
       if (userId) where.userId = userId;
-      else if (!req.user.roles?.includes('admin')) where.userId = req.user.id;
+      else if (!isSystemAdmin(req)) where.userId = req.user.id;
 
       if (doctorId) where.doctorId = doctorId;
       if (clinicId) where.clinicId = clinicId;
@@ -131,23 +163,13 @@ class TransactionController {
       if (paymentMethod) where.paymentMethod = paymentMethod;
       if (currency) where.currency = currency;
 
-      if (startDate || endDate) {
-        where.createdAt = {};
-        if (startDate) where.createdAt.$gte = new Date(startDate);
-        if (endDate) where.createdAt.$lte = new Date(endDate);
-      }
+      applyDateFilter(where, startDate, endDate);
 
       const offset = (page - 1) * limit;
 
       const { count, rows } = await models.Transaction.findAndCountAll({
         where,
-        include: [
-          { model: models.User, as: 'user', attributes: ['id', 'username', 'email'] },
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-          { model: models.Chat, attributes: ['id', 'chatId'] },
-        ],
+        include: TRANSACTION_INCLUDES,
         order: [['createdAt', 'DESC']],
         offset,
         limit: parseInt(limit),
@@ -177,21 +199,22 @@ class TransactionController {
 
       const transaction = await models.Transaction.findOne({
         where: { id },
-        include: [
-          { model: models.User, as: 'user', attributes: ['id', 'username', 'email'] },
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-          { model: models.Chat, attributes: ['id', 'chatId'] },
-        ],
+        include: TRANSACTION_INCLUDES,
       });
 
       if (!transaction) {
         throw new AppError('Transaction not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (transaction.userId !== req.user.id && !req.user.roles?.includes('admin')) {
+      const allowed =
+        isSystemAdmin(req) ||
+        transaction.userId === req.user.id ||
+        (req.user.doctorId && transaction.doctorId === req.user.doctorId) ||
+        (req.user.patientId && transaction.patientId === req.user.patientId) ||
+        (req.user.role === 'clinic_admin' &&
+          req.user.clinicId &&
+          transaction.clinicId === req.user.clinicId);
+      if (!allowed) {
         throw new AppError('Cannot access other user transaction', 403, 'FORBIDDEN');
       }
 
@@ -218,31 +241,35 @@ class TransactionController {
         throw new AppError('Transaction not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (transaction.userId !== req.user.id && !req.user.roles?.includes('admin')) {
+      const allowed =
+        isSystemAdmin(req) || transaction.userId === req.user.id;
+      if (!allowed) {
         throw new AppError('Cannot cancel other user transaction', 403, 'FORBIDDEN');
       }
 
-      // Only pending transactions can be cancelled
       if (transaction.status !== 'pending') {
         throw new AppError('Only pending transactions can be cancelled', 400, 'VALIDATION_ERROR');
       }
 
       // Release reserved amount if any
       if (transaction.type === 'message_payment' || transaction.type === 'file_payment') {
-        await BalanceService.release(`transaction_${transaction.id}`);
+        try {
+          await BalanceService.release('transaction_' + transaction.id);
+        } catch (releaseError) {
+          const logger = require('../utils/logger');
+          logger.warn('No active reserve found for transaction ' + transaction.id);
+        }
       }
 
       await transaction.update({
         status: 'cancelled',
-        cancelledAt: new Date(),
-        cancelledBy: req.user.id,
-        cancellationReason: reason,
       });
+
+      const refreshed = await transaction.reload();
 
       res.json({
         success: true,
-        data: transaction,
+        data: refreshed,
         message: 'Transaction cancelled successfully',
       });
     } catch (error) {
@@ -268,15 +295,17 @@ class TransactionController {
         throw new AppError('Transaction not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (transaction.userId !== req.user.id && !req.user.roles?.includes('admin')) {
+      const allowed =
+        isSystemAdmin(req) || transaction.userId === req.user.id;
+      if (!allowed) {
         throw new AppError('Cannot refund other user transaction', 403, 'FORBIDDEN');
       }
 
-      // Only completed transactions can be refunded
       if (transaction.status !== 'completed') {
         throw new AppError('Only completed transactions can be refunded', 400, 'VALIDATION_ERROR');
       }
+
+      const refundAmount = amount || transaction.amount;
 
       // Create refund transaction
       const refund = await models.Transaction.create({
@@ -286,24 +315,29 @@ class TransactionController {
         patientId: transaction.patientId,
         chatId: transaction.chatId,
         type: 'refund',
-        amount: amount || transaction.amount,
+        amount: refundAmount,
         currency,
         paymentMethod: transaction.paymentMethod,
         status: 'completed',
-        description: `Refund for transaction ${transactionId}: ${reason}`,
+        description: 'Refund for transaction ' + transactionId + (reason ? ': ' + reason : ''),
         referenceId: transaction.id,
         createdBy: req.user.id,
       });
 
       // Update original transaction
-      await transaction.update({ status: 'refunded', refundedAt: new Date() });
+      await transaction.update({
+        status: 'refunded',
+        refundedAt: new Date(),
+        refundedBy: req.user.id,
+        refundReason: reason,
+      });
 
       // Return money to balance
       await BalanceService.deposit(
         transaction.userId,
-        amount || transaction.amount,
+        refundAmount,
         currency,
-        `Refund for transaction ${transactionId}`
+        'Refund for transaction ' + transactionId
       );
 
       res.json({
@@ -324,28 +358,14 @@ class TransactionController {
       const { currency = 'RUB' } = req.query;
       const userId = req.user.id;
 
-      const balance = await models.Balance.findOne({
-        where: { userId, currency },
-        include: [
-          {
-            model: models.BalanceReserve,
-            where: { released: false },
-            required: false,
-          },
-        ],
-      });
-
-      const reserved = balance?.BalanceReserves?.reduce(
-        (sum, reserve) => sum + reserve.amount,
-        0
-      ) || 0;
+      const balance = await models.Balance.findOne({ where: { userId, currency } });
 
       res.json({
         success: true,
         data: {
-          available: balance?.available || 0,
-          reserved,
-          total: (balance?.available || 0) + reserved,
+          available: balance ? Number(balance.available) : 0,
+          reserved: balance ? Number(balance.reserved) : 0,
+          total: balance ? Number(balance.amount) : 0,
           currency,
         },
       });
@@ -443,7 +463,10 @@ class TransactionController {
         description,
       } = req.body;
 
-      const doctorId = req.user.doctorId || req.user.id;
+      const doctorId = req.user.doctorId;
+      if (!doctorId) {
+        throw new AppError('Only doctors can request payouts', 403, 'FORBIDDEN');
+      }
 
       if (!amount || amount <= 0) {
         throw new AppError('Amount must be positive', 400, 'VALIDATION_ERROR');
@@ -469,7 +492,7 @@ class TransactionController {
         currency,
         paymentMethod: payoutMethod || 'test_balance',
         status: 'pending',
-        description: description || `Payout to ${payoutMethod}`,
+        description: description || 'Payout',
         metadata: {
           payoutMethod,
           payoutDetails,
@@ -482,7 +505,7 @@ class TransactionController {
         req.user.id,
         amount,
         currency,
-        `payout_${payout.id}`
+        'payout_' + payout.id
       );
 
       res.status(201).json({
@@ -514,18 +537,20 @@ class TransactionController {
         type: 'payout',
       };
 
-      if (doctorId) where.doctorId = doctorId;
-      else if (req.user.doctorId) where.doctorId = req.user.doctorId;
-      else where.userId = req.user.id;
+      if (!isSystemAdmin(req)) {
+        if (doctorId && doctorId !== req.user.doctorId) {
+          throw new AppError('Cannot access other doctor payouts', 403, 'FORBIDDEN');
+        }
+        if (req.user.doctorId) where.doctorId = req.user.doctorId;
+        else where.userId = req.user.id;
+      } else if (doctorId) {
+        where.doctorId = doctorId;
+      }
 
       if (clinicId) where.clinicId = clinicId;
       if (status) where.status = status;
 
-      if (startDate || endDate) {
-        where.createdAt = {};
-        if (startDate) where.createdAt.$gte = new Date(startDate);
-        if (endDate) where.createdAt.$lte = new Date(endDate);
-      }
+      applyDateFilter(where, startDate, endDate);
 
       const offset = (page - 1) * limit;
 
@@ -566,31 +591,29 @@ class TransactionController {
         limit = 20,
       } = req.query;
 
-      // Access control
-      if (doctorId !== req.user.doctorId && !req.user.roles?.includes('admin')) {
+      const allowed =
+        isSystemAdmin(req) ||
+        doctorId === req.user.doctorId ||
+        (req.user.role === 'clinic_admin' && req.user.clinicId);
+      if (!allowed) {
         throw new AppError('Cannot access other doctor transactions', 403, 'FORBIDDEN');
       }
 
       const where = { doctorId };
+      if (req.user.role === 'clinic_admin' && req.user.clinicId && doctorId !== req.user.doctorId) {
+        where.clinicId = req.user.clinicId;
+      }
 
       if (type) where.type = type;
       if (status) where.status = status;
 
-      if (startDate || endDate) {
-        where.createdAt = {};
-        if (startDate) where.createdAt.$gte = new Date(startDate);
-        if (endDate) where.createdAt.$lte = new Date(endDate);
-      }
+      applyDateFilter(where, startDate, endDate);
 
       const offset = (page - 1) * limit;
 
       const { count, rows } = await models.Transaction.findAndCountAll({
         where,
-        include: [
-          { model: models.User, as: 'user', attributes: ['id', 'username'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Chat, attributes: ['id', 'chatId'] },
-        ],
+        include: TRANSACTION_INCLUDES,
         order: [['createdAt', 'DESC']],
         offset,
         limit: parseInt(limit),
@@ -626,26 +649,22 @@ class TransactionController {
         limit = 20,
       } = req.query;
 
-      const where = { clinicId };
+      // Clinic admins may only see their own clinic
+      if (req.user.role === 'clinic_admin' && clinicId !== req.user.clinicId) {
+        throw new AppError('Cannot access other clinic transactions', 403, 'FORBIDDEN');
+      }
 
+      const where = { clinicId };
       if (type) where.type = type;
       if (status) where.status = status;
 
-      if (startDate || endDate) {
-        where.createdAt = {};
-        if (startDate) where.createdAt.$gte = new Date(startDate);
-        if (endDate) where.createdAt.$lte = new Date(endDate);
-      }
+      applyDateFilter(where, startDate, endDate);
 
       const offset = (page - 1) * limit;
 
       const { count, rows } = await models.Transaction.findAndCountAll({
         where,
-        include: [
-          { model: models.User, as: 'user', attributes: ['id', 'username'] },
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-        ],
+        include: TRANSACTION_INCLUDES,
         order: [['createdAt', 'DESC']],
         offset,
         limit: parseInt(limit),
@@ -680,26 +699,36 @@ class TransactionController {
 
       const where = {};
 
-      if (doctorId) where.doctorId = doctorId;
-      else if (req.user.doctorId) where.doctorId = req.user.doctorId;
+      if (doctorId) {
+        if (
+          doctorId !== req.user.doctorId &&
+          !isSystemAdmin(req) &&
+          !(req.user.role === 'clinic_admin' && req.user.clinicId)
+        ) {
+          throw new AppError('Cannot access other doctor statistics', 403, 'FORBIDDEN');
+        }
+        where.doctorId = doctorId;
+      } else if (req.user.doctorId) {
+        where.doctorId = req.user.doctorId;
+      } else if (req.user.role === 'clinic_admin' && req.user.clinicId) {
+        where.clinicId = req.user.clinicId;
+      }
 
       if (clinicId) where.clinicId = clinicId;
 
-      if (startDate || endDate) {
-        where.createdAt = {};
-        if (startDate) where.createdAt.$gte = new Date(startDate);
-        if (endDate) where.createdAt.$lte = new Date(endDate);
-      }
+      applyDateFilter(where, startDate, endDate);
 
-      // Get counts by type
       const byType = await models.Transaction.findAll({
         where,
-        attributes: ['type', [models.Sequelize.fn('COUNT', models.Sequelize.col('id')), 'count'], [models.Sequelize.fn('SUM', models.Sequelize.col('amount')), 'totalAmount']],
+        attributes: [
+          'type',
+          [models.Sequelize.fn('COUNT', models.Sequelize.col('id')), 'count'],
+          [models.Sequelize.fn('SUM', models.Sequelize.col('amount')), 'totalAmount'],
+        ],
         group: ['type'],
         raw: true,
       });
 
-      // Get counts by status
       const byStatus = await models.Transaction.findAll({
         where,
         attributes: ['status', [models.Sequelize.fn('COUNT', models.Sequelize.col('id')), 'count']],
@@ -707,7 +736,6 @@ class TransactionController {
         raw: true,
       });
 
-      // Get total
       const total = await models.Transaction.count({ where });
       const totalAmount = await models.Transaction.sum('amount', { where });
 

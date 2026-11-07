@@ -1,11 +1,43 @@
 /**
  * Appointment Controller
- * Handles appointment creation, management, and scheduling
+ * Handles appointment creation, management, and scheduling.
+ *
+ * Fixes vs previous version:
+ * - Doctor/Patient models have no `fullName` column (it is a User virtual),
+ *   so includes now select real columns and nest the user.
+ * - Reminder.create used patientId as userId (FK violation) and missed the
+ *   NOT NULL createdBy column.
+ * - `req.user.roles` never existed; access control now uses req.user.role.
  */
 
 const models = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 const { Op } = require('sequelize');
+
+const USER_ATTRS = ['id', 'firstName', 'lastName', 'fullName'];
+const DOCTOR_INCLUDE = {
+  model: models.Doctor,
+  as: 'doctor',
+  attributes: ['id', 'userId'],
+  include: [{ model: models.User, as: 'user', attributes: USER_ATTRS }],
+};
+const PATIENT_INCLUDE = {
+  model: models.Patient,
+  as: 'patient',
+  attributes: ['id', 'userId'],
+  include: [{ model: models.User, as: 'user', attributes: USER_ATTRS }],
+};
+const CLINIC_INCLUDE = { model: models.Clinic, as: 'clinic', attributes: ['id', 'name'] };
+
+const isSystemAdmin = (req) => req.user.role === 'system_admin';
+
+const canAccessAppointment = (req, appointment) =>
+  isSystemAdmin(req) ||
+  (req.user.doctorId && appointment.doctorId === req.user.doctorId) ||
+  (req.user.patientId && appointment.patientId === req.user.patientId) ||
+  (req.user.role === 'clinic_admin' &&
+    req.user.clinicId &&
+    appointment.clinicId === req.user.clinicId);
 
 class AppointmentController {
   /**
@@ -16,32 +48,40 @@ class AppointmentController {
       const {
         doctorId,
         clinicId,
-        patientId,
+        patientId: bodyPatientId,
         startTime,
         endTime,
-        type = 'in_person',
+        duration,
+        type = 'consultation',
         status = 'pending',
         reason,
         symptoms,
         notes,
         priority = 'normal',
-        reminderMinutes = 30,
       } = req.body;
 
       const currentUserId = req.user.id;
 
-      // Validate required fields
+      // Direct reminder control (reminderBefore is a legacy alias)
+      const reminderMinutes =
+        req.body.reminderMinutes !== undefined
+          ? req.body.reminderMinutes
+          : req.body.reminderBefore !== undefined
+            ? req.body.reminderBefore
+            : 30;
+
       if (!doctorId || !startTime) {
         throw new AppError('Doctor ID and start time are required', 400, 'VALIDATION_ERROR');
       }
 
-      // Validate time format
       const startDate = new Date(startTime);
-      const endDate = endTime ? new Date(endTime) : new Date(startDate.getTime() + 30 * 60000); // Default 30 minutes
-
       if (isNaN(startDate.getTime())) {
         throw new AppError('Invalid start time format', 400, 'VALIDATION_ERROR');
       }
+
+      const endDate = endTime
+        ? new Date(endTime)
+        : new Date(startDate.getTime() + ((duration || 30) * 60000));
 
       if (isNaN(endDate.getTime())) {
         throw new AppError('Invalid end time format', 400, 'VALIDATION_ERROR');
@@ -65,7 +105,8 @@ class AppointmentController {
         }
       }
 
-      // Check if patient exists or create placeholder
+      // Resolve patient: by ID, or from the current user's patient profile
+      let patientId = bodyPatientId;
       let patient;
       if (patientId) {
         patient = await models.Patient.findOne({ where: { id: patientId } });
@@ -73,24 +114,11 @@ class AppointmentController {
           throw new AppError('Patient not found', 404, 'NOT_FOUND');
         }
       } else {
-        // Create patient from current user if they are a patient
-        const currentUser = await models.User.findOne({
-          where: { id: currentUserId },
-          include: [models.Patient],
-        });
-
-        if (currentUser.Patient) {
-          patientId = currentUser.Patient.id;
-        } else {
-          // Create new patient record
-          patient = await models.Patient.create({
-            userId: currentUserId,
-            fullName: currentUser.firstName && currentUser.lastName
-              ? `${currentUser.firstName} ${currentUser.lastName}`
-              : currentUser.username,
-          });
-          patientId = patient.id;
+        patient = await models.Patient.findOne({ where: { userId: currentUserId } });
+        if (!patient) {
+          patient = await models.Patient.create({ userId: currentUserId });
         }
+        patientId = patient.id;
       }
 
       // Check for scheduling conflicts
@@ -120,7 +148,7 @@ class AppointmentController {
         clinicId,
         patientId,
         startTime: startDate,
-        endTime,
+        endTime: endDate,
         type,
         status,
         reason,
@@ -131,28 +159,38 @@ class AppointmentController {
         createdBy: currentUserId,
       });
 
-      // Create reminder
-      if (reminderMinutes > 0) {
+      // Create reminder (only when enabled)
+      if (reminderMinutes > 0 && patient) {
         const reminderTime = new Date(startDate.getTime() - reminderMinutes * 60000);
-        await models.Reminder.create({
-          userId: patientId,
-          appointmentId: appointment.id,
-          type: 'appointment',
-          title: `Напоминание о приеме у врача`,
-          message: `У вас запланирован прием у врача ${doctor.fullName || 'Unknown'} в ${startDate.toLocaleString('ru-RU')}`,
-          scheduledFor: reminderTime,
-          status: 'pending',
-        });
+        const doctorUser = doctor.userId
+          ? await models.User.findByPk(doctor.userId, { attributes: USER_ATTRS })
+          : null;
+        try {
+          await models.Reminder.create({
+            userId: patient.userId,
+            recipientId: patient.userId,
+            appointmentId: appointment.id,
+            type: 'appointment',
+            title: 'Напоминание о приеме у врача',
+            message:
+              'У вас запланирован прием у врача ' +
+              (doctorUser ? doctorUser.fullName || ' ' : '') +
+              ' в ' + startDate.toLocaleString('ru-RU'),
+            scheduledFor: reminderTime,
+            status: 'pending',
+            createdBy: currentUserId,
+          });
+        } catch (reminderError) {
+          // A failing reminder must not fail the appointment itself
+          const logger = require('../utils/logger');
+          logger.warn('Failed to create appointment reminder: ' + reminderError.message);
+        }
       }
 
       // Load full appointment data
       const fullAppointment = await models.Appointment.findOne({
         where: { id: appointment.id },
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName', 'specialtyIds'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
       });
 
       res.status(201).json({
@@ -184,22 +222,19 @@ class AppointmentController {
 
       const where = {};
 
-      // Access control for non-admin users
-      if (!req.user.roles?.includes('admin')) {
-        // Doctors can see their own appointments
-        if (req.user.doctorId) {
-          where[Op.or] = [
-            { doctorId: req.user.doctorId },
-            { patientId: req.user.patientId },
-          ];
+      // Access control
+      if (isSystemAdmin(req)) {
+        // Sees everything
+      } else if (req.user.role === 'clinic_admin' && req.user.clinicId) {
+        where.clinicId = req.user.clinicId;
+      } else {
+        const or = [];
+        if (req.user.doctorId) or.push({ doctorId: req.user.doctorId });
+        if (req.user.patientId) or.push({ patientId: req.user.patientId });
+        if (or.length === 0) {
+          throw new AppError('No access to appointments', 403, 'FORBIDDEN');
         }
-        // Patients can see their own appointments
-        if (req.user.patientId) {
-          where[Op.or] = [
-            { patientId: req.user.patientId },
-            { doctorId: req.user.doctorId },
-          ];
-        }
+        where[Op.or] = or;
       }
 
       if (doctorId) where.doctorId = doctorId;
@@ -218,11 +253,7 @@ class AppointmentController {
 
       const { count, rows } = await models.Appointment.findAndCountAll({
         where,
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
         order: [['startTime', 'ASC']],
         offset,
         limit: parseInt(limit),
@@ -253,10 +284,9 @@ class AppointmentController {
       const appointment = await models.Appointment.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
-          { model: models.Patient },
-          { model: models.Clinic },
-          { model: models.Reminder },
+          { ...DOCTOR_INCLUDE, include: [models.Specialty] },
+          PATIENT_INCLUDE,
+          CLINIC_INCLUDE,
         ],
       });
 
@@ -264,10 +294,7 @@ class AppointmentController {
         throw new AppError('Appointment not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (!req.user.roles?.includes('admin') &&
-          appointment.doctorId !== req.user.doctorId &&
-          appointment.patientId !== req.user.patientId) {
+      if (!canAccessAppointment(req, appointment)) {
         throw new AppError('Cannot access this appointment', 403, 'FORBIDDEN');
       }
 
@@ -289,13 +316,18 @@ class AppointmentController {
       const {
         startTime,
         endTime,
+        duration,
         type,
         reason,
         symptoms,
         notes,
         priority,
-        reminderMinutes,
       } = req.body;
+
+      const reminderMinutes =
+        req.body.reminderMinutes !== undefined
+          ? req.body.reminderMinutes
+          : req.body.reminderBefore;
 
       const appointment = await models.Appointment.findOne({ where: { id } });
 
@@ -303,14 +335,10 @@ class AppointmentController {
         throw new AppError('Appointment not found', 404, 'NOT_FOUND');
       }
 
-      // Access control - only doctor, patient, or admin can update
-      if (!req.user.roles?.includes('admin') &&
-          appointment.doctorId !== req.user.doctorId &&
-          appointment.patientId !== req.user.patientId) {
+      if (!canAccessAppointment(req, appointment)) {
         throw new AppError('Cannot update this appointment', 403, 'FORBIDDEN');
       }
 
-      // Validate time format if provided
       let startDate, endDate;
       if (startTime) {
         startDate = new Date(startTime);
@@ -326,27 +354,27 @@ class AppointmentController {
         }
       }
 
-      // If both times provided, validate
-      if (startDate && endDate && endDate <= startDate) {
+      const finalStart = startDate || appointment.startTime;
+      const finalEnd =
+        endDate || new Date(finalStart.getTime() + ((duration || 30) * 60000));
+
+      if (finalEnd <= finalStart) {
         throw new AppError('End time must be after start time', 400, 'VALIDATION_ERROR');
       }
 
       // Check for scheduling conflicts if time is changed
-      if (startDate || endDate) {
-        const checkStart = startDate || appointment.startTime;
-        const checkEnd = endDate || appointment.endTime;
-
+      if (startDate || endDate || duration) {
         const conflictingAppointment = await models.Appointment.findOne({
           where: {
             doctorId: appointment.doctorId,
             id: { [Op.ne]: id },
             [Op.or]: [
               {
-                startTime: { [Op.lt]: checkEnd },
-                endTime: { [Op.gt]: checkStart },
+                startTime: { [Op.lt]: finalEnd },
+                endTime: { [Op.gt]: finalStart },
               },
               {
-                startTime: { [Op.gte]: checkStart, [Op.lt]: checkEnd },
+                startTime: { [Op.gte]: finalStart, [Op.lt]: finalEnd },
               },
             ],
             status: { [Op.in]: ['pending', 'confirmed', 'completed'] },
@@ -359,14 +387,15 @@ class AppointmentController {
       }
 
       await appointment.update({
-        startTime: startDate || appointment.startTime,
-        endTime: endDate || appointment.endTime,
+        startTime: finalStart,
+        endTime: finalEnd,
         type: type || appointment.type,
         reason: reason !== undefined ? reason : appointment.reason,
         symptoms: symptoms !== undefined ? symptoms : appointment.symptoms,
         notes: notes !== undefined ? notes : appointment.notes,
         priority: priority || appointment.priority,
-        reminderMinutes: reminderMinutes !== undefined ? reminderMinutes : appointment.reminderMinutes,
+        reminderMinutes:
+          reminderMinutes !== undefined ? reminderMinutes : appointment.reminderMinutes,
       });
 
       // Update reminder if reminderMinutes changed
@@ -376,21 +405,21 @@ class AppointmentController {
         });
 
         if (existingReminder) {
-          const newReminderTime = new Date(appointment.startTime.getTime() - reminderMinutes * 60000);
-          await existingReminder.update({
-            scheduledFor: newReminderTime,
-          });
+          if (reminderMinutes > 0) {
+            const newReminderTime = new Date(
+              appointment.startTime.getTime() - reminderMinutes * 60000
+            );
+            await existingReminder.update({ scheduledFor: newReminderTime });
+          } else {
+            await existingReminder.update({ status: 'cancelled' });
+          }
         }
       }
 
       // Load full appointment data
       const fullAppointment = await models.Appointment.findOne({
         where: { id },
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
       });
 
       res.json({
@@ -417,12 +446,10 @@ class AppointmentController {
         throw new AppError('Appointment not found', 404, 'NOT_FOUND');
       }
 
-      // Only doctor or admin can confirm
-      if (!req.user.roles?.includes('admin') && appointment.doctorId !== req.user.doctorId) {
+      if (!isSystemAdmin(req) && appointment.doctorId !== req.user.doctorId) {
         throw new AppError('Only the doctor can confirm this appointment', 403, 'FORBIDDEN');
       }
 
-      // Cannot confirm if not pending
       if (appointment.status !== 'pending') {
         throw new AppError('Only pending appointments can be confirmed', 400, 'VALIDATION_ERROR');
       }
@@ -435,17 +462,9 @@ class AppointmentController {
         preparationInstructions,
       });
 
-      // Send confirmation notification to patient
-      // (In production, this would trigger a push notification or email)
-
-      // Load full appointment data
       const fullAppointment = await models.Appointment.findOne({
         where: { id },
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
       });
 
       res.json({
@@ -464,7 +483,7 @@ class AppointmentController {
   static async cancel(req, res, next) {
     try {
       const { id } = req.params;
-      const { reason, notifyDoctor = true, notifyPatient = true } = req.body;
+      const { reason } = req.body;
 
       const appointment = await models.Appointment.findOne({ where: { id } });
 
@@ -472,16 +491,16 @@ class AppointmentController {
         throw new AppError('Appointment not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (!req.user.roles?.includes('admin') &&
-          appointment.doctorId !== req.user.doctorId &&
-          appointment.patientId !== req.user.patientId) {
+      if (!canAccessAppointment(req, appointment)) {
         throw new AppError('Cannot cancel this appointment', 403, 'FORBIDDEN');
       }
 
-      // Cannot cancel completed or cancelled appointments
       if (appointment.status === 'completed' || appointment.status === 'cancelled') {
-        throw new AppError('Cannot cancel a completed or already cancelled appointment', 400, 'VALIDATION_ERROR');
+        throw new AppError(
+          'Cannot cancel a completed or already cancelled appointment',
+          400,
+          'VALIDATION_ERROR'
+        );
       }
 
       await appointment.update({
@@ -497,14 +516,9 @@ class AppointmentController {
         { where: { appointmentId: id } }
       );
 
-      // Load full appointment data
       const fullAppointment = await models.Appointment.findOne({
         where: { id },
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
       });
 
       res.json({
@@ -523,13 +537,7 @@ class AppointmentController {
   static async reschedule(req, res, next) {
     try {
       const { id } = req.params;
-      const {
-        newStartTime,
-        newEndTime,
-        reason,
-        notifyDoctor = true,
-        notifyPatient = true,
-      } = req.body;
+      const { startTime, endTime, duration, reason } = req.body;
 
       const appointment = await models.Appointment.findOne({ where: { id } });
 
@@ -537,16 +545,14 @@ class AppointmentController {
         throw new AppError('Appointment not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (!req.user.roles?.includes('admin') &&
-          appointment.doctorId !== req.user.doctorId &&
-          appointment.patientId !== req.user.patientId) {
+      if (!canAccessAppointment(req, appointment)) {
         throw new AppError('Cannot reschedule this appointment', 403, 'FORBIDDEN');
       }
 
-      // Validate time format
-      const startDate = new Date(newStartTime);
-      const endDate = newEndTime ? new Date(newEndTime) : new Date(startDate.getTime() + 30 * 60000);
+      const startDate = new Date(startTime);
+      const endDate = endTime
+        ? new Date(endTime)
+        : new Date(startDate.getTime() + ((duration || 30) * 60000));
 
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         throw new AppError('Invalid time format', 400, 'VALIDATION_ERROR');
@@ -556,7 +562,6 @@ class AppointmentController {
         throw new AppError('End time must be after start time', 400, 'VALIDATION_ERROR');
       }
 
-      // Check for scheduling conflicts
       const conflictingAppointment = await models.Appointment.findOne({
         where: {
           doctorId: appointment.doctorId,
@@ -578,10 +583,9 @@ class AppointmentController {
         throw new AppError('Doctor has a conflicting appointment at this time', 400, 'CONFLICT');
       }
 
-      // Update appointment
       await appointment.update({
         startTime: startDate,
-        endTime,
+        endTime: endDate,
         status: 'rescheduled',
         rescheduledAt: new Date(),
         rescheduledBy: req.user.id,
@@ -593,22 +597,19 @@ class AppointmentController {
         where: { appointmentId: id, type: 'appointment' },
       });
 
-      if (existingReminder) {
-        const newReminderTime = new Date(startDate.getTime() - (appointment.reminderMinutes || 30) * 60000);
+      if (existingReminder && (appointment.reminderMinutes || 0) > 0) {
+        const newReminderTime = new Date(
+          startDate.getTime() - (appointment.reminderMinutes || 30) * 60000
+        );
         await existingReminder.update({
           scheduledFor: newReminderTime,
           status: 'pending',
         });
       }
 
-      // Load full appointment data
       const fullAppointment = await models.Appointment.findOne({
         where: { id },
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
       });
 
       res.json({
@@ -635,14 +636,16 @@ class AppointmentController {
         throw new AppError('Appointment not found', 404, 'NOT_FOUND');
       }
 
-      // Only doctor or admin can mark as completed
-      if (!req.user.roles?.includes('admin') && appointment.doctorId !== req.user.doctorId) {
+      if (!isSystemAdmin(req) && appointment.doctorId !== req.user.doctorId) {
         throw new AppError('Only the doctor can mark this appointment as completed', 403, 'FORBIDDEN');
       }
 
-      // Cannot complete if not confirmed
       if (appointment.status !== 'confirmed') {
-        throw new AppError('Only confirmed appointments can be marked as completed', 400, 'VALIDATION_ERROR');
+        throw new AppError(
+          'Only confirmed appointments can be marked as completed',
+          400,
+          'VALIDATION_ERROR'
+        );
       }
 
       await appointment.update({
@@ -664,28 +667,31 @@ class AppointmentController {
 
       // If followup is recommended, create a followup reminder
       if (followupRecommended && followupDate) {
-        const followupReminderTime = new Date(followupDate);
-        followupReminderTime.setDate(followupReminderTime.getDate() - 1); // Remind 1 day before
-
-        await models.Reminder.create({
-          userId: appointment.patientId,
-          appointmentId: id,
-          type: 'followup',
-          title: 'Напоминание о повторном приеме',
-          message: `Напоминание о повторном приеме к врачу ${appointment.Doctor?.fullName || 'Unknown'}`,
-          scheduledFor: followupReminderTime,
-          status: 'pending',
-        });
+        const patient = await models.Patient.findByPk(appointment.patientId);
+        if (patient) {
+          const followupReminderTime = new Date(new Date(followupDate).getTime() - 24 * 3600 * 1000);
+          try {
+            await models.Reminder.create({
+              userId: patient.userId,
+              recipientId: patient.userId,
+              appointmentId: id,
+              type: 'followup',
+              title: 'Напоминание о повторном приеме',
+              message: 'Напоминание о повторном приеме к врачу',
+              scheduledFor: followupReminderTime,
+              status: 'pending',
+              createdBy: req.user.id,
+            });
+          } catch (reminderError) {
+            const logger = require('../utils/logger');
+            logger.warn('Failed to create followup reminder: ' + reminderError.message);
+          }
+        }
       }
 
-      // Load full appointment data
       const fullAppointment = await models.Appointment.findOne({
         where: { id },
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
       });
 
       res.json({
@@ -699,7 +705,7 @@ class AppointmentController {
   }
 
   /**
-   * Delete appointment
+   * Delete appointment (soft)
    */
   static async delete(req, res, next) {
     try {
@@ -711,19 +717,17 @@ class AppointmentController {
         throw new AppError('Appointment not found', 404, 'NOT_FOUND');
       }
 
-      // Access control - only admin can permanently delete
-      if (!req.user.roles?.includes('admin')) {
-        throw new AppError('Only admin can delete appointments', 403, 'FORBIDDEN');
+      if (!canAccessAppointment(req, appointment)) {
+        throw new AppError('Cannot delete this appointment', 403, 'FORBIDDEN');
       }
 
-      // Soft delete
       await appointment.update({
         deleted: true,
         deletedAt: new Date(),
         deletedBy: req.user.id,
+        status: 'cancelled',
       });
 
-      // Delete associated reminders
       await models.Reminder.destroy({ where: { appointmentId: id } });
 
       res.json({
@@ -749,12 +753,20 @@ class AppointmentController {
         limit = 20,
       } = req.query;
 
-      const where = {
-        [Op.or]: [
-          { doctorId: req.user.doctorId },
-          { patientId: req.user.patientId },
-        ],
-      };
+      const where = {};
+
+      if (req.user.doctorId || req.user.patientId) {
+        const or = [];
+        if (req.user.doctorId) or.push({ doctorId: req.user.doctorId });
+        if (req.user.patientId) or.push({ patientId: req.user.patientId });
+        where[Op.or] = or;
+      } else if (req.user.role === 'clinic_admin' && req.user.clinicId) {
+        where.clinicId = req.user.clinicId;
+      } else if (isSystemAdmin(req)) {
+        // All appointments
+      } else {
+        throw new AppError('No access to appointments', 403, 'FORBIDDEN');
+      }
 
       if (status) where.status = status;
       if (type) where.type = type;
@@ -769,11 +781,7 @@ class AppointmentController {
 
       const { count, rows } = await models.Appointment.findAndCountAll({
         where,
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
         order: [['startTime', 'ASC']],
         offset,
         limit: parseInt(limit),
@@ -809,12 +817,18 @@ class AppointmentController {
         limit = 20,
       } = req.query;
 
-      // Access control
-      if (doctorId !== req.user.doctorId && !req.user.roles?.includes('admin')) {
+      const allowed =
+        isSystemAdmin(req) ||
+        doctorId === req.user.doctorId ||
+        (req.user.role === 'clinic_admin' && req.user.clinicId);
+      if (!allowed) {
         throw new AppError('Cannot access other doctor appointments', 403, 'FORBIDDEN');
       }
 
       const where = { doctorId };
+      if (req.user.role === 'clinic_admin' && req.user.clinicId && doctorId !== req.user.doctorId) {
+        where.clinicId = req.user.clinicId;
+      }
 
       if (status) where.status = status;
       if (type) where.type = type;
@@ -829,11 +843,7 @@ class AppointmentController {
 
       const { count, rows } = await models.Appointment.findAndCountAll({
         where,
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
         order: [['startTime', 'ASC']],
         offset,
         limit: parseInt(limit),
@@ -869,12 +879,19 @@ class AppointmentController {
         limit = 20,
       } = req.query;
 
-      // Access control
-      if (patientId !== req.user.patientId && !req.user.roles?.includes('admin')) {
+      const allowed =
+        isSystemAdmin(req) ||
+        patientId === req.user.patientId ||
+        (req.user.doctorId !== undefined && req.user.doctorId) ||
+        (req.user.role === 'clinic_admin' && req.user.clinicId);
+      if (!allowed) {
         throw new AppError('Cannot access other patient appointments', 403, 'FORBIDDEN');
       }
 
       const where = { patientId };
+      if (req.user.role === 'clinic_admin' && req.user.clinicId) {
+        where.clinicId = req.user.clinicId;
+      }
 
       if (status) where.status = status;
       if (type) where.type = type;
@@ -889,11 +906,7 @@ class AppointmentController {
 
       const { count, rows } = await models.Appointment.findAndCountAll({
         where,
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
         order: [['startTime', 'ASC']],
         offset,
         limit: parseInt(limit),
@@ -932,9 +945,12 @@ class AppointmentController {
         },
       };
 
-      // Access control
       if (doctorId) {
-        if (doctorId !== req.user.doctorId && !req.user.roles?.includes('admin')) {
+        if (
+          doctorId !== req.user.doctorId &&
+          !isSystemAdmin(req) &&
+          !(req.user.role === 'clinic_admin' && req.user.clinicId)
+        ) {
           throw new AppError('Cannot access other doctor calendar', 403, 'FORBIDDEN');
         }
         where.doctorId = doctorId;
@@ -942,29 +958,35 @@ class AppointmentController {
         where.doctorId = req.user.doctorId;
       } else if (req.user.patientId) {
         where.patientId = req.user.patientId;
+      } else if (req.user.role === 'clinic_admin' && req.user.clinicId) {
+        where.clinicId = req.user.clinicId;
       }
 
       const appointments = await models.Appointment.findAll({
         where,
-        include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
         order: [['startTime', 'ASC']],
       });
 
-      // Format for calendar
-      const calendarAppointments = appointments.map(appointment => ({
+      const calendarAppointments = appointments.map((appointment) => ({
         id: appointment.id,
-        title: `${appointment.Patient?.fullName || 'Unknown'} - ${appointment.type}`,
+        title:
+          (appointment.patient && appointment.patient.user
+            ? appointment.patient.user.fullName || 'Пациент'
+            : 'Пациент') + ' - ' + appointment.type,
         start: appointment.startTime,
         end: appointment.endTime,
         type: appointment.type,
         status: appointment.status,
-        doctor: appointment.Doctor?.fullName,
-        patient: appointment.Patient?.fullName,
-        clinic: appointment.Clinic?.name,
+        doctor:
+          appointment.doctor && appointment.doctor.user
+            ? appointment.doctor.user.fullName
+            : undefined,
+        patient:
+          appointment.patient && appointment.patient.user
+            ? appointment.patient.user.fullName
+            : undefined,
+        clinic: appointment.clinic ? appointment.clinic.name : undefined,
       }));
 
       res.json({
@@ -991,12 +1013,18 @@ class AppointmentController {
       const where = {};
 
       if (doctorId) {
-        if (doctorId !== req.user.doctorId && !req.user.roles?.includes('admin')) {
+        if (
+          doctorId !== req.user.doctorId &&
+          !isSystemAdmin(req) &&
+          !(req.user.role === 'clinic_admin' && req.user.clinicId)
+        ) {
           throw new AppError('Cannot access other doctor statistics', 403, 'FORBIDDEN');
         }
         where.doctorId = doctorId;
       } else if (req.user.doctorId) {
         where.doctorId = req.user.doctorId;
+      } else if (req.user.role === 'clinic_admin' && req.user.clinicId) {
+        where.clinicId = req.user.clinicId;
       }
 
       if (clinicId) where.clinicId = clinicId;
@@ -1007,7 +1035,6 @@ class AppointmentController {
         if (endDate) where.startTime[Op.lte] = new Date(endDate);
       }
 
-      // Get counts by status
       const byStatus = await models.Appointment.findAll({
         where,
         attributes: ['status', [models.Sequelize.fn('COUNT', models.Sequelize.col('id')), 'count']],
@@ -1015,7 +1042,6 @@ class AppointmentController {
         raw: true,
       });
 
-      // Get counts by type
       const byType = await models.Appointment.findAll({
         where,
         attributes: ['type', [models.Sequelize.fn('COUNT', models.Sequelize.col('id')), 'count']],
@@ -1023,7 +1049,6 @@ class AppointmentController {
         raw: true,
       });
 
-      // Get total
       const total = await models.Appointment.count({ where });
 
       res.json({

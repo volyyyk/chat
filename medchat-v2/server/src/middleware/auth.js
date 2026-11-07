@@ -7,6 +7,18 @@ const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = process.env;
 const models = require('../models');
 
+// Safe logger: never leave requests hanging if winston is not loadable
+let logger;
+try {
+  logger = require('../utils/logger');
+} catch (e) {
+  logger = global.logger || {
+    error: (...args) => console.error('[error]', ...args),
+    warn: (...args) => console.warn('[warn]', ...args),
+    info: (...args) => console.info('[info]', ...args),
+  };
+}
+
 /**
  * Authenticate user using JWT token
  * @returns {Function} Express middleware
@@ -16,7 +28,7 @@ function authenticate() {
     try {
       // Get token from header
       const authHeader = req.headers.authorization;
-      
+
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({
           error: 'Unauthorized',
@@ -77,17 +89,26 @@ function authenticate() {
         privateKey: user.privateKey,
       };
 
-      // Update last activity
-      await user.update({
-        lastActivityAt: new Date(),
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-      });
+      // Update last activity (throttled: at most once per 60 seconds,
+      // to avoid a DB write on every single request)
+      try {
+        const needsUpdate = !user.lastActivityAt ||
+          (Date.now() - new Date(user.lastActivityAt).getTime() > 60000);
+        if (needsUpdate) {
+          await user.update({
+            lastActivityAt: new Date(),
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent'),
+          });
+        }
+      } catch (e) {
+        logger.warn('Failed to update lastActivityAt: ' + e.message);
+      }
 
       next();
     } catch (error) {
       logger.error(`Authentication error: ${error.message}`);
-      
+
       if (error.name === 'JsonWebTokenError') {
         return res.status(401).json({
           error: 'Unauthorized',
@@ -223,7 +244,7 @@ function belongsToClinic(clinicIdParam = 'clinicId') {
   return async (req, res, next) => {
     try {
       const clinicId = req.params[clinicIdParam] || req.body[clinicIdParam];
-      
+
       if (!clinicId) {
         return res.status(400).json({
           error: 'Bad Request',
@@ -233,7 +254,7 @@ function belongsToClinic(clinicIdParam = 'clinicId') {
 
       // Check if user belongs to the clinic
       const userClinicId = req.user.clinicId;
-      
+
       if (userClinicId !== clinicId && req.user.role !== 'system_admin') {
         return res.status(403).json({
           error: 'Forbidden',

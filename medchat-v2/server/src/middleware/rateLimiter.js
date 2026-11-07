@@ -14,7 +14,8 @@ function createRedisStore() {
     const RedisStore = require('rate-limit-redis');
     const redis = require('../config/redis');
     if (redis && typeof redis.sendCommand === 'function') {
-      return new RedisStore({ sendCommand: (...args) => redis.sendCommand(args) });
+      // sendCommand must receive the command parts as separate arguments
+      return new RedisStore({ sendCommand: (...args) => redis.sendCommand(...args) });
     }
   } catch (err) {
     // rate-limit-redis or redis not available - use default MemoryStore
@@ -32,7 +33,7 @@ const baseOptions = {
 // Rate limiting configuration
 const rateLimiter = rateLimit({
   ...baseOptions,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // 100 requests per window
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 300, // 300 requests per window
   store: createRedisStore(),
   passOnStoreError: true, // serve requests even if Redis is temporarily down
   skip: (req) => {
@@ -59,13 +60,18 @@ const rateLimiter = rateLimit({
   },
 });
 
-// Auth-specific rate limiter (more restrictive: brute-force protection)
+// Auth-specific rate limiter (more restrictive: brute-force protection).
+// Previously `skip` returned true for every non-auth path, which silently
+// DISABLED brute-force protection for login too - now only /health is skipped.
 const authRateLimiter = rateLimit({
   ...baseOptions,
   max: parseInt(process.env.RATE_LIMIT_AUTH_MAX) || 10, // 10 login attempts per window
   store: createRedisStore(),
   passOnStoreError: true,
-  skip: (req) => !req.path.startsWith('/api/auth'),
+  skip: (req) => {
+    // Only limit auth endpoints themselves
+    return !req.path.startsWith('/api/auth');
+  },
   handler: (req, res) => {
     res.status(429).json({
       error: {

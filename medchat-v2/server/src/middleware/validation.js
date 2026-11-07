@@ -5,6 +5,19 @@
 
 const { v4: uuidv4 } = require('uuid');
 
+// Safe logger: a bare `logger.warn` here previously crashed on unknown fields
+// and left the request hanging without a response.
+let logger;
+try {
+  logger = require('../utils/logger');
+} catch (e) {
+  logger = global.logger || {
+    error: (...args) => console.error('[error]', ...args),
+    warn: (...args) => console.warn('[warn]', ...args),
+    info: (...args) => console.info('[info]', ...args),
+  };
+}
+
 /**
  * Validate request data against Joi schema
  * @param {Object} schema - Joi schema
@@ -19,11 +32,13 @@ function validate(schema, source = 'body') {
     // Set request ID for logging
     req.requestId = requestId;
 
-    // Validate data
+    // Validate data: stripUnknown removes extra fields instead of rejecting
+    // the whole request (clients send harmless extras like client version).
     const { error, value } = schema.validate(data, {
       abortEarly: false,
-      allowUnknown: false,
-      stripUnknown: false,
+      allowUnknown: true,
+      stripUnknown: true,
+      convert: true,
     });
 
     if (error) {
@@ -45,6 +60,9 @@ function validate(schema, source = 'body') {
 
     // Attach validated data to request
     req.validatedData = value;
+    // Replace the original source with the sanitized value so controllers
+    // never see unknown fields
+    req[source] = value;
     next();
   };
 }
@@ -63,13 +81,16 @@ function validateMultiple(schemas) {
       const data = req[source];
       const { error, value } = schema.validate(data, {
         abortEarly: false,
-        allowUnknown: false,
+        allowUnknown: true,
+        stripUnknown: true,
+        convert: true,
       });
 
       if (error) {
         errors.push(...error.details);
       } else {
         validatedData[source] = value;
+        req[source] = value;
       }
     }
 

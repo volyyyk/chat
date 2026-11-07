@@ -3,6 +3,7 @@
  * Handles payment-related operations with test balance
  */
 
+const { Op } = require('sequelize');
 const models = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 const PaymentService = require('../services/paymentService');
@@ -49,7 +50,6 @@ class PaymentController {
         amount,
         currency = 'RUB',
         description,
-        referenceId,
       } = req.body;
 
       const userId = req.user.id;
@@ -63,12 +63,12 @@ class PaymentController {
         amount,
         currency,
         null,
-        referenceId || `payment_${Date.now()}`,
+        null,
         description
       );
 
       if (!result.success) {
-        throw new AppError(result.message, 402, result.error);
+        throw new AppError(result.message || 'Payment failed', 402, result.error);
       }
 
       res.status(201).json({
@@ -105,21 +105,22 @@ class PaymentController {
       let result;
 
       switch (type) {
-        case 'message':
+        case 'message': {
           if (!chatId) {
             throw new AppError('Chat ID is required for message payment', 400, 'VALIDATION_ERROR');
           }
           result = await PaymentService.processMessagePayment(
             userId,
-            amount || 50, // Default message price
+            amount, // falls back to MESSAGE_PRICE_RUB when not passed
             currency,
             chatId,
-            messageId || `msg_${Date.now()}`,
+            messageId || null,
             description
           );
           break;
+        }
 
-        case 'file':
+        case 'file': {
           if (!fileId) {
             throw new AppError('File ID is required for file payment', 400, 'VALIDATION_ERROR');
           }
@@ -131,13 +132,31 @@ class PaymentController {
             description
           );
           break;
+        }
+
+        case 'package':
+        case 'deposit': {
+          // Buying a package / depositing funds: add money to the test balance
+          const depositAmount = Number(amount);
+          if (!(depositAmount > 0)) {
+            throw new AppError('Amount must be positive', 400, 'VALIDATION_ERROR');
+          }
+          result = await BalanceService.deposit(
+            userId,
+            depositAmount,
+            currency,
+            description || (type === 'package' ? 'Пополнение пакета (тестовый баланс)' : 'Пополнение баланса (тест)')
+          );
+          result.revenueSplit = undefined;
+          break;
+        }
 
         default:
           throw new AppError('Invalid payment type', 400, 'VALIDATION_ERROR');
       }
 
       if (!result.success) {
-        throw new AppError(result.message, 402, result.error);
+        throw new AppError(result.message || 'Payment failed', 402, result.error);
       }
 
       res.json({
@@ -163,15 +182,13 @@ class PaymentController {
         throw new AppError('Chat ID is required', 400, 'VALIDATION_ERROR');
       }
 
-      const isFree = await PaymentService.isMessageFree(userId, chatId);
+      const { isFree, reason } = await PaymentService.isMessageFree(userId, chatId);
 
       res.json({
         success: true,
         data: {
           isFree,
-          reason: isFree
-            ? 'Message is free (within 30 days of appointment or first message)'
-            : 'Message requires payment',
+          reason,
         },
       });
     } catch (error) {
@@ -180,7 +197,7 @@ class PaymentController {
   }
 
   /**
-   * Create payout
+   * Create payout (doctor withdraws earnings)
    */
   static async createPayout(req, res, next) {
     try {
@@ -188,25 +205,25 @@ class PaymentController {
         amount,
         currency = 'RUB',
         payoutMethod = 'test_balance',
-        payoutDetails,
         description,
       } = req.body;
 
-      const doctorId = req.user.doctorId || req.user.id;
+      const userId = req.user.id;
 
       if (!amount || amount <= 0) {
         throw new AppError('Amount must be positive', 400, 'VALIDATION_ERROR');
       }
 
       const result = await PaymentService.processPayout(
-        doctorId,
+        userId,
         amount,
         currency,
-        payoutMethod
+        payoutMethod,
+        req.user.doctorId || null
       );
 
       if (!result.success) {
-        throw new AppError(result.message, 402, result.error);
+        throw new AppError(result.message || 'Payout failed', 402, result.error);
       }
 
       res.status(201).json({
@@ -220,14 +237,13 @@ class PaymentController {
   }
 
   /**
-   * Get doctor balance
+   * Get doctor balance (balance is stored per user account)
    */
   static async getDoctorBalance(req, res, next) {
     try {
-      const doctorId = req.user.doctorId || req.user.id;
       const { currency = 'RUB' } = req.query;
 
-      const balance = await BalanceService.getBalance(doctorId, currency);
+      const balance = await BalanceService.getBalance(req.user.id, currency);
 
       res.json({
         success: true,
@@ -243,7 +259,6 @@ class PaymentController {
    */
   static async getDoctorTransactions(req, res, next) {
     try {
-      const doctorId = req.user.doctorId || req.user.id;
       const {
         page = 1,
         limit = 20,
@@ -253,15 +268,21 @@ class PaymentController {
         endDate,
       } = req.query;
 
-      const where = { doctorId };
+      // Doctor history includes: his deposits (userId) and payments to him (doctorId)
+      const where = {
+        [Op.or]: [
+          { userId: req.user.id },
+          ...(req.user.doctorId ? [{ doctorId: req.user.doctorId }] : []),
+        ],
+      };
 
       if (type) where.type = type;
       if (status) where.status = status;
 
       if (startDate || endDate) {
         where.createdAt = {};
-        if (startDate) where.createdAt.$gte = new Date(startDate);
-        if (endDate) where.createdAt.$lte = new Date(endDate);
+        if (startDate) where.createdAt[Op.gte] = new Date(startDate);
+        if (endDate) where.createdAt[Op.lte] = new Date(endDate);
       }
 
       const offset = (page - 1) * limit;
@@ -289,14 +310,13 @@ class PaymentController {
   }
 
   /**
-   * Get clinic balance
+   * Get clinic balance (revenue goes to the clinic admin's user balance)
    */
   static async getClinicBalance(req, res, next) {
     try {
-      const clinicId = req.user.clinicId || req.user.id;
       const { currency = 'RUB' } = req.query;
 
-      const balance = await BalanceService.getBalance(clinicId, currency);
+      const balance = await BalanceService.getBalance(req.user.id, currency);
 
       res.json({
         success: true,
@@ -321,8 +341,8 @@ class PaymentController {
 
       if (startDate || endDate) {
         where.createdAt = {};
-        if (startDate) where.createdAt.$gte = new Date(startDate);
-        if (endDate) where.createdAt.$lte = new Date(endDate);
+        if (startDate) where.createdAt[Op.gte] = new Date(startDate);
+        if (endDate) where.createdAt[Op.lte] = new Date(endDate);
       }
 
       // Get counts by type

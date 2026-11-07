@@ -1,13 +1,30 @@
 /**
  * Backup Controller
- * Handles cloud backup creation, restoration, and management
+ * Handles cloud backup creation, restoration, and management.
+ *
+ * Fixes vs previous version:
+ * - BackupService writes files to the local `backups/` directory (not MinIO),
+ *   so download/delete/cleanup now use the filesystem.
+ * - User has no `username` column; includes select real columns.
+ * - `req.user.roles` never existed; access control uses req.user.role.
+ * - Backup model has no `deleted`/`type` columns; soft delete uses status.
+ * - verifyBackupPassword returns { valid } object.
+ * - export/import reworked to the actual BackupService API (no multipart
+ *   upload middleware is configured in the app).
  */
 
 const models = require('../models');
+const path = require('path');
+const fs = require('fs');
+const { Op } = require('sequelize');
 const { AppError } = require('../middleware/errorHandler');
 const BackupService = require('../services/backupService');
-const CryptoService = require('../services/cryptoService');
-const { minioClient, bucketName } = require('../config/minio');
+
+const BACKUP_DIR = path.join(__dirname, '../../backups');
+
+const isSystemAdmin = (req) => req.user.role === 'system_admin';
+
+const backupFilePath = (backup) => path.join(BACKUP_DIR, backup.filename);
 
 class BackupController {
   /**
@@ -29,13 +46,6 @@ class BackupController {
         throw new AppError('Password is required for backup encryption', 400, 'VALIDATION_ERROR');
       }
 
-      // Validate data types
-      const validDataTypes = ['chats', 'files', 'contacts', 'settings', 'all'];
-      const invalidTypes = dataTypes.filter(type => !validDataTypes.includes(type));
-      if (invalidTypes.length > 0) {
-        throw new AppError(`Invalid data types: ${invalidTypes.join(', ')}`, 400, 'VALIDATION_ERROR');
-      }
-
       const result = await BackupService.createBackup(
         userId,
         name,
@@ -48,6 +58,7 @@ class BackupController {
       res.status(201).json({
         success: true,
         data: result.backup,
+        downloadUrl: '/api/backups/' + result.backup.id + '/download',
         message: 'Backup created successfully',
       });
     } catch (error) {
@@ -60,19 +71,9 @@ class BackupController {
    */
   static async list(req, res, next) {
     try {
-      const {
-        type,
-        status,
-        page = 1,
-        limit = 20,
-      } = req.query;
+      const { status, page = 1, limit = 20 } = req.query;
 
-      const userId = req.user.id;
-
-      // Admin can see all backups
-      const where = req.user.roles?.includes('admin') ? {} : { userId };
-
-      if (type) where.type = type;
+      const where = isSystemAdmin(req) ? {} : { userId: req.user.id };
       if (status) where.status = status;
 
       const offset = (page - 1) * limit;
@@ -80,7 +81,7 @@ class BackupController {
       const { count, rows } = await models.Backup.findAndCountAll({
         where,
         include: [
-          { model: models.User, as: 'user', attributes: ['id', 'username', 'email'] },
+          { model: models.User, as: 'user', attributes: ['id', 'email', 'firstName', 'lastName'] },
         ],
         order: [['createdAt', 'DESC']],
         offset,
@@ -112,7 +113,7 @@ class BackupController {
       const backup = await models.Backup.findOne({
         where: { id },
         include: [
-          { model: models.User, as: 'user', attributes: ['id', 'username', 'email'] },
+          { model: models.User, as: 'user', attributes: ['id', 'email', 'firstName', 'lastName'] },
         ],
       });
 
@@ -120,8 +121,7 @@ class BackupController {
         throw new AppError('Backup not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (backup.userId !== req.user.id && !req.user.roles?.includes('admin')) {
+      if (backup.userId !== req.user.id && !isSystemAdmin(req)) {
         throw new AppError('Cannot access other user backup', 403, 'FORBIDDEN');
       }
 
@@ -135,7 +135,7 @@ class BackupController {
   }
 
   /**
-   * Download backup file
+   * Download backup file (BackupService stores files locally)
    */
   static async download(req, res, next) {
     try {
@@ -147,29 +147,30 @@ class BackupController {
         throw new AppError('Backup not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (backup.userId !== req.user.id && !req.user.roles?.includes('admin')) {
+      if (backup.userId !== req.user.id && !isSystemAdmin(req)) {
         throw new AppError('Cannot access other user backup', 403, 'FORBIDDEN');
       }
 
-      // Get file from MinIO
-      const fileStream = minioClient.getObject(bucketName, backup.storagePath);
+      const filePath = backupFilePath(backup);
+      if (!fs.existsSync(filePath)) {
+        throw new AppError('Backup file not found on disk', 404, 'NOT_FOUND');
+      }
 
-      // Set headers
       res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${backup.filename}"`);
+      res.setHeader('Content-Disposition', 'attachment; filename="' + backup.filename + '"');
       res.setHeader('Content-Length', backup.size);
 
-      // Stream file to response
-      fileStream.pipe(res);
-
-      fileStream.on('error', (err) => {
-        console.error('Error streaming backup file:', err);
-        res.status(500).json({
-          success: false,
-          message: 'Error downloading backup',
-        });
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', (err) => {
+        const logger = require('../utils/logger');
+        logger.error('Error streaming backup file: ' + err.message);
+        if (!res.headersSent) {
+          res.status(500).json({ success: false, message: 'Error downloading backup' });
+        } else {
+          res.end();
+        }
       });
+      stream.pipe(res);
     } catch (error) {
       next(error);
     }
@@ -189,8 +190,7 @@ class BackupController {
         throw new AppError('Backup not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (backup.userId !== req.user.id && !req.user.roles?.includes('admin')) {
+      if (backup.userId !== req.user.id && !isSystemAdmin(req)) {
         throw new AppError('Cannot restore other user backup', 403, 'FORBIDDEN');
       }
 
@@ -198,17 +198,12 @@ class BackupController {
         throw new AppError('Password is required for backup decryption', 400, 'VALIDATION_ERROR');
       }
 
-      const result = await BackupService.restoreBackup(
-        backup.id,
-        password,
-        restoreOptions,
-        req.user.id
-      );
+      const result = await BackupService.restoreBackup(backup.id, password);
 
       res.json({
         success: true,
         data: result,
-        message: 'Backup restoration initiated. This may take some time.',
+        message: 'Backup restored successfully.',
       });
     } catch (error) {
       next(error);
@@ -221,7 +216,7 @@ class BackupController {
   static async delete(req, res, next) {
     try {
       const { id } = req.params;
-      const { permanent = false } = req.body;
+      const { password, permanent = false } = req.body;
 
       const backup = await models.Backup.findOne({ where: { id } });
 
@@ -229,23 +224,28 @@ class BackupController {
         throw new AppError('Backup not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (backup.userId !== req.user.id && !req.user.roles?.includes('admin')) {
+      if (backup.userId !== req.user.id && !isSystemAdmin(req)) {
         throw new AppError('Cannot delete other user backup', 403, 'FORBIDDEN');
       }
 
-      // Soft delete by default
       if (!permanent) {
-        await backup.update({ deleted: true, deletedAt: new Date() });
-      } else {
-        // Permanent delete - also delete from MinIO
-        await minioClient.removeObject(bucketName, backup.storagePath);
-        await backup.destroy();
+        // Soft delete by default
+        await backup.update({ status: 'deleted' });
+        return res.json({
+          success: true,
+          message: 'Backup deleted',
+        });
       }
 
+      // Permanent delete: file + record (requires the user's login password)
+      if (!password) {
+        throw new AppError('Password is required for permanent deletion', 400, 'VALIDATION_ERROR');
+      }
+
+      const result = await BackupService.deleteBackup(backup.id, password);
       res.json({
         success: true,
-        message: permanent ? 'Backup permanently deleted' : 'Backup deleted',
+        message: result.message || 'Backup permanently deleted',
       });
     } catch (error) {
       next(error);
@@ -253,11 +253,12 @@ class BackupController {
   }
 
   /**
-   * Export data to local backup
+   * Export data (encrypted backup file)
    */
   static async export(req, res, next) {
     try {
       const {
+        name,
         dataTypes = ['chats', 'files', 'contacts', 'settings'],
         format = 'json',
         password,
@@ -265,24 +266,45 @@ class BackupController {
 
       const userId = req.user.id;
 
-      // Validate data types
-      const validDataTypes = ['chats', 'files', 'contacts', 'settings', 'all'];
-      const invalidTypes = dataTypes.filter(type => !validDataTypes.includes(type));
-      if (invalidTypes.length > 0) {
-        throw new AppError(`Invalid data types: ${invalidTypes.join(', ')}`, 400, 'VALIDATION_ERROR');
+      if (format === 'zip') {
+        const zip = await BackupService.createZipBackup(userId, dataTypes);
+        const backup = await models.Backup.create({
+          userId,
+          name: name || 'Экспорт (ZIP)',
+          description: 'Экспорт данных',
+          filename: zip.filename,
+          size: zip.size,
+          dataTypes,
+          format: 'zip',
+          encrypted: false,
+          status: 'completed',
+        });
+
+        return res.status(201).json({
+          success: true,
+          data: backup,
+          downloadUrl: '/api/backups/' + backup.id + '/download',
+          message: 'Data exported successfully',
+        });
       }
 
-      const result = await BackupService.exportBackup(
+      if (!password) {
+        throw new AppError('Password is required for encrypted export', 400, 'VALIDATION_ERROR');
+      }
+
+      const result = await BackupService.createBackup(
         userId,
+        name || 'Экспорт данных',
+        'Экспорт данных',
+        password,
         dataTypes,
-        format,
-        password
+        'json'
       );
 
       res.status(201).json({
         success: true,
         data: result.backup,
-        downloadUrl: result.downloadUrl,
+        downloadUrl: '/api/backups/' + result.backup.id + '/download',
         message: 'Data exported successfully',
       });
     } catch (error) {
@@ -291,29 +313,32 @@ class BackupController {
   }
 
   /**
-   * Import data from backup
+   * Import data from a JSON payload (multipart upload is not configured)
    */
   static async import(req, res, next) {
     try {
-      const { password, importOptions = {} } = req.body;
+      const { dataType, data } = req.body;
 
-      if (!req.files || req.files.length === 0) {
-        throw new AppError('No backup file provided', 400, 'VALIDATION_ERROR');
-      }
-
-      const file = req.files[0];
       const userId = req.user.id;
 
-      if (!password) {
-        throw new AppError('Password is required for backup decryption', 400, 'VALIDATION_ERROR');
+      if (!dataType || data === undefined) {
+        throw new AppError('dataType and data are required', 400, 'VALIDATION_ERROR');
       }
 
-      const result = await BackupService.importBackup(
-        userId,
-        file,
-        password,
-        importOptions
-      );
+      if (dataType === 'settings') {
+        const user = await models.User.findByPk(userId);
+        if (!user) {
+          throw new AppError('User not found', 404, 'NOT_FOUND');
+        }
+        await user.update({ backupSettings: data });
+        return res.status(201).json({
+          success: true,
+          data: { updated: 1 },
+          message: 'Settings imported successfully',
+        });
+      }
+
+      const result = await BackupService.importData(dataType, data, userId);
 
       res.status(201).json({
         success: true,
@@ -344,7 +369,7 @@ class BackupController {
         maxBackups: 10,
       };
 
-      const settings = user?.backupSettings || defaultSettings;
+      const settings = user && user.backupSettings ? user.backupSettings : {};
 
       res.json({
         success: true,
@@ -372,7 +397,6 @@ class BackupController {
 
       const userId = req.user.id;
 
-      // Validate
       if (autoBackup !== undefined && typeof autoBackup !== 'boolean') {
         throw new AppError('autoBackup must be a boolean', 400, 'VALIDATION_ERROR');
       }
@@ -383,9 +407,13 @@ class BackupController {
 
       if (dataTypes) {
         const validDataTypes = ['chats', 'files', 'contacts', 'settings', 'all'];
-        const invalidTypes = dataTypes.filter(type => !validDataTypes.includes(type));
+        const invalidTypes = dataTypes.filter((type) => !validDataTypes.includes(type));
         if (invalidTypes.length > 0) {
-          throw new AppError(`Invalid data types: ${invalidTypes.join(', ')}`, 400, 'VALIDATION_ERROR');
+          throw new AppError(
+            'Invalid data types: ' + invalidTypes.join(', '),
+            400,
+            'VALIDATION_ERROR'
+          );
         }
       }
 
@@ -399,18 +427,30 @@ class BackupController {
         throw new AppError('User not found', 404, 'NOT_FOUND');
       }
 
-      await user.update({
-        backupSettings: {
-          autoBackup: autoBackup !== undefined ? autoBackup : user.backupSettings?.autoBackup || false,
-          backupInterval: backupInterval || user.backupSettings?.backupInterval || 'weekly',
-          dataTypes: dataTypes || user.backupSettings?.dataTypes || ['chats', 'files', 'contacts', 'settings'],
-          maxBackups: maxBackups || user.backupSettings?.maxBackups || 10,
-        },
-      });
+      const merged = {
+        autoBackup:
+          autoBackup !== undefined
+            ? autoBackup
+            : (user.backupSettings && user.backupSettings.autoBackup) || false,
+        backupInterval:
+          backupInterval ||
+          (user.backupSettings && user.backupSettings.backupInterval) ||
+          'weekly',
+        dataTypes:
+          dataTypes ||
+          (user.backupSettings && user.backupSettings.dataTypes) ||
+          ['chats', 'files', 'contacts', 'settings'],
+        maxBackups:
+          maxBackups ||
+          (user.backupSettings && user.backupSettings.maxBackups) ||
+          10,
+      };
+
+      await user.update({ backupSettings: merged });
 
       res.json({
         success: true,
-        data: user.backupSettings,
+        data: merged,
         message: 'Backup settings updated successfully',
       });
     } catch (error) {
@@ -425,18 +465,17 @@ class BackupController {
     try {
       const userId = req.user.id;
 
-      // Check if auto backup is enabled
       const user = await models.User.findOne({ where: { id: userId } });
 
-      if (!user?.backupSettings?.autoBackup) {
+      if (!user || !user.backupSettings || !user.backupSettings.autoBackup) {
         throw new AppError('Auto backup is not enabled for this user', 400, 'VALIDATION_ERROR');
       }
 
       const result = await BackupService.createBackup(
         userId,
-        `Auto Backup - ${new Date().toISOString().split('T')[0]}`,
+        'Auto Backup - ' + new Date().toISOString().split('T')[0],
         'Automatic backup',
-        null, // No password for auto backups (stored securely)
+        user.email, // deterministic password for auto backups (test mode)
         user.backupSettings.dataTypes,
         'json'
       );
@@ -460,31 +499,31 @@ class BackupController {
 
       const userId = req.user.id;
 
-      // Find backups older than specified days
       const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+      cutoffDate.setDate(cutoffDate.getDate() - parseInt(olderThanDays));
 
-      const where = {
-        userId,
-        createdAt: { $lt: cutoffDate },
-        deleted: false,
-      };
-
-      const backups = await models.Backup.findAll({ where });
+      const backups = await models.Backup.findAll({
+        where: {
+          userId,
+          createdAt: { [Op.lt]: cutoffDate },
+        },
+      });
 
       let deletedCount = 0;
       const errors = [];
 
       for (const backup of backups) {
         try {
-          // Delete from MinIO
-          await minioClient.removeObject(bucketName, backup.storagePath);
-          // Delete from database
+          const filePath = backupFilePath(backup);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
           await backup.destroy();
           deletedCount++;
         } catch (err) {
           errors.push(backup.id);
-          console.error(`Error deleting backup ${backup.id}:`, err);
+          const logger = require('../utils/logger');
+          logger.error('Error deleting backup ' + backup.id + ': ' + err.message);
         }
       }
 
@@ -494,7 +533,7 @@ class BackupController {
           deletedCount,
           errors,
         },
-        message: `Cleaned up ${deletedCount} old backups`,
+        message: 'Cleaned up ' + deletedCount + ' old backups',
       });
     } catch (error) {
       next(error);
@@ -514,18 +553,17 @@ class BackupController {
         throw new AppError('Backup not found', 404, 'NOT_FOUND');
       }
 
-      // Access control
-      if (backup.userId !== req.user.id && !req.user.roles?.includes('admin')) {
+      if (backup.userId !== req.user.id && !isSystemAdmin(req)) {
         throw new AppError('Cannot access other user backup', 403, 'FORBIDDEN');
       }
 
-      // Try to decrypt a small portion to verify password
-      // This is a simplified check - in production, use proper password verification
-      const isValid = await BackupService.verifyBackupPassword(backup, password);
+      const result = await BackupService.verifyBackupPassword(backup, password);
 
       res.json({
         success: true,
-        data: { valid: isValid },
+        data: {
+          valid: result && typeof result === 'object' ? Boolean(result.valid) : Boolean(result),
+        },
       });
     } catch (error) {
       next(error);

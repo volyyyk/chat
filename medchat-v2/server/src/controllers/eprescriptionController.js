@@ -5,7 +5,6 @@
 
 const models = require('../models');
 const { AppError } = require('../middleware/errorHandler');
-const BackupService = require('../services/backupService');
 const CryptoService = require('../services/cryptoService');
 const { Op } = require('sequelize');
 
@@ -31,7 +30,10 @@ class EPrescriptionController {
         priority = 'normal',
       } = req.body;
 
-      const doctorId = req.user.doctorId || req.user.id;
+      const doctorId = req.user.doctorId;
+      if (!doctorId) {
+        throw new AppError('Only doctors can manage e-prescriptions', 403, 'FORBIDDEN');
+      }
 
       // Validate required fields
       if (!patientId) {
@@ -73,10 +75,10 @@ class EPrescriptionController {
         type,
         title,
         description,
-        medications: JSON.stringify(medications),
+        medications,
         dosage,
         duration,
-        instructions,
+        instructions: instructions || req.body.recommendations || undefined,
         diagnosis,
         notes,
         validUntil: validUntilDate,
@@ -89,7 +91,7 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id: eprescription.id },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
           { model: models.Patient },
           { model: models.Appointment },
         ],
@@ -123,7 +125,7 @@ class EPrescriptionController {
       const where = {};
 
       // Access control for non-admin users
-      if (!req.user.roles?.includes('admin')) {
+      if (req.user.role !== 'system_admin') {
         if (req.user.doctorId) {
           where.doctorId = req.user.doctorId;
         }
@@ -143,8 +145,8 @@ class EPrescriptionController {
       const { count, rows } = await models.EPrescription.findAndCountAll({
         where,
         include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
+          { model: models.Doctor, as: 'doctor', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
           { model: models.Appointment, attributes: ['id', 'startTime'] },
         ],
         order: [['createdAt', 'DESC']],
@@ -177,7 +179,7 @@ class EPrescriptionController {
       const eprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
           { model: models.Patient },
           { model: models.Appointment },
         ],
@@ -188,7 +190,7 @@ class EPrescriptionController {
       }
 
       // Access control
-      if (!req.user.roles?.includes('admin') &&
+      if (req.user.role !== 'system_admin' &&
           eprescription.doctorId !== req.user.doctorId &&
           eprescription.patientId !== req.user.patientId) {
         throw new AppError('Cannot access this e-prescription', 403, 'FORBIDDEN');
@@ -197,7 +199,7 @@ class EPrescriptionController {
       // Parse medications
       const data = eprescription.toJSON();
       if (data.medications) {
-        data.medications = JSON.parse(data.medications);
+        data.medications = Array.isArray(data.medications) ? data.medications : JSON.parse(data.medications);
       }
 
       res.json({
@@ -235,7 +237,7 @@ class EPrescriptionController {
       }
 
       // Access control - only doctor or admin can update
-      if (!req.user.roles?.includes('admin') && eprescription.doctorId !== req.user.doctorId) {
+      if (req.user.role !== 'system_admin' && eprescription.doctorId !== req.user.doctorId) {
         throw new AppError('Cannot update this e-prescription', 403, 'FORBIDDEN');
       }
 
@@ -252,7 +254,7 @@ class EPrescriptionController {
       await eprescription.update({
         title: title !== undefined ? title : eprescription.title,
         description: description !== undefined ? description : eprescription.description,
-        medications: medications !== undefined ? JSON.stringify(medications) : eprescription.medications,
+        medications: medications !== undefined ? medications : eprescription.medications,
         dosage: dosage !== undefined ? dosage : eprescription.dosage,
         duration: duration !== undefined ? duration : eprescription.duration,
         instructions: instructions !== undefined ? instructions : eprescription.instructions,
@@ -266,7 +268,7 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
           { model: models.Patient },
           { model: models.Appointment },
         ],
@@ -275,7 +277,7 @@ class EPrescriptionController {
       // Parse medications
       const data = fullEprescription.toJSON();
       if (data.medications) {
-        data.medications = JSON.parse(data.medications);
+        data.medications = Array.isArray(data.medications) ? data.medications : JSON.parse(data.medications);
       }
 
       res.json({
@@ -303,7 +305,7 @@ class EPrescriptionController {
       }
 
       // Access control - only doctor or admin can cancel
-      if (!req.user.roles?.includes('admin') && eprescription.doctorId !== req.user.doctorId) {
+      if (req.user.role !== 'system_admin' && eprescription.doctorId !== req.user.doctorId) {
         throw new AppError('Cannot cancel this e-prescription', 403, 'FORBIDDEN');
       }
 
@@ -323,7 +325,7 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
           { model: models.Patient },
           { model: models.Appointment },
         ],
@@ -332,7 +334,7 @@ class EPrescriptionController {
       // Parse medications
       const data = fullEprescription.toJSON();
       if (data.medications) {
-        data.medications = JSON.parse(data.medications);
+        data.medications = Array.isArray(data.medications) ? data.medications : JSON.parse(data.medications);
       }
 
       res.json({
@@ -365,10 +367,9 @@ class EPrescriptionController {
         throw new AppError('E-Prescription not found', 404, 'NOT_FOUND');
       }
 
-      // Access control - only doctor, admin, or pharmacy can fulfill
-      if (!req.user.roles?.includes('admin') &&
-          eprescription.doctorId !== req.user.doctorId &&
-          !req.user.roles?.includes('pharmacy')) {
+      // Access control - only the doctor of this prescription or an admin can fulfill
+      if (req.user.role !== 'system_admin' &&
+          eprescription.doctorId !== req.user.doctorId) {
         throw new AppError('Cannot fulfill this e-prescription', 403, 'FORBIDDEN');
       }
 
@@ -395,7 +396,7 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
           { model: models.Patient },
           { model: models.Appointment },
         ],
@@ -404,7 +405,7 @@ class EPrescriptionController {
       // Parse medications
       const data = fullEprescription.toJSON();
       if (data.medications) {
-        data.medications = JSON.parse(data.medications);
+        data.medications = Array.isArray(data.medications) ? data.medications : JSON.parse(data.medications);
       }
 
       res.json({
@@ -431,7 +432,7 @@ class EPrescriptionController {
       }
 
       // Access control - only doctor or admin can delete
-      if (!req.user.roles?.includes('admin') && eprescription.doctorId !== req.user.doctorId) {
+      if (req.user.role !== 'system_admin' && eprescription.doctorId !== req.user.doctorId) {
         throw new AppError('Cannot delete this e-prescription', 403, 'FORBIDDEN');
       }
 
@@ -461,7 +462,7 @@ class EPrescriptionController {
       const eprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
           { model: models.Patient },
           { model: models.Appointment },
         ],
@@ -472,7 +473,7 @@ class EPrescriptionController {
       }
 
       // Access control
-      if (!req.user.roles?.includes('admin') &&
+      if (req.user.role !== 'system_admin' &&
           eprescription.doctorId !== req.user.doctorId &&
           eprescription.patientId !== req.user.patientId) {
         throw new AppError('Cannot access this e-prescription', 403, 'FORBIDDEN');
@@ -481,7 +482,7 @@ class EPrescriptionController {
       // Parse medications
       const data = eprescription.toJSON();
       if (data.medications) {
-        data.medications = JSON.parse(data.medications);
+        data.medications = Array.isArray(data.medications) ? data.medications : JSON.parse(data.medications);
       }
 
       // Generate PDF (simplified - in production use a PDF library)
@@ -505,7 +506,7 @@ class EPrescriptionController {
       const eprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
           { model: models.Patient },
           { model: models.Appointment },
         ],
@@ -516,7 +517,7 @@ class EPrescriptionController {
       }
 
       // Access control
-      if (!req.user.roles?.includes('admin') &&
+      if (req.user.role !== 'system_admin' &&
           eprescription.doctorId !== req.user.doctorId &&
           eprescription.patientId !== req.user.patientId) {
         throw new AppError('Cannot access this e-prescription', 403, 'FORBIDDEN');
@@ -525,7 +526,7 @@ class EPrescriptionController {
       // Parse medications
       const data = eprescription.toJSON();
       if (data.medications) {
-        data.medications = JSON.parse(data.medications);
+        data.medications = Array.isArray(data.medications) ? data.medications : JSON.parse(data.medications);
       }
 
       // Generate HTML for printing
@@ -556,7 +557,7 @@ class EPrescriptionController {
       }
 
       // Access control - only doctor or admin can send
-      if (!req.user.roles?.includes('admin') && eprescription.doctorId !== req.user.doctorId) {
+      if (req.user.role !== 'system_admin' && eprescription.doctorId !== req.user.doctorId) {
         throw new AppError('Cannot send this e-prescription', 403, 'FORBIDDEN');
       }
 
@@ -571,21 +572,20 @@ class EPrescriptionController {
       });
 
       // Create a message in the chat if sending via chat
-      if (sendVia === 'chat' && eprescription.appointmentId) {
+      if (sendVia === 'chat') {
         const chat = await models.Chat.findOne({
           where: {
-            [Op.or]: [
-              { doctorId: eprescription.doctorId, patientId: eprescription.patientId },
-              { doctorId: eprescription.doctorId, id: eprescription.appointmentId },
-            ],
+            doctorId: eprescription.doctorId,
+            patientId: eprescription.patientId,
           },
         });
 
         if (chat) {
+          const patient = await models.Patient.findByPk(eprescription.patientId);
           await models.Message.create({
             chatId: chat.id,
-            senderType: 'doctor',
             senderId: req.user.id,
+            receiverId: patient ? patient.userId : null,
             type: 'prescription',
             content: message || `Электронный рецепт #${eprescription.prescriptionNumber}`,
             metadata: {
@@ -600,7 +600,7 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
           { model: models.Patient },
           { model: models.Appointment },
         ],
@@ -609,7 +609,7 @@ class EPrescriptionController {
       // Parse medications
       const data = fullEprescription.toJSON();
       if (data.medications) {
-        data.medications = JSON.parse(data.medications);
+        data.medications = Array.isArray(data.medications) ? data.medications : JSON.parse(data.medications);
       }
 
       res.json({
@@ -636,7 +636,7 @@ class EPrescriptionController {
       } = req.query;
 
       // Access control
-      if (doctorId !== req.user.doctorId && !req.user.roles?.includes('admin')) {
+      if (doctorId !== req.user.doctorId && req.user.role !== 'system_admin') {
         throw new AppError('Cannot access other doctor e-prescriptions', 403, 'FORBIDDEN');
       }
 
@@ -650,8 +650,8 @@ class EPrescriptionController {
       const { count, rows } = await models.EPrescription.findAndCountAll({
         where,
         include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
+          { model: models.Doctor, as: 'doctor', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
           { model: models.Appointment, attributes: ['id', 'startTime'] },
         ],
         order: [['createdAt', 'DESC']],
@@ -663,7 +663,7 @@ class EPrescriptionController {
       const data = rows.map(r => {
         const row = r.toJSON();
         if (row.medications) {
-          row.medications = JSON.parse(row.medications);
+          row.medications = Array.isArray(row.medications) ? row.medications : JSON.parse(row.medications);
         }
         return row;
       });
@@ -697,7 +697,7 @@ class EPrescriptionController {
       } = req.query;
 
       // Access control
-      if (patientId !== req.user.patientId && !req.user.roles?.includes('admin')) {
+      if (patientId !== req.user.patientId && req.user.role !== 'system_admin') {
         throw new AppError('Cannot access other patient e-prescriptions', 403, 'FORBIDDEN');
       }
 
@@ -711,8 +711,8 @@ class EPrescriptionController {
       const { count, rows } = await models.EPrescription.findAndCountAll({
         where,
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
+          { model: models.Patient, as: 'patient', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
           { model: models.Appointment, attributes: ['id', 'startTime'] },
         ],
         order: [['createdAt', 'DESC']],
@@ -724,7 +724,7 @@ class EPrescriptionController {
       const data = rows.map(r => {
         const row = r.toJSON();
         if (row.medications) {
-          row.medications = JSON.parse(row.medications);
+          row.medications = Array.isArray(row.medications) ? row.medications : JSON.parse(row.medications);
         }
         return row;
       });
@@ -738,6 +738,82 @@ class EPrescriptionController {
           limit: parseInt(limit),
           pages: Math.ceil(count / limit),
         },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Sign e-prescription with the doctor's electronic signature.
+   * Moves the prescription from draft to active (the mobile client treats
+   * status === 'active' as "signed").
+   */
+  static async sign(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { signature } = req.body;
+
+      const eprescription = await models.EPrescription.findOne({ where: { id } });
+
+      if (!eprescription) {
+        throw new AppError('E-Prescription not found', 404, 'NOT_FOUND');
+      }
+
+      // Access control - only the doctor of this prescription or an admin
+      if (req.user.role !== 'system_admin' && eprescription.doctorId !== req.user.doctorId) {
+        throw new AppError('Cannot sign this e-prescription', 403, 'FORBIDDEN');
+      }
+
+      if (eprescription.status === 'cancelled') {
+        throw new AppError('Cannot sign a cancelled e-prescription', 400, 'VALIDATION_ERROR');
+      }
+
+      if (eprescription.status === 'active') {
+        return res.json({
+          success: true,
+          data: eprescription,
+          message: 'E-Prescription is already signed',
+        });
+      }
+
+      await eprescription.update({
+        status: 'active',
+      });
+
+      // Audit trail
+      try {
+        await models.AuditLog.create({
+          userId: req.user.id,
+          doctorId: eprescription.doctorId,
+          patientId: eprescription.patientId,
+          action: 'eprescription_signed',
+          entityType: 'eprescription',
+          entityId: eprescription.id,
+          metadata: {
+            eprescriptionId: eprescription.id,
+            prescriptionNumber: eprescription.prescriptionNumber,
+            signatureProvided: Boolean(signature),
+          },
+        });
+      } catch (auditError) {
+        const logger = require('../utils/logger');
+        logger.warn('Failed to write audit log for e-prescription signing: ' + auditError.message);
+      }
+
+      const fullEprescription = await models.EPrescription.findOne({
+        where: { id },
+        include: [
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
+          { model: models.Patient, as: 'patient', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Appointment, as: 'appointment' },
+        ],
+      });
+
+      res.json({
+        success: true,
+        data: fullEprescription,
+        message: 'E-Prescription signed successfully',
       });
     } catch (error) {
       next(error);
@@ -759,7 +835,7 @@ class EPrescriptionController {
       const where = {};
 
       if (doctorId) {
-        if (doctorId !== req.user.doctorId && !req.user.roles?.includes('admin')) {
+        if (doctorId !== req.user.doctorId && req.user.role !== 'system_admin') {
           throw new AppError('Cannot access other doctor statistics', 403, 'FORBIDDEN');
         }
         where.doctorId = doctorId;
@@ -798,8 +874,8 @@ class EPrescriptionController {
       const recent = await models.EPrescription.findAll({
         where,
         include: [
-          { model: models.Doctor, attributes: ['id', 'fullName'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
+          { model: models.Doctor, as: 'doctor', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
         ],
         order: [['createdAt', 'DESC']],
         limit: 5,
@@ -809,7 +885,7 @@ class EPrescriptionController {
       const recentData = recent.map(r => {
         const row = r.toJSON();
         if (row.medications) {
-          row.medications = JSON.parse(row.medications);
+          row.medications = Array.isArray(row.medications) ? row.medications : JSON.parse(row.medications);
         }
         return row;
       });
@@ -923,12 +999,12 @@ startxref
 
   <div class="content">
     <h2>Пациент:</h2>
-    <p><strong>ФИО:</strong> ${eprescription.Patient?.fullName || 'N/A'}</p>
-    <p><strong>Дата рождения:</strong> ${eprescription.Patient?.dateOfBirth ? new Date(eprescription.Patient.dateOfBirth).toLocaleDateString('ru-RU') : 'N/A'}</p>
+    <p><strong>ФИО:</strong> ${(eprescription.patient && eprescription.patient.user && (eprescription.patient.user.fullName || [eprescription.patient.user.lastName, eprescription.patient.user.firstName].filter(Boolean).join(' '))) || 'N/A'}</p>
+    <p><strong>Дата рождения:</strong> ${eprescription.patient?.dateOfBirth ? new Date(eprescription.patient.dateOfBirth).toLocaleDateString('ru-RU') : 'N/A'}</p>
 
     <h2>Врач:</h2>
-    <p><strong>ФИО:</strong> ${eprescription.Doctor?.fullName || 'N/A'}</p>
-    <p><strong>Специальность:</strong> ${eprescription.Doctor?.Specialties?.map(s => s.name).join(', ') || 'N/A'}</p>
+    <p><strong>ФИО:</strong> ${(eprescription.doctor && eprescription.doctor.user && (eprescription.doctor.user.fullName || [eprescription.doctor.user.lastName, eprescription.doctor.user.firstName].filter(Boolean).join(' '))) || 'N/A'}</p>
+    <p><strong>Специальность:</strong> ${eprescription.doctor?.Specialties?.map(s => s.name).join(', ') || 'N/A'}</p>
 
     <h2>Диагноз:</h2>
     <p>${eprescription.diagnosis || 'Не указан'}</p>

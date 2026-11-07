@@ -1,100 +1,203 @@
 /**
  * Payment Service
  * Handles test balance payments and real payment integrations
- * Note: Real payment integrations (YooMoney, Tinkoff) are not implemented per user request
+ * Note: Real payment integrations (YooMoney, Tinkoff) are not implemented per user request.
+ * All message payments share the split defined by the clinic (default 80/20).
  */
 
+const { Op } = require('sequelize');
 const models = require('../models');
 const BalanceService = require('./balanceService');
-const TransactionService = require('./transactionService');
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const MESSAGE_PRICE = () => parseFloat(process.env.MESSAGE_PRICE_RUB || '50');
+const FREE_MESSAGE_DAYS = () => parseInt(process.env.FREE_MESSAGE_DAYS || '30', 10);
+const DOCTOR_SHARE_PERCENT = () => parseInt(process.env.DOCTOR_SHARE_PERCENT || '80', 10);
 
 class PaymentService {
   /**
-   * Process message payment
-   * @param {string} userId - User ID
-   * @param {number} amount - Amount to charge
-   * @param {string} currency - Currency (default: RUB)
-   * @param {string} chatId - Chat ID
-   * @param {string} messageId - Message ID
-   * @param {string} description - Description
-   * @returns {Promise<Object>} - Payment result
+   * Find a chat by primary UUID id or by public chatId string (CHAT_xxx / test-chat-xxx)
+   * Includes doctor(+user), patient(+user) and clinic for access and revenue checks.
    */
-  static async processMessagePayment(userId, amount, currency = 'RUB', chatId, messageId, description) {
-    try {
-      // Check if user has sufficient balance
-      const hasBalance = await BalanceService.hasSufficientBalance(userId, amount, currency);
+  static async findChat(idOrChatId) {
+    if (!idOrChatId) return null;
 
-      if (!hasBalance) {
-        return {
-          success: false,
-          error: 'INSUFFICIENT_BALANCE',
-          message: 'Insufficient balance for this payment',
-        };
+    const include = [
+      { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'email'] }] },
+      { model: models.Patient, as: 'patient', include: [{ model: models.User, as: 'user', attributes: ['id', 'email'] }] },
+      { model: models.Clinic, as: 'clinic' },
+    ];
+
+    if (UUID_RE.test(idOrChatId)) {
+      return models.Chat.findByPk(idOrChatId, { include });
+    }
+    return models.Chat.findOne({ where: { chatId: idOrChatId }, include });
+  }
+
+  /**
+   * Resolve whether a message in this chat is free for the given user.
+   * Free cases:
+   *  - the doctor of the chat sends it (doctor_initiated)
+   *  - it is the first message in the chat (first_message)
+   *  - there was a completed appointment within the last N days (within_30_days)
+   *  - patient's lastAppointmentDate is within N days (within_30_days)
+   * @returns {Promise<{isFree: boolean, reason: string|null}>}
+   */
+  static async resolveMessageFree(userId, chat) {
+    if (!chat) {
+      return { isFree: false, reason: null };
+    }
+
+    // Doctor of the chat always sends for free
+    if (chat.doctor && chat.doctor.userId === userId) {
+      return { isFree: true, reason: 'doctor_initiated' };
+    }
+
+    // First message in the chat is free
+    const messageCount = await models.Message.count({ where: { chatId: chat.id } });
+    if (messageCount === 0) {
+      return { isFree: true, reason: 'first_message' };
+    }
+
+    // Completed appointment within the free window
+    const freeSince = new Date(Date.now() - FREE_MESSAGE_DAYS() * 24 * 60 * 60 * 1000);
+
+    if (chat.patientId && chat.doctorId) {
+      const appointment = await models.Appointment.findOne({
+        where: {
+          doctorId: chat.doctorId,
+          patientId: chat.patientId,
+          status: 'completed',
+          startTime: { [Op.gte]: freeSince },
+        },
+        order: [['startTime', 'DESC']],
+      });
+
+      if (appointment) {
+        return { isFree: true, reason: 'within_30_days' };
+      }
+    }
+
+    // Fall back to patient's stored lastAppointmentDate
+    if (chat.patient && chat.patient.lastAppointmentDate && new Date(chat.patient.lastAppointmentDate) >= freeSince) {
+      return { isFree: true, reason: 'within_30_days' };
+    }
+
+    return { isFree: false, reason: null };
+  }
+
+  /**
+   * Charge the patient for a message and create the completed transaction.
+   * Runs the charge + transaction inside a single SQL transaction.
+   * Revenue split goes to the doctor (clinic.doctorSharePercent, default 80%)
+   * and the clinic admin (the rest).
+   * @returns {Promise<{success: boolean, error?: string, transaction?: Object}>}
+   */
+  static async chargeMessagePayment(userId, chat, { messageId = null, amount = null, description = null } = {}) {
+    const price = Number(amount) > 0 ? Number(amount) : MESSAGE_PRICE();
+    const currency = 'RUB';
+
+    const doctorPct = chat && chat.clinic && Number.isFinite(Number(chat.clinic.doctorSharePercent))
+      ? Number(chat.clinic.doctorSharePercent)
+      : DOCTOR_SHARE_PERCENT();
+
+    const doctorAmount = Math.round(price * doctorPct / 100);
+    const clinicAmount = Math.round((price - doctorAmount) * 100) / 100;
+
+    let result = await models.sequelize.transaction(async (t) => {
+      const charge = await BalanceService.charge(userId, price, currency, description || 'Оплата сообщения', { transaction: t });
+      if (!charge.success) {
+        return charge;
       }
 
-      // Reserve the amount
-      const reserveRef = `message_${messageId}_${Date.now()}`;
-      await BalanceService.reserve(userId, amount, currency, reserveRef);
-
-      // Create transaction
-      const transaction = await models.Transaction.create({
-        userId,
-        chatId,
-        type: 'message_payment',
-        amount,
-        currency,
-        paymentMethod: 'test_balance',
-        status: 'completed',
-        description: description || `Payment for message ${messageId}`,
-        referenceId: messageId,
-        metadata: { reserveRef },
-      });
-
-      // Commit the reservation
-      await BalanceService.commit(reserveRef);
-
-      // Calculate revenue split (70% to doctor, 30% to clinic)
-      const doctorAmount = Math.round(amount * 0.7);
-      const clinicAmount = amount - doctorAmount;
-
-      // Get doctor and clinic IDs from chat
-      const chat = await models.Chat.findOne({
-        where: { id: chatId },
-        include: [
-          { model: models.Doctor, attributes: ['id'] },
-          { model: models.Clinic, attributes: ['id'] },
-        ],
-      });
-
-      if (chat?.Doctor?.id) {
-        // Credit doctor
-        await BalanceService.deposit(
-          chat.Doctor.id,
-          doctorAmount,
+      const transaction = await models.Transaction.create(
+        {
+          userId,
+          type: 'message_payment',
+          amount: price,
           currency,
-          `Revenue from message payment ${messageId}`
-        );
-
-        // Credit clinic if exists
-        if (chat.Clinic?.id) {
-          await BalanceService.deposit(
-            chat.Clinic.id,
-            clinicAmount,
-            currency,
-            `Revenue from message payment ${messageId}`
-          );
-        }
-      }
+          paymentMethod: 'test_balance',
+          status: 'completed',
+          messageId: messageId || null,
+          chatId: chat ? chat.id : null,
+          doctorId: chat ? chat.doctorId : null,
+          patientId: chat ? chat.patientId : null,
+          clinicId: chat ? chat.clinicId : null,
+          doctorShare: doctorAmount,
+          clinicShare: clinicAmount,
+          description: description || 'Оплата сообщения',
+          metadata: { balanceBefore: charge.balanceBefore, balanceAfter: charge.balanceAfter },
+        },
+        { transaction: t }
+      );
 
       return {
         success: true,
         transaction,
-        reserveRef,
+        balanceBefore: charge.balanceBefore,
+        balanceAfter: charge.balanceAfter,
         revenueSplit: {
           doctor: doctorAmount,
           clinic: clinicAmount,
         },
       };
+    });
+
+    if (!result.success) {
+      return result;
+    }
+
+    // Credit revenue shares (non-fatal: revenue must not block messaging)
+    if (chat) {
+      try {
+        if (chat.doctor && chat.doctor.userId && doctorAmount > 0) {
+          await BalanceService.deposit(chat.doctor.userId, doctorAmount, currency, 'Доход врача за платное сообщение');
+        }
+      } catch (e) {
+        console.error('Failed to credit doctor share:', e.message);
+      }
+      try {
+        if (chat.clinic && chat.clinic.adminId && clinicAmount > 0) {
+          await BalanceService.deposit(chat.clinic.adminId, clinicAmount, currency, 'Доход клиники за платное сообщение');
+        }
+      } catch (e) {
+        console.error('Failed to credit clinic share:', e.message);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Process message payment (entry point used by payment controller)
+   * @param {string} userId - User ID
+   * @param {number} amount - Amount to charge (optional, falls back to MESSAGE_PRICE_RUB)
+   * @param {string} currency - Currency
+   * @param {string} chatId - Chat id or public chatId
+   * @param {string} messageId - Message ID
+   * @param {string} description - Description
+   */
+  static async processMessagePayment(userId, amount, currency = 'RUB', chatId, messageId, description) {
+    try {
+      const chat = await this.findChat(chatId);
+      if (chatId && !chat) {
+        return {
+          success: false,
+          error: 'CHAT_NOT_FOUND',
+          message: 'Chat not found',
+        };
+      }
+
+      const amt = Number(amount) > 0 ? Number(amount) : MESSAGE_PRICE();
+
+      const result = await this.chargeMessagePayment(userId, chat, {
+        messageId,
+        amount: amt,
+        description,
+      });
+
+      return result;
     } catch (error) {
       console.error('Error processing message payment:', error);
       return {
@@ -107,51 +210,44 @@ class PaymentService {
 
   /**
    * Process file upload payment
-   * @param {string} userId - User ID
-   * @param {number} amount - Amount to charge
-   * @param {string} currency - Currency (default: RUB)
-   * @param {string} fileId - File ID
-   * @param {string} description - Description
-   * @returns {Promise<Object>} - Payment result
    */
   static async processFilePayment(userId, amount, currency = 'RUB', fileId, description) {
     try {
-      // Check if user has sufficient balance
-      const hasBalance = await BalanceService.hasSufficientBalance(userId, amount, currency);
+      const amt = Number(amount) > 0 ? Number(amount) : 100;
 
-      if (!hasBalance) {
+      const result = await models.sequelize.transaction(async (t) => {
+        const charge = await BalanceService.charge(userId, amt, currency, description || 'Оплата файла', { transaction: t });
+        if (!charge.success) {
+          return charge;
+        }
+
+        const transaction = await models.Transaction.create(
+          {
+            userId,
+            type: 'file_payment',
+            amount: amt,
+            currency,
+            paymentMethod: 'test_balance',
+            status: 'completed',
+            description: description || `Payment for file ${fileId || ''}`,
+            metadata: {
+              fileId: fileId || null,
+              balanceBefore: charge.balanceBefore,
+              balanceAfter: charge.balanceAfter,
+            },
+          },
+          { transaction: t }
+        );
+
         return {
-          success: false,
-          error: 'INSUFFICIENT_BALANCE',
-          message: 'Insufficient balance for this payment',
+          success: true,
+          transaction,
+          balanceBefore: charge.balanceBefore,
+          balanceAfter: charge.balanceAfter,
         };
-      }
-
-      // Reserve the amount
-      const reserveRef = `file_${fileId}_${Date.now()}`;
-      await BalanceService.reserve(userId, amount, currency, reserveRef);
-
-      // Create transaction
-      const transaction = await models.Transaction.create({
-        userId,
-        type: 'file_payment',
-        amount,
-        currency,
-        paymentMethod: 'test_balance',
-        status: 'completed',
-        description: description || `Payment for file ${fileId}`,
-        referenceId: fileId,
-        metadata: { reserveRef },
       });
 
-      // Commit the reservation
-      await BalanceService.commit(reserveRef);
-
-      return {
-        success: true,
-        transaction,
-        reserveRef,
-      };
+      return result;
     } catch (error) {
       console.error('Error processing file payment:', error);
       return {
@@ -164,51 +260,44 @@ class PaymentService {
 
   /**
    * Process subscription payment
-   * @param {string} userId - User ID
-   * @param {number} amount - Amount to charge
-   * @param {string} currency - Currency (default: RUB)
-   * @param {string} subscriptionType - Subscription type
-   * @param {string} description - Description
-   * @returns {Promise<Object>} - Payment result
    */
   static async processSubscriptionPayment(userId, amount, currency = 'RUB', subscriptionType, description) {
     try {
-      // Check if user has sufficient balance
-      const hasBalance = await BalanceService.hasSufficientBalance(userId, amount, currency);
+      const amt = Number(amount) > 0 ? Number(amount) : 500;
 
-      if (!hasBalance) {
+      const result = await models.sequelize.transaction(async (t) => {
+        const charge = await BalanceService.charge(userId, amt, currency, description || 'Оплата подписки', { transaction: t });
+        if (!charge.success) {
+          return charge;
+        }
+
+        const transaction = await models.Transaction.create(
+          {
+            userId,
+            type: 'subscription_payment',
+            amount: amt,
+            currency,
+            paymentMethod: 'test_balance',
+            status: 'completed',
+            description: description || `Subscription payment for ${subscriptionType}`,
+            metadata: {
+              subscriptionType,
+              balanceBefore: charge.balanceBefore,
+              balanceAfter: charge.balanceAfter,
+            },
+          },
+          { transaction: t }
+        );
+
         return {
-          success: false,
-          error: 'INSUFFICIENT_BALANCE',
-          message: 'Insufficient balance for this payment',
+          success: true,
+          transaction,
+          balanceBefore: charge.balanceBefore,
+          balanceAfter: charge.balanceAfter,
         };
-      }
-
-      // Reserve the amount
-      const reserveRef = `subscription_${subscriptionType}_${userId}_${Date.now()}`;
-      await BalanceService.reserve(userId, amount, currency, reserveRef);
-
-      // Create transaction
-      const transaction = await models.Transaction.create({
-        userId,
-        type: 'subscription',
-        amount,
-        currency,
-        paymentMethod: 'test_balance',
-        status: 'completed',
-        description: description || `Subscription payment for ${subscriptionType}`,
-        referenceId: reserveRef,
-        metadata: { subscriptionType },
       });
 
-      // Commit the reservation
-      await BalanceService.commit(reserveRef);
-
-      return {
-        success: true,
-        transaction,
-        reserveRef,
-      };
+      return result;
     } catch (error) {
       console.error('Error processing subscription payment:', error);
       return {
@@ -220,59 +309,26 @@ class PaymentService {
   }
 
   /**
-   * Check if message is free (within 30 days of appointment)
+   * Check if message is free for a user in a chat
    * @param {string} userId - User ID
-   * @param {string} chatId - Chat ID
-   * @returns {Promise<boolean>} - Is free
+   * @param {string} chatId - Chat id or public chatId
+   * @returns {Promise<{isFree: boolean, reason: string|null}>}
    */
   static async isMessageFree(userId, chatId) {
     try {
-      // Check if this is a doctor (doctors can send free messages)
-      const user = await models.User.findOne({
-        where: { id: userId },
-        include: [models.Doctor],
-      });
-
-      if (user?.Doctor) {
-        return true; // Doctors can send free messages
+      const chat = await this.findChat(chatId);
+      if (!chat) {
+        return { isFree: false, reason: null };
       }
-
-      // Check if there's a recent appointment for this chat
-      const appointment = await models.Appointment.findOne({
-        where: {
-          [Op.or]: [
-            { doctorId: user.doctorId, patientId: user.patientId },
-            { patientId: user.patientId, doctorId: user.doctorId },
-          ],
-          status: 'completed',
-          startTime: { [Op.gte]: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
-        },
-        order: [['startTime', 'DESC']],
-      });
-
-      if (appointment) {
-        return true; // Free within 30 days of appointment
-      }
-
-      // Check if this is the first message in the chat
-      const messageCount = await models.Message.count({
-        where: { chatId, senderId: userId },
-      });
-
-      if (messageCount === 0) {
-        return true; // First message is free
-      }
-
-      return false;
+      return await this.resolveMessageFree(userId, chat);
     } catch (error) {
       console.error('Error checking if message is free:', error);
-      return false; // Default to paid if error
+      return { isFree: false, reason: null };
     }
   }
 
   /**
    * Get payment methods
-   * @returns {Promise<Array>} - Available payment methods
    */
   static async getPaymentMethods() {
     return [
@@ -309,70 +365,67 @@ class PaymentService {
 
   /**
    * Get pricing information
-   * @returns {Promise<Object>} - Pricing information
    */
   static async getPricing() {
     return {
-      messagePrice: 50, // RUB
+      messagePrice: MESSAGE_PRICE(), // RUB
       fileUploadPrice: 100, // RUB
       subscription: {
         monthly: 500, // RUB
         yearly: 5000, // RUB
       },
       revenueSplit: {
-        doctor: 0.7, // 70%
-        clinic: 0.3, // 30%
+        doctor: DOCTOR_SHARE_PERCENT() / 100, // 80%
+        clinic: (100 - DOCTOR_SHARE_PERCENT()) / 100, // 20%
       },
-      freePeriodDays: 30, // Days after appointment when messages are free
+      freePeriodDays: FREE_MESSAGE_DAYS(), // Days after appointment when messages are free
     };
   }
 
   /**
-   * Process payout to doctor
-   * @param {string} doctorId - Doctor ID
+   * Process payout to doctor.
+   * @param {string} userId - User ID (balance owner)
    * @param {number} amount - Amount to payout
-   * @param {string} currency - Currency (default: RUB)
+   * @param {string} currency - Currency
    * @param {string} payoutMethod - Payout method
-   * @returns {Promise<Object>} - Payout result
+   * @param {string} doctorId - Optional Doctor profile id for the transaction record
    */
-  static async processPayout(doctorId, amount, currency = 'RUB', payoutMethod = 'test_balance') {
+  static async processPayout(userId, amount, currency = 'RUB', payoutMethod = 'test_balance', doctorId = null) {
     try {
-      // Check if doctor has sufficient balance
-      const hasBalance = await BalanceService.hasSufficientBalance(doctorId, amount, currency);
+      const result = await models.sequelize.transaction(async (t) => {
+        const charge = await BalanceService.charge(userId, Number(amount), currency, 'Выплата врачу', { transaction: t });
+        if (!charge.success) {
+          return charge;
+        }
 
-      if (!hasBalance) {
+        const transaction = await models.Transaction.create(
+          {
+            userId,
+            doctorId: doctorId || null,
+            type: 'payout',
+            amount,
+            currency,
+            paymentMethod: payoutMethod,
+            status: 'completed',
+            description: `Payout via ${payoutMethod}`,
+            metadata: {
+              payoutMethod,
+              balanceBefore: charge.balanceBefore,
+              balanceAfter: charge.balanceAfter,
+            },
+          },
+          { transaction: t }
+        );
+
         return {
-          success: false,
-          error: 'INSUFFICIENT_BALANCE',
-          message: 'Insufficient balance for payout',
+          success: true,
+          transaction,
+          balanceBefore: charge.balanceBefore,
+          balanceAfter: charge.balanceAfter,
         };
-      }
-
-      // Create payout transaction
-      const transaction = await models.Transaction.create({
-        userId: doctorId,
-        doctorId,
-        type: 'payout',
-        amount,
-        currency,
-        paymentMethod: payoutMethod,
-        status: 'completed',
-        description: `Payout via ${payoutMethod}`,
-        metadata: { payoutMethod },
       });
 
-      // Withdraw from balance
-      await BalanceService.withdraw(
-        doctorId,
-        amount,
-        currency,
-        `Payout via ${payoutMethod}`
-      );
-
-      return {
-        success: true,
-        transaction,
-      };
+      return result;
     } catch (error) {
       console.error('Error processing payout:', error);
       return {
@@ -385,9 +438,6 @@ class PaymentService {
 
   /**
    * Refund transaction
-   * @param {string} transactionId - Transaction ID
-   * @param {string} reason - Refund reason
-   * @returns {Promise<Object>} - Refund result
    */
   static async refundTransaction(transactionId, reason) {
     try {
@@ -421,13 +471,13 @@ class PaymentService {
         paymentMethod: transaction.paymentMethod,
         status: 'completed',
         description: `Refund for transaction ${transactionId}: ${reason}`,
-        referenceId: transactionId,
+        metadata: { originalTransactionId: transactionId },
       });
 
       // Return money to user's balance
       await BalanceService.deposit(
         transaction.userId,
-        transaction.amount,
+        Number(transaction.amount),
         transaction.currency,
         `Refund for transaction ${transactionId}`
       );

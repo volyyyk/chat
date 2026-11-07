@@ -7,6 +7,9 @@ const express = require('express');
 const router = express.Router();
 const AuthService = require('../services/authService');
 const { validate } = require('../middleware/validation');
+const { authenticate } = require('../middleware/auth');
+const crypto = require('crypto');
+const logger = require('../utils/logger');
 const { authSchema, registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema, changePasswordSchema, refreshTokenSchema } = require('../validators/auth');
 
 /**
@@ -217,7 +220,7 @@ router.post('/refresh', validate(refreshTokenSchema), async (req, res, next) => 
  *                   type: string
  *                   example: Logged out successfully
  */
-router.post('/logout', async (req, res, next) => {
+router.post('/logout', authenticate(), async (req, res, next) => {
   try {
     const userId = req.user.id;
     const token = req.headers.authorization?.split(' ')[1];
@@ -323,7 +326,7 @@ router.post('/reset-password', validate(resetPasswordSchema), async (req, res, n
  *       401:
  *         description: Current password is incorrect
  */
-router.post('/change-password', validate(changePasswordSchema), async (req, res, next) => {
+router.post('/change-password', authenticate(), validate(changePasswordSchema), async (req, res, next) => {
   try {
     const userId = req.user.id;
     const { currentPassword, newPassword } = req.body;
@@ -350,7 +353,7 @@ router.post('/change-password', validate(changePasswordSchema), async (req, res,
  *             schema:
  *               $ref: '#/components/schemas/User'
  */
-router.get('/me', async (req, res, next) => {
+router.get('/me', authenticate(), async (req, res, next) => {
   try {
     const userId = req.user.id;
     const models = require('../models');
@@ -420,7 +423,6 @@ router.post('/verify-email', async (req, res, next) => {
 
     await verificationToken.user.update({
       emailVerified: true,
-      verificationDate: new Date(),
     });
 
     await verificationToken.update({ usedAt: new Date() });
@@ -443,7 +445,7 @@ router.post('/verify-email', async (req, res, next) => {
  *       200:
  *         description: Verification email resent
  */
-router.post('/resend-verification', async (req, res, next) => {
+router.post('/resend-verification', authenticate(), async (req, res, next) => {
   try {
     const userId = req.user.id;
     const models = require('../models');
@@ -479,3 +481,4 @@ router.post('/resend-verification', async (req, res, next) => {
 });
 
 module.exports = router;
+

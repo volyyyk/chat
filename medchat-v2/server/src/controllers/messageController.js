@@ -6,12 +6,11 @@
 const models = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 const CryptoService = require('../services/cryptoService');
+const { canAccessChat, getAccessibleChatIds } = require('../utils/chatAccess');
 
 class MessageController {
   /**
    * Get message by ID
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async getById(req, res, next) {
     try {
@@ -31,14 +30,11 @@ class MessageController {
         throw new AppError('Message not found', 404, 'NOT_FOUND');
       }
 
-      // Check access
+      // Check access to the chat the message belongs to
       if (req.user.role !== 'system_admin') {
-        if (req.user.id !== message.senderId && req.user.id !== message.receiverId) {
-          // Check if user is in the chat
-          const chat = await models.Chat.findByPk(message.chatId);
-          if (!chat || (req.user.id !== chat.doctorId && req.user.id !== chat.patientId)) {
-            throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-          }
+        const allowed = await canAccessChat(req.user, message.chat);
+        if (!allowed && req.user.id !== message.senderId && req.user.id !== message.receiverId) {
+          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
         }
       }
 
@@ -50,8 +46,6 @@ class MessageController {
 
   /**
    * List messages in chat
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async list(req, res, next) {
     try {
@@ -64,16 +58,9 @@ class MessageController {
         throw new AppError('Chat not found', 404, 'NOT_FOUND');
       }
 
-      // Check access
-      if (req.user.role !== 'system_admin') {
-        if (req.user.id !== chat.doctorId && req.user.id !== chat.patientId) {
-          const participant = await models.ChatParticipant.findOne({
-            where: { chatId, userId: req.user.id },
-          });
-          if (!participant) {
-            throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-          }
-        }
+      const allowed = await canAccessChat(req.user, chat);
+      if (!allowed) {
+        throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
       const where = { chatId };
@@ -109,8 +96,6 @@ class MessageController {
 
   /**
    * Update message
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async update(req, res, next) {
     try {
@@ -127,11 +112,11 @@ class MessageController {
         throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
-      // Check if message can be edited (e.g., within 5 minutes)
+      // Check if message can be edited (within 5 minutes)
       const now = new Date();
       const createdAt = new Date(message.createdAt);
       const diffMinutes = (now - createdAt) / (1000 * 60);
-      
+
       if (diffMinutes > 5) {
         throw new AppError('Message cannot be edited after 5 minutes', 400, 'VALIDATION_ERROR');
       }
@@ -146,8 +131,6 @@ class MessageController {
 
   /**
    * Delete message
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async delete(req, res, next) {
     try {
@@ -160,8 +143,8 @@ class MessageController {
       }
 
       // Check access (sender, receiver, or system admin)
-      if (req.user.role !== 'system_admin' && 
-          req.user.id !== message.senderId && 
+      if (req.user.role !== 'system_admin' &&
+          req.user.id !== message.senderId &&
           req.user.id !== message.receiverId) {
         throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
@@ -180,8 +163,6 @@ class MessageController {
 
   /**
    * Mark message as read
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async markAsRead(req, res, next) {
     try {
@@ -193,9 +174,10 @@ class MessageController {
         throw new AppError('Message not found', 404, 'NOT_FOUND');
       }
 
-      // Check access
       if (req.user.role !== 'system_admin') {
-        if (req.user.id !== message.senderId && req.user.id !== message.receiverId) {
+        const chat = await models.Chat.findByPk(message.chatId);
+        const allowed = await canAccessChat(req.user, chat);
+        if (!allowed) {
           throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
         }
       }
@@ -215,8 +197,6 @@ class MessageController {
 
   /**
    * Mark multiple messages as read
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async markMultipleAsRead(req, res, next) {
     try {
@@ -227,13 +207,13 @@ class MessageController {
         throw new AppError('Message IDs are required', 400, 'VALIDATION_ERROR');
       }
 
-      // Mark messages as read
+      // Security: only messages addressed to this user can be marked read
       await models.Message.update(
         {
           readBy: models.Sequelize.fn('array_append', models.Sequelize.col('readBy'), userId),
           status: 'read',
         },
-        { where: { id: messageIds } }
+        { where: { id: messageIds, receiverId: userId } }
       );
 
       res.json({ message: 'Messages marked as read successfully' });
@@ -244,21 +224,18 @@ class MessageController {
 
   /**
    * Get unread messages count
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async getUnreadCount(req, res, next) {
     try {
       const userId = req.user.id;
 
-      // Get chats where user is a participant
-      const participantChats = await models.ChatParticipant.findAll({
-        where: { userId },
-        attributes: ['chatId'],
-      });
-      const chatIds = participantChats.map((p) => p.chatId);
+      // Chats the user can access (participants + own doctor/patient chats)
+      const chatIds = await getAccessibleChatIds(req.user);
 
-      // Count unread messages
+      if (!chatIds.length) {
+        return res.json({ unreadCount: 0 });
+      }
+
       const unreadCount = await models.Message.count({
         where: {
           chatId: chatIds,
@@ -276,8 +253,6 @@ class MessageController {
 
   /**
    * Search messages
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async search(req, res, next) {
     try {
@@ -295,24 +270,25 @@ class MessageController {
 
       if (chatId) {
         where.chatId = chatId;
-        
+
         // Check access to chat
         const chat = await models.Chat.findByPk(chatId);
         if (!chat) {
           throw new AppError('Chat not found', 404, 'NOT_FOUND');
         }
-        if (req.user.role !== 'system_admin') {
-          if (req.user.id !== chat.doctorId && req.user.id !== chat.patientId) {
-            throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-          }
+        const allowed = await canAccessChat(req.user, chat);
+        if (!allowed) {
+          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
         }
       } else {
-        // Search in all user's chats
-        const participantChats = await models.ChatParticipant.findAll({
-          where: { userId: req.user.id },
-          attributes: ['chatId'],
-        });
-        const chatIds = participantChats.map((p) => p.chatId);
+        // Search in all chats the user can access
+        const chatIds = await getAccessibleChatIds(req.user);
+        if (!chatIds.length) {
+          return res.json({
+            data: [],
+            pagination: { page, limit, total: 0, totalPages: 0 },
+          });
+        }
         where.chatId = chatIds;
       }
 
@@ -343,8 +319,6 @@ class MessageController {
 
   /**
    * Get message attachments
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async getAttachments(req, res, next) {
     try {
@@ -358,10 +332,13 @@ class MessageController {
         throw new AppError('Message not found', 404, 'NOT_FOUND');
       }
 
-      // Check access
       if (req.user.role !== 'system_admin') {
         if (req.user.id !== message.senderId && req.user.id !== message.receiverId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+          const chat = await models.Chat.findByPk(message.chatId);
+          const allowed = await canAccessChat(req.user, chat);
+          if (!allowed) {
+            throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+          }
         }
       }
 
@@ -373,8 +350,6 @@ class MessageController {
 
   /**
    * Encrypt message for sending
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async encryptMessage(req, res, next) {
     try {
@@ -399,8 +374,6 @@ class MessageController {
 
   /**
    * Decrypt message
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async decryptMessage(req, res, next) {
     try {
@@ -425,8 +398,6 @@ class MessageController {
 
   /**
    * Flag message
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async flag(req, res, next) {
     try {
@@ -439,10 +410,13 @@ class MessageController {
         throw new AppError('Message not found', 404, 'NOT_FOUND');
       }
 
-      // Check access
       if (req.user.role !== 'system_admin') {
         if (req.user.id !== message.senderId && req.user.id !== message.receiverId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+          const chat = await models.Chat.findByPk(message.chatId);
+          const allowed = await canAccessChat(req.user, chat);
+          if (!allowed) {
+            throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+          }
         }
       }
 
@@ -461,8 +435,6 @@ class MessageController {
 
   /**
    * Get flagged messages (admin only)
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
    */
   static async getFlagged(req, res, next) {
     try {
@@ -477,8 +449,7 @@ class MessageController {
         where: { isFlagged: true },
         include: [
           { model: models.Chat, as: 'chat' },
-          { model: models.User, as: 'sender' },
-          { model: models.User, as: 'flaggedByUser', foreignKey: 'flaggedBy' },
+          { model: models.User, as: 'sender', attributes: ['id', 'firstName', 'lastName'] },
         ],
         order: [['flaggedAt', 'DESC']],
         offset,

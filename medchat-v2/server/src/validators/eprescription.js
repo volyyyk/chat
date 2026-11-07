@@ -1,17 +1,19 @@
 /**
  * E-Prescription Validators
+ * Aligned with the EPrescription model (medications is a JSONB array,
+ * dosage/frequency/duration may be empty strings from the mobile client).
  */
 
 const Joi = require('joi');
 
 // Medication schema
 const medicationSchema = Joi.object({
-  name: Joi.string().min(2).max(500).required(),
-  dosage: Joi.string().min(1).max(255).required(),
-  frequency: Joi.string().min(1).max(255).required(),
-  duration: Joi.string().min(1).max(255).required(),
-  form: Joi.string().min(1).max(100).optional().allow(null, ''),
-  route: Joi.string().min(1).max(100).optional().allow(null, ''),
+  name: Joi.string().min(1).max(500).required(),
+  dosage: Joi.string().max(255).optional().allow(null, ''),
+  frequency: Joi.string().max(255).optional().allow(null, ''),
+  duration: Joi.string().max(255).optional().allow(null, ''),
+  form: Joi.string().max(100).optional().allow(null, ''),
+  route: Joi.string().max(100).optional().allow(null, ''),
   quantity: Joi.number().min(1).max(1000).optional(),
   notes: Joi.string().max(500).optional().allow(null, ''),
 });
@@ -19,48 +21,56 @@ const medicationSchema = Joi.object({
 // Create e-prescription schema
 const createEPrescriptionSchema = Joi.object({
   patientId: Joi.string().uuid().required(),
-  chatId: Joi.string().uuid().optional().allow(null),
-  diagnosis: Joi.string().min(2).max(2000).required(),
+  appointmentId: Joi.string().uuid().optional().allow(null),
+  chatId: Joi.string().optional().allow(null),
+  type: Joi.string().valid('medication', 'procedure', 'test', 'referral', 'certificate', 'other')
+    .default('medication'),
+  title: Joi.string().max(200).optional().allow(null, ''),
+  description: Joi.string().max(5000).optional().allow(null, ''),
   medications: Joi.array().items(medicationSchema).min(1).required(),
+  dosage: Joi.string().max(500).optional().allow(null, ''),
+  duration: Joi.string().max(100).optional().allow(null, ''),
   instructions: Joi.string().max(5000).optional().allow(null, ''),
-  diagnosisCode: Joi.string().max(50).optional().allow(null, ''),
-  diagnosisSystem: Joi.string().valid('ICD-10', 'ICD-11', 'other').optional(),
-  validFrom: Joi.date().required(),
-  validTo: Joi.date().required(),
-  refills: Joi.number().min(0).max(12).default(0),
-  refillInterval: Joi.number().min(1).max(365).optional(),
-  status: Joi.string().valid('draft', 'active', 'cancelled', 'expired', 'completed').default('draft'),
+  // Alias for instructions used by the mobile client
+  recommendations: Joi.string().max(5000).optional().allow(null, ''),
+  diagnosis: Joi.string().min(2).max(2000).required(),
+  notes: Joi.string().max(2000).optional().allow(null, ''),
+  validUntil: Joi.date().optional(),
+  priority: Joi.string().valid('low', 'normal', 'high', 'urgent').default('normal'),
 });
 
 // Update e-prescription schema
 const updateEPrescriptionSchema = Joi.object({
-  diagnosis: Joi.string().min(2).max(2000).optional(),
-  medications: Joi.array().items(medicationSchema).optional(),
+  type: Joi.string().valid('medication', 'procedure', 'test', 'referral', 'certificate', 'other')
+    .optional(),
+  title: Joi.string().max(200).optional().allow(null, ''),
+  description: Joi.string().max(5000).optional().allow(null, ''),
+  medications: Joi.array().items(medicationSchema).min(1).optional(),
+  dosage: Joi.string().max(500).optional().allow(null, ''),
+  duration: Joi.string().max(100).optional().allow(null, ''),
   instructions: Joi.string().max(5000).optional().allow(null, ''),
-  diagnosisCode: Joi.string().max(50).optional().allow(null, ''),
-  diagnosisSystem: Joi.string().valid('ICD-10', 'ICD-11', 'other').optional(),
-  validFrom: Joi.date().optional(),
-  validTo: Joi.date().optional(),
-  refills: Joi.number().min(0).max(12).optional(),
-  refillInterval: Joi.number().min(1).max(365).optional(),
-  status: Joi.string().valid('draft', 'active', 'cancelled', 'expired', 'completed').optional(),
+  recommendations: Joi.string().max(5000).optional().allow(null, ''),
+  diagnosis: Joi.string().max(2000).optional().allow(null, ''),
+  notes: Joi.string().max(2000).optional().allow(null, ''),
+  validUntil: Joi.date().optional(),
+  priority: Joi.string().valid('low', 'normal', 'high', 'urgent').optional(),
+  status: Joi.string().valid('draft', 'active', 'cancelled', 'fulfilled', 'expired').optional(),
 });
 
 // List e-prescriptions schema
 const listEPrescriptionSchema = Joi.object({
-  page: Joi.number().min(1).default(1),
-  limit: Joi.number().min(1).max(100).default(20),
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
   doctorId: Joi.string().uuid().optional(),
   patientId: Joi.string().uuid().optional(),
-  chatId: Joi.string().uuid().optional(),
-  status: Joi.string().valid('draft', 'active', 'cancelled', 'expired', 'completed').optional(),
+  status: Joi.string().valid('draft', 'active', 'cancelled', 'fulfilled', 'expired').optional(),
   dateFrom: Joi.date().optional(),
   dateTo: Joi.date().optional(),
 });
 
-// Activate e-prescription schema
-const activateEPrescriptionSchema = Joi.object({
-  signature: Joi.string().max(1000).optional().allow(null, ''),
+// Sign e-prescription schema (electronic signature)
+const signEPrescriptionSchema = Joi.object({
+  signature: Joi.string().max(2000).optional().allow(null, ''),
 });
 
 // Cancel e-prescription schema
@@ -73,6 +83,6 @@ module.exports = {
   createEPrescriptionSchema,
   updateEPrescriptionSchema,
   listEPrescriptionSchema,
-  activateEPrescriptionSchema,
+  signEPrescriptionSchema,
   cancelEPrescriptionSchema,
 };

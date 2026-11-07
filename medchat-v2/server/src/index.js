@@ -109,23 +109,58 @@ io.on('connection', (socket) => {
     }
   }
 
-  // Handle chat joining
-  socket.on('joinChat', (chatId) => {
-    if (socket.user) {
-      socket.join('chat:' + chatId);
-      logger.debug('User ' + socket.user.id + ' joined chat ' + chatId);
+  // Membership check helper: can this user access this chat?
+  // Resolves chat by UUID (id) or by human-readable chatId string.
+  const { canAccessChat } = require('./utils/chatAccess');
+  const { Op } = require('sequelize');
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const resolveChatAccess = async (user, chatRef) => {
+    if (!user || !chatRef) return null;
+    // Avoid querying a UUID column with a non-UUID string (Postgres would throw)
+    const where = UUID_RE.test(chatRef)
+      ? { [Op.or]: [{ id: chatRef }, { chatId: chatRef }] }
+      : { chatId: chatRef };
+    const chat = await models.Chat.findOne({ where });
+    if (!chat) return null;
+    const allowed = await canAccessChat(user, chat);
+    return allowed ? chat : null;
+  };
+
+  // Handle chat joining (membership is verified against the database)
+  socket.on('joinChat', async (chatId, cb) => {
+    if (!socket.user || !chatId) {
+      if (typeof cb === 'function') cb({ error: 'unauthorized' });
+      return;
+    }
+    try {
+      const chat = await resolveChatAccess(socket.user, chatId);
+      if (!chat) {
+        logger.warn('joinChat denied: user ' + socket.user.id + ' chat ' + chatId);
+        if (typeof cb === 'function') cb({ error: 'forbidden' });
+        return;
+      }
+      // Join every room key the chat may be addressed by, so clients
+      // receive events regardless of whether they use UUID or chatId string.
+      socket.join('chat:' + chat.chatId);
+      socket.join('chat:' + chat.id);
+      socket.join('chat:uuid:' + chat.id);
+      if (typeof cb === 'function') cb({ ok: true });
+      logger.debug('User ' + socket.user.id + ' joined chat ' + chat.chatId);
+    } catch (err) {
+      if (typeof cb === 'function') cb({ error: 'server_error' });
     }
   });
 
   // Handle chat leaving
   socket.on('leaveChat', (chatId) => {
     socket.leave('chat:' + chatId);
+    socket.leave('chat:uuid:' + chatId);
   });
 
-  // Handle typing indicator
+  // Handle typing indicator (only relay if the socket actually joined the room)
   socket.on('typing', (data) => {
     const { chatId, isTyping } = data || {};
-    if (socket.user && chatId) {
+    if (socket.user && chatId && (socket.rooms.has('chat:' + chatId) || socket.rooms.has('chat:uuid:' + chatId))) {
       socket.to('chat:' + chatId).emit('userTyping', {
         userId: socket.user.id,
         isTyping,
@@ -134,10 +169,10 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle message read
+  // Handle message read (only relay if the socket actually joined the room)
   socket.on('messageRead', (data) => {
     const { chatId, messageId } = data || {};
-    if (socket.user && chatId) {
+    if (socket.user && chatId && (socket.rooms.has('chat:' + chatId) || socket.rooms.has('chat:uuid:' + chatId))) {
       socket.to('chat:' + chatId).emit('messageRead', {
         userId: socket.user.id,
         messageId,
