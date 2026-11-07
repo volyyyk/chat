@@ -293,12 +293,13 @@ module.exports = (sequelize, DataTypes) => {
       onDelete: 'SET NULL',
     });
 
-    // Doctor has many Messages
-    Doctor.hasMany(models.Message, {
-      foreignKey: 'senderId',
-      as: 'messages',
-      onDelete: 'SET NULL',
-    });
+    // NOTE: no Doctor.hasMany(Message, senderId) here — DELIBERATELY.
+    // messages.sender_id already references users via
+    // Message.belongsTo(User, 'sender'). A hasMany with foreignKey 'senderId'
+    // made Sequelize create a SECOND FK messages.sender_id -> doctors, so every
+    // message insert failed (seed died with messages_sender_id_fkey).
+    // Doctor's messages are queried via the doctor's User account
+    // (User.hasMany Message 'sentMessages') or via Chat.hasMany 'messages'.
 
     // Doctor has many Appointments
     Doctor.hasMany(models.Appointment, {

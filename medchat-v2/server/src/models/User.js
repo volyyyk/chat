@@ -310,12 +310,10 @@ module.exports = (sequelize, DataTypes) => {
       onDelete: 'CASCADE',
     });
 
-    // User has many EPrescriptions
-    User.hasMany(models.EPrescription, {
-      foreignKey: 'doctorId',
-      as: 'prescriptions',
-      onDelete: 'SET NULL',
-    });
+    // NOTE: no User.hasMany(EPrescription, doctorId) here — DELIBERATELY.
+    // eprescriptions.doctor_id references doctors (EPrescription.belongsTo
+    // Doctor). This hasMany created a conflicting FK -> users and broke every
+    // prescription insert (controller stores the doctor PROFILE id there).
 
     // User has many AuditLogs
     User.hasMany(models.AuditLog, {

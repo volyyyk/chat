@@ -264,12 +264,10 @@ module.exports = (sequelize, DataTypes) => {
       onDelete: 'SET NULL',
     });
 
-    // Patient has many Messages
-    Patient.hasMany(models.Message, {
-      foreignKey: 'senderId',
-      as: 'messages',
-      onDelete: 'SET NULL',
-    });
+    // NOTE: no Patient.hasMany(Message, senderId) here — DELIBERATELY.
+    // messages.sender_id references users (Message.belongsTo User 'sender');
+    // this hasMany created a conflicting FK messages.sender_id -> patients
+    // and broke message sending from patients.
 
     // Patient has many Appointments
     Patient.hasMany(models.Appointment, {
