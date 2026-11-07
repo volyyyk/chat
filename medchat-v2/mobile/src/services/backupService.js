@@ -202,5 +202,4 @@ class BackupService {
   }
 }
 
-export const backupService = backupServiceExport();
-function backupServiceExport() { return BackupService; }
+export const backupService = BackupService;
