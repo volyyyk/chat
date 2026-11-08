@@ -69,6 +69,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
 | desktop | Tauri 2 (Rust + системный webview): рабочий клиент этапа 5 (подключение/логин/чаты/сообщения REST); ядро medchat-core напрямую path-депом (Rust→Rust, без FFI); secure storage keyring 3 (Credential Manager / libsecret) |
+| ios/android | каркасы нативных клиентов (этапы 3/4): SwiftUI-источники ios/ (экраны, ApiService, KeychainStore, CryptoService, RatchetService; runtime-smoke MedchatCoreSmoke.swift + typecheck — джоба ios-smoke); Kotlin-каркас android/ начат с MedchatCoreSmoke.kt (runtime-smoke через kotlinc + JNA — джоба android-smoke; .so для jniLibs — cargo-ndk, артефакт medchat-core-android) |
 | core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs); uniffi-биндинги Swift/Kotlin (feature uniffi-bind); serde-сериализация RatchetState (feature serde) + биндинги save/restore наружу (napi/UniFFI; персистентность сессий для клиентов) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
@@ -140,6 +141,12 @@ medchat-v2/
 │                        Credential Manager/libsecret) поверх medchat-core
 │                        path-депом features serde),
 │                        ui/index.html (рабочий клиент: экран подключения с проверкой /health, логин, чаты и сообщения REST, панель диагностики ядра)
+├── ios/                — каркас этапа 3 (SwiftUI): MedchatCoreSmoke.swift (runtime-smoke джобы
+│                        ios-smoke), MedChatApp/ApiService/KeychainStore/CryptoService/
+│                        RatchetService/AuthViews/ChatListView/ChatView (typecheck в ios-smoke),
+│                        README_IOS.md
+├── android/            — каркас этапа 4 (Kotlin): MedchatCoreSmoke.kt — runtime-smoke джобы
+│                        android-smoke (зеркало napi-smoke.js, компилируется в CI)
 ├── core/                — Rust-ядро medchat-core (Cargo.toml, src/lib.rs, src/ratchet.rs):
 │                          SalsaBox (X25519 + XSalsa20-Poly1305, crypto_box 0.9),
 │                          generate_keypair / seal_for_recipients / open_sealed,
@@ -880,6 +887,29 @@ ios/MedchatCoreSmoke.swift в smoke-main/main.swift и компилирует п
 Для шага typecheck ч.2 неактуально: исходники клиента — декларации
 + @main, top-level-кода нет.
 
+**Android: инструментальная цепочка биндингов в CI (этап 4, ч.1)**: джоба
+android-smoke (ubuntu) — зеркало ios-smoke: uniffi-bindgen v0.28.3 генерирует
+Kotlin-обвязку, kotlinc 2.0.21 (zip из GitHub Releases JetBrains) + JNA 5.14.0
+компилируют её вместе с android/MedchatCoreSmoke.kt (зеркало napi-smoke.js:
+конверт roundtrip, бокс отправителя, битые длины, Double Ratchet
+in-order/wire/skip-store/replay, save/restore, bcrypt KAT; в файле нет
+package-строки — CI подставляет пакет сгенерированной обвязки; конвенция имён
+uniffi 0.28: keySize/generateKeypair/sealForRecipients/openSealed/
+MedRatchetState.initInitiator/initResponder/restore, case-варианты
+MedCryptoError.Aead/NoBoxForRecipient/OutOfOrder/InvalidArgument и т.д.),
+smoke исполняется JVM против host-cdylib (jna.library.path=target/release).
+Кросс-компиляция: NDK r27c + cargo-ndk (arm64-v8a / armeabi-v7a / x86_64,
+api 21) — артефакт medchat-core-android (.so для jniLibs). Gradle-сборка
+приложения, Play Console и подписи — оператор (паттерн честности
+DESKTOP_RELEASE.md). Риски первого прогона: конвенция uniffi-имён в Kotlin
+(sealed class MedCryptoError наследует Exception), версия JNA, пути NDK —
+при падении читать ci-logs/ci-android.log по свежему run id.
+Попутный фикс урока про хвостовой перенос: коммит 7028935 вставлял
+комментарий перед шагом Swift smoke без завершающего переноса — имя шага
+прилипло к комментарию одной строкой (шаг остался валидным run-only, все
+команды на месте); перенос восстановлен этим же коммитом: замены
+комментариев обязаны сохранять хвостовой \n.
+
 ## 9. Лаунчер («запуск по кнопке»)
 
 `medchat-v2/launcher/`:
@@ -896,7 +926,7 @@ node stop.js [--docker]                     # остановить процес�
 
 ## 10. CI (.github/workflows/ci.yml)
 
-Одиннадцать джоб на каждый пуш в main:
+Двенадцать джоб на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
   валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
@@ -952,7 +982,8 @@ node stop.js [--docker]                     # остановить процес�
   (uniffi-out/, артефакт);
   cargo тестов обёрток (uniffi-метаданные — обычный Rust, линкуются чисто,
   в отличие от napi); лог падений — ci-logs/ci-uniffi.log. Компиляция
-  сгенерированного кода в Xcode/Gradle — этапы 3/4, на ubuntu недоступна.
+  сгенерированного кода гейтится отдельно: Swift — джоба ios-smoke (macOS),
+  Kotlin — джоба android-smoke (ubuntu).
 - **desktop-check**: каркас этапа 5 (Tauri 2) — apt libwebkit2gtk-4.1-dev, cargo
   check --all-targets в medchat-v2/desktop/src-tauri (гейтит валидность
   tauri.conf.json, резолв дерева tauri, типо-совместимость tauri-команд с
@@ -967,7 +998,14 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
   (if-no-files-found: warn), лог падений — ci-logs/ci-desktop-bundle.log;
   иконки бандлера генерирует build.rs (см. §8); AppImage — с этого же
   коммита (см. §8). Подписи (Authenticode), автоапдейт — далее.
-- **ios-smoke** (этап 3): macOS-раннер — uniffi-bindgen 0.28.3 генерирует Swift-обвязку;  swiftc + ios/MedchatCoreSmoke.swift (runtime-зеркало napi-smoke.js) против host-cdylib;  кросс-компиляция aarch64-apple-ios и aarch64-apple-ios-sim (staticlib) →  MedchatCore.xcframework (артефакт medchat-core-xcframework); лог падений —  ci-logs/ci-ios.log.- **k6-load** (этап 6): нагрузочный k6-профиль против стенда Postgres+Redis+seed  на том же раннере (сервер в фоне), гейты http_req_failed<1% и p95<2500 мс;  лог ci-logs/ci-k6.log публикуется ВСЕГДА (базлайн деградации от прогона к прогону).
+- **ios-smoke** (этап 3): macOS-раннер — uniffi-bindgen 0.28.3 генерирует Swift-обвязку;  swiftc + ios/MedchatCoreSmoke.swift (runtime-зеркало napi-smoke.js) против host-cdylib;  кросс-компиляция aarch64-apple-ios и aarch64-apple-ios-sim (staticlib) →  MedchatCore.xcframework (артефакт medchat-core-xcframework); лог падений —  ci-logs/ci-ios.log.
+- **android-smoke** (этап 4): ubuntu-раннер — uniffi-bindgen 0.28.3 генерирует
+  Kotlin-обвязку; kotlinc 2.0.21 + JNA 5.14.0 компилируют её вместе с
+  android/MedchatCoreSmoke.kt (runtime-зеркало napi-smoke.js) и исполняют
+  в JVM против host-cdylib (jna.library.path); кросс-компиляция NDK r27c
+  через cargo-ndk (arm64-v8a / armeabi-v7a / x86_64, api 21) → артефакт
+  medchat-core-android (.so для jniLibs); лог падений — ci-logs/ci-android.log.
+- **k6-load** (этап 6): нагрузочный k6-профиль против стенда Postgres+Redis+seed  на том же раннере (сервер в фоне), гейты http_req_failed<1% и p95<2500 мс;  лог ci-logs/ci-k6.log публикуется ВСЕГДА (базлайн деградации от прогона к прогону).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -1061,6 +1099,12 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     Этап 3 ч.2: каркас SwiftUI-источников ios/ (экраны, ApiService, KeychainStore,
     CryptoService, RatchetService, README_IOS.md) + typecheck в ios-smoke; сборка
     .ipa/TestFlight/подписи — оператор (README_IOS.md); склейка Double Ratchet — этап 7.
+    Этап 4 начат (ч.1 — инструментальная цепочка): джоба CI android-smoke (ubuntu) —
+    runtime-smoke Kotlin-обвязки (android/MedchatCoreSmoke.kt — зеркало napi-smoke.js,
+    kotlinc 2.0.21 + JNA против host-cdylib), кросс-компиляция NDK r27c (cargo-ndk,
+    arm64-v8a / armeabi-v7a / x86_64) — артефакт medchat-core-android (.so jniLibs);
+    Gradle-каркас клиента (Compose, Keystore) — следующие шаги; Play Console и
+    подписи — оператор.
 
 ---
 

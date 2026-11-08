@@ -57,8 +57,10 @@
 --features uniffi-bind,serde → uniffi-bindgen v0.28.3 (git-тег mozilla/uniffi-rs,
 library mode; crates.io-индекса у uniffi нет) генерирует обвязку из cdylib:
 uniffi-out/kotlin/*.kt и uniffi-out/swift/*.swift + MedchatCoreFFI.h +
-modulemap. Компиляция сгенерированного кода в Xcode/Gradle на ubuntu
-недоступна — она выполняется на целевой машине разработчика (DoD этапов 3/4).
+modulemap. Компиляция сгенерированного кода гейтится в CI: Swift —
+джоба ios-smoke (macOS), Kotlin — джоба android-smoke (ubuntu: kotlinc +
+JNA против host-cdylib); полная сборка приложения (Xcode/Gradle) — на
+целевой машине разработчика (DoD этапов 3/4).
 
 ### 3.1 Сборка нативной библиотеки
 
@@ -75,10 +77,16 @@ modulemap. Компиляция сгенерированного кода в Xco
 ### 3.2 Kotlin (Jetpack Compose, этап 4)
 
 - Зависимость JNA (обвязка 0.28 ходит через JNA):
-  implementation("net.java.dev.jna:jna:5.x@aar") — точную версию сверить
-  с Gradle-проектом при склейке (честно: не фиксируем вслепую).
+  implementation("net.java.dev.jna:jna:5.14.0@aar") — версия зафиксирована
+  по джобе CI android-smoke (smoke-прогон в CI идёт на JNA 5.14.0).
 - Сгенерированный MedchatCore.kt из артефакта CI + библиотека в jniLibs:
   JNA загружает libmedchat_core.so по имени.
+- С ноября 2026 компиляция и runtime-smoke гейтятся в CI (джоба
+  android-smoke): kotlinc 2.0.21 компилирует обвязку вместе с
+  medchat-v2/android/MedchatCoreSmoke.kt (зеркало napi-smoke.js) против
+  host-cdylib, кросс-компиляция .so — cargo-ndk + NDK r27c (arm64-v8a /
+  armeabi-v7a / x86_64, api 21), артефакт medchat-core-android (.so для
+  jniLibs).
 - API: MedRatchetState.initInitiator(sharedSecret, remoteRatchetPublic),
   initResponder(...), encrypt/decrypt/decryptWire (иммутабельны,
   Mutex внутри), save() → ByteArray, restore(saved) → MedRatchetState;
@@ -127,6 +135,8 @@ modulemap. Компиляция сгенерированного кода в Xco
 - medchat-core-linux-x64-gnu (.node) — джоба napi-build;
 - medchat-core-uniffi-bindings (uniffi-out/) — джоба uniffi-bindings;
 - medchat-core-xcframework (device aarch64-apple-ios + simulator, со Swift-заголовками) — джоба ios-smoke (этап 3);
+- medchat-core-android (.so arm64-v8a / armeabi-v7a / x86_64 — jniLibs) —
+  джоба android-smoke (этап 4);
 - ci-logs/*.log — логи падений (метка «=== run <id> job <name>» для сверки
   со свежестью). Артефакты в репо не коммитятся — забирать из Actions.
 
@@ -138,8 +148,11 @@ modulemap. Компиляция сгенерированного кода в Xco
   SwiftUI-приложения в Xcode, TestFlight и подписи требуют Xcode-проекта
   и аккаунта оператора (Apple Developer, APNs-ключи); DoD этапа 3
   (TestFlight-билд со smoke-сценариями) закрывается на стороне оператора.
-- Этап 4 (Android): компиляция Kotlin-обвязки в Gradle НЕ выполнялась —
-  этот гайд описывает механику; DoD этапа требует internal-testing
-  в Play Console (аккаунт оператора).
+- Этап 4 (Android): с ноября 2026 Kotlin-обвязка компилируется и
+  исполняется в CI (джоба android-smoke: runtime-smoke против host-cdylib,
+  кросс-компиляция .so через cargo-ndk — артефакт medchat-core-android).
+  Gradle-сборка самого приложения НЕ выполнялась — этот гайд описывает
+  механику; DoD этапа требует internal-testing в Play Console
+  (аккаунт оператора).
 - Этап 7: склейка ratchet с клиентским UI — одна реализация ядра,
   у клиентов только transport + storage (см. §1 про секреты буфера).

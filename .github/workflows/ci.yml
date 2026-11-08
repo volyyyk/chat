@@ -498,8 +498,10 @@ jobs:
           { cargo test --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-uniffi.log
 
       # Генерация обвязки из метаданных собранного cdylib (library mode):
-      # гейтит консистентность обёрток и саму генерацию. Компиляция
-      # сгенерированного кода в Xcode/Gradle — этапы 3/4 (на ubuntu их нет).
+      # гейтит консистентность обёрток и саму генерацию. Сгенерированная
+      # обвязка гейтится в ios-smoke (Swift, macOS) и android-smoke
+      # (Kotlin, ubuntu); сборка приложений (Xcode/Gradle) — на целевой
+      # машине разработчика (этапы 3/4).
       - name: Generate Kotlin bindings
         run: |
           set -o pipefail
@@ -595,7 +597,8 @@ jobs:
       # по маске *.h: bindgen 0.28 кладёт MedchatCoreFFI.h рядом.
       # Прогон #136: swiftc запрещает top-level-выражения вне файла
       # main.swift (expressions are not allowed at the top level) —
-      # smoke-файл копируется под этим именем перед компиляцией.      - name: Swift smoke (runtime, зеркало napi-smoke.js)
+      # smoke-файл копируется под этим именем перед компиляцией.
+      - name: Swift smoke (runtime, зеркало napi-smoke.js)
         run: |
           set -o pipefail
           HEADER=$(ls uniffi-out/swift/*.h | head -n 1)
@@ -661,6 +664,136 @@ jobs:
           mkdir -p ci-logs
           if [ -f ci-ios.log ]; then
             cp ci-ios.log ci-logs/ci-ios.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
+
+  # Этап 4 ROADMAP_NATIVE: Android-инструментальная цепочка — зеркало
+  # ios-smoke на ubuntu. UniFFI Kotlin-обвязка компилируется kotlinc 2.0.21
+  # вместе с medchat-v2/android/MedchatCoreSmoke.kt (runtime-зеркало
+  # napi-smoke.js: конверт roundtrip, бокс отправителя, битые длины,
+  # Double Ratchet in-order/wire/skip-store/replay, save/restore, bcrypt
+  # KAT) и исполняется в JVM через JNA против host-cdylib. Плюс
+  # кросс-компиляция NDK (arm64-v8a / armeabi-v7a / x86_64, api 21,
+  # cargo-ndk) — .so для jniLibs, артефакт medchat-core-android.
+  # Gradle-сборка приложения, Play Console и подписи — на машине
+  # оператора (секреты оператора, паттерн честности DESKTOP_RELEASE.md):
+  # здесь гейтится всё, что секретов не требует.
+  android-smoke:
+    name: Android smoke (UniFFI Kotlin, этап 4)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust (stable + Android targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: medchat-v2/core
+
+      - name: Setup Java 17 (kotlinc + runtime JVM)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Тот же git-тег v0.28.3, что в uniffi-bindings/ios-smoke и Cargo.toml
+      # ядра: формат metadata привязан к версии крейта и CLI.
+      - name: Install uniffi-bindgen (v0.28.3 from git)
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.28.3 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-android.log
+
+      # host-cdylib: по нему bindgen читает metadata (library mode) и против
+      # него исполняется runtime-smoke ниже (JNA грузит libmedchat_core.so).
+      - name: Build host cdylib with UniFFI scaffolding
+        run: |
+          set -o pipefail
+          { cargo build --release --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-android.log
+
+      - name: Generate Kotlin bindings
+        run: |
+          set -o pipefail
+          { uniffi-bindgen generate --library target/release/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin; } 2>&1 | tee -a ../../ci-android.log
+          ls uniffi-out/kotlin
+
+      # kotlinc 2.0.21 (zip из GitHub Releases JetBrains) + JNA 5.14.0:
+      # smoke компилируется с обвязкой и исполняется JVM против host-cdylib.
+      - name: Install kotlinc + JNA
+        run: |
+          set -e
+          curl -sSL "https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip" -o /tmp/kotlinc.zip
+          unzip -q /tmp/kotlinc.zip -d /opt
+          /opt/kotlinc/bin/kotlinc -version 2>&1 | tee -a ../../ci-android.log
+          curl -sSL "https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar" -o /tmp/jna.jar
+
+      # package-строку сгенерированной обвязки не фиксируем: smoke-файл
+      # компилируется ВМЕСТЕ с обвязкой в одном пакете, имена разрешаются
+      # по факту сгенерированного пакета.
+      - name: Kotlin smoke (runtime, зеркало napi-smoke.js)
+        run: |
+          set -o pipefail
+          PKG=$(grep -m1 -h "^package " uniffi-out/kotlin/*.kt | sed "s/^package //" | tr -d "\r")
+          if [ -z "$PKG" ]; then echo "kotlin package not found"; exit 1; fi
+          echo "kotlin package: $PKG" | tee -a ../../ci-android.log
+          mkdir -p smoke-kotlin smoke-classes
+          { echo "package $PKG"; cat ../android/MedchatCoreSmoke.kt; } > smoke-kotlin/MedchatCoreSmoke.kt
+          { /opt/kotlinc/bin/kotlinc uniffi-out/kotlin/*.kt smoke-kotlin/MedchatCoreSmoke.kt -cp /tmp/jna.jar -d smoke-classes; } 2>&1 | tee -a ../../ci-android.log
+          { java -Djna.library.path="$PWD/target/release" -cp "/tmp/jna.jar:smoke-classes" "$PKG.MedchatCoreSmokeKt"; } 2>&1 | tee -a ../../ci-android.log
+
+      - name: Install Android NDK r27c
+        run: |
+          set -e
+          curl -sSL "https://dl.google.com/android/repository/android-ndk-r27c-linux.zip" -o /tmp/ndk.zip
+          unzip -q /tmp/ndk.zip -d /opt
+          ls /opt/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
+
+      # Кросс-компиляция под устройства: cargo-ndk подставляет линкер NDK
+      # для трёх ABI (api 21), .so — jniLibs для Gradle-проекта оператора.
+      - name: Cross-compile .so via cargo-ndk (3 ABI)
+        run: |
+          set -o pipefail
+          { cargo install --locked cargo-ndk; } 2>&1 | tee -a ../../ci-android.log
+          { ANDROID_NDK_HOME=/opt/android-ndk-r27c cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -p 21 build --release --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-android.log
+          ls -la target/aarch64-linux-android/release/libmedchat_core.so
+          ls -la target/armv7-linux-androideabi/release/libmedchat_core.so
+          ls -la target/x86_64-linux-android/release/libmedchat_core.so
+
+      - name: Upload android .so artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: medchat-core-android
+          path: |
+            medchat-v2/core/target/aarch64-linux-android/release/libmedchat_core.so
+            medchat-v2/core/target/armv7-linux-androideabi/release/libmedchat_core.so
+            medchat-v2/core/target/x86_64-linux-android/release/libmedchat_core.so
+          if-no-files-found: error
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-android.log ]; then
+            cp ci-android.log ci-logs/ci-android.log
           fi
           git config user.name "ci-reporter"
           git config user.email "ci-reporter@users.noreply.github.com"

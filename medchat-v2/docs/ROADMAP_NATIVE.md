@@ -178,6 +178,19 @@ FCM-пуши, фоновая доставка сообщений.
 docs/INTEGRATION_BINDINGS.md.
 **DoD:** internal testing в Play Console, smoke-сценарии в Espresso.
 
+**Прогресс (ноябрь 2026, ч.1 — инструментальная цепочка Android):** джоба CI
+android-smoke (ubuntu, зеркало ios-smoke): uniffi-bindgen v0.28.3 генерирует
+Kotlin-обвязку, kotlinc 2.0.21 + JNA 5.14.0 компилируют её вместе с
+medchat-v2/android/MedchatCoreSmoke.kt (зеркало napi-smoke.js: конверт
+roundtrip, бокс отправителя, битые длины, Double Ratchet
+in-order/wire/skip-store/replay, save/restore, bcrypt KAT) и исполняют
+в JVM против host-cdylib; кросс-компиляция NDK r27c через cargo-ndk
+(arm64-v8a / armeabi-v7a / x86_64, api 21) — артефакт
+medchat-core-android (.so для jniLibs). Gradle-сборка приложения,
+Play Console и подписи — на машине оператора (секреты оператора,
+паттерн честности DESKTOP_RELEASE.md): гейтится всё, что секретов
+не требует.
+
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
 **Tauri 2** (Rust + системный webview): один UI на обе платформы.
 Windows: подписанный `.exe`/MSIX (Authenticode), автoupdate.
