@@ -1,0 +1,1074 @@
+=== run 42512570889 job ios-smoke Sun Nov  8 18:57:55 UTC 2026 ===
+cargo 1.99.1 (5f94df478 2026-08-27)
+[1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
+[1m[92m  Installing[0m uniffi-bindgen-cli v0.1.0 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
+[1m[92m    Updating[0m crates.io index
+[1m[92m     Locking[0m 64 packages to highest compatible versions
+[1m[92m      Adding[0m askama v0.12.1 [1m[33m(available: v0.16.1)[0m
+[1m[92m      Adding[0m bincode v1.3.3 [1m[33m(available: v3.0.0)[0m
+[1m[92m      Adding[0m cargo_metadata v0.15.4 [1m[33m(available: v0.23.1)[0m
+[1m[92m      Adding[0m fs-err v2.11.0 [1m[33m(available: v3.3.2)[0m
+[1m[92m      Adding[0m goblin v0.8.2 [1m[33m(available: v0.10.7)[0m
+[1m[92m      Adding[0m nom v7.1.3 [1m[33m(available: v8.0.0)[0m
+[1m[92m      Adding[0m siphasher v0.3.11 [1m[33m(available: v1.0.4)[0m
+[1m[92m      Adding[0m syn v2.0.119 [1m[33m(available: v3.0.9)[0m
+[1m[92m      Adding[0m toml v0.5.11 [1m[33m(available: v1.2.1+spec-1.1.0)[0m
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m anstyle-parse v1.0.0
+[1m[92m  Downloaded[0m clap_lex v1.1.1
+[1m[92m  Downloaded[0m anstyle-query v1.1.5
+[1m[92m  Downloaded[0m anyhow v1.0.104
+[1m[92m  Downloaded[0m askama v0.12.1
+[1m[92m  Downloaded[0m anstream v1.0.0
+[1m[92m  Downloaded[0m anstyle v1.0.14
+[1m[92m  Downloaded[0m minimal-lexical v0.2.1
+[1m[92m  Downloaded[0m semver v1.0.28
+[1m[92m  Downloaded[0m static_assertions v1.1.0
+[1m[92m  Downloaded[0m thiserror-impl v1.0.69
+[1m[92m  Downloaded[0m askama_derive v0.12.5
+[1m[92m  Downloaded[0m askama_escape v0.10.3
+[1m[92m  Downloaded[0m bytes v1.12.1
+[1m[92m  Downloaded[0m mime_guess v2.0.5
+[1m[92m  Downloaded[0m nom v7.1.3
+[1m[92m  Downloaded[0m plain v0.2.3
+[1m[92m  Downloaded[0m serde_core v1.0.229
+[1m[92m  Downloaded[0m zmij v1.0.23
+[1m[92m  Downloaded[0m autocfg v1.5.1
+[1m[92m  Downloaded[0m basic-toml v0.1.10
+[1m[92m  Downloaded[0m bincode v1.3.3
+[1m[92m  Downloaded[0m cargo-platform v0.1.9
+[1m[92m  Downloaded[0m clap_derive v4.6.7
+[1m[92m  Downloaded[0m log v0.4.35
+[1m[92m  Downloaded[0m memchr v2.8.3
+[1m[92m  Downloaded[0m paste v1.0.15
+[1m[92m  Downloaded[0m proc-macro2 v1.0.107
+[1m[92m  Downloaded[0m scroll_derive v0.12.1
+[1m[92m  Downloaded[0m serde_json v1.0.154
+[1m[92m  Downloaded[0m smawk v0.3.3
+[1m[92m  Downloaded[0m strsim v0.11.1
+[1m[92m  Downloaded[0m thiserror v1.0.69
+[1m[92m  Downloaded[0m askama_parser v0.2.1
+[1m[92m  Downloaded[0m clap_builder v4.6.7
+[1m[92m  Downloaded[0m colorchoice v1.0.5
+[1m[92m  Downloaded[0m heck v0.5.0
+[1m[92m  Downloaded[0m is_terminal_polyfill v1.70.2
+[1m[92m  Downloaded[0m serde_derive v1.0.229
+[1m[92m  Downloaded[0m glob v0.3.4
+[1m[92m  Downloaded[0m toml v0.5.11
+[1m[92m  Downloaded[0m camino v1.2.6
+[1m[92m  Downloaded[0m scroll v0.12.0
+[1m[92m  Downloaded[0m siphasher v0.3.11
+[1m[92m  Downloaded[0m syn v3.0.9
+[1m[92m  Downloaded[0m unicode-ident v1.0.27
+[1m[92m  Downloaded[0m utf8parse v0.2.2
+[1m[92m  Downloaded[0m fs-err v2.11.0
+[1m[92m  Downloaded[0m textwrap v0.16.4
+[1m[92m  Downloaded[0m unicode-width v0.2.3
+[1m[92m  Downloaded[0m quote v1.0.47
+[1m[92m  Downloaded[0m serde v1.0.229
+[1m[92m  Downloaded[0m itoa v1.0.18
+[1m[92m  Downloaded[0m once_cell v1.21.4
+[1m[92m  Downloaded[0m unicase v2.10.0
+[1m[92m  Downloaded[0m cargo_metadata v0.15.4
+[1m[92m  Downloaded[0m mime v0.3.18
+[1m[92m  Downloaded[0m clap v4.6.7
+[1m[92m  Downloaded[0m goblin v0.8.2
+[1m[92m  Downloaded[0m syn v2.0.119
+[1m[92m   Compiling[0m proc-macro2 v1.0.107
+[1m[92m   Compiling[0m quote v1.0.47
+[1m[92m   Compiling[0m unicode-ident v1.0.27
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m anyhow v1.0.104
+[1m[92m   Compiling[0m autocfg v1.5.1
+[1m[92m   Compiling[0m fs-err v2.11.0
+[1m[92m   Compiling[0m syn v3.0.9
+[1m[92m   Compiling[0m syn v2.0.119
+[1m[92m   Compiling[0m serde_derive v1.0.229
+[1m[92m   Compiling[0m zmij v1.0.23
+[1m[92m   Compiling[0m memchr v2.8.3
+[1m[92m   Compiling[0m camino v1.2.6
+[1m[92m   Compiling[0m thiserror v1.0.69
+[1m[92m   Compiling[0m unicase v2.10.0
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m mime_guess v2.0.5
+[1m[92m   Compiling[0m uniffi_checksum_derive v0.28.3 (/Users/runner/.cargo/git/checkouts/uniffi-rs-dfd07ff6e8e05536/0d38fc5/uniffi_checksum_derive)
+[1m[33mwarning[0m[1m: unnecessary parentheses around closure body[0m
+   [1m[94m--> [0muniffi_checksum_derive/src/lib.rs:111:42
+    [1m[94m|[0m
+[1m[94m111[0m [1m[94m|[0m                 .filter(|&(_num, field)| (!has_ignore_attribute(&field.attrs)))
+    [1m[94m|[0m                                          [1m[33m^[0m                                   [1m[33m^[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+[1m[96mhelp[0m: remove these parentheses
+    [1m[94m|[0m
+[1m[94m111[0m [91m- [0m                .filter(|&(_num, field)| [91m([0m!has_ignore_attribute(&field.attrs)[91m)[0m)
+[1m[94m111[0m [92m+ [0m                .filter(|&(_num, field)| !has_ignore_attribute(&field.attrs))
+    [1m[94m|[0m
+
+[1m[92m   Compiling[0m thiserror-impl v1.0.69
+[1m[33mwarning[0m: `uniffi_checksum_derive` (lib) generated 1 warning (run `cargo fix --lib -p uniffi_checksum_derive` to apply 1 suggestion)
+[1m[92m   Compiling[0m itoa v1.0.18
+[1m[92m   Compiling[0m minimal-lexical v0.2.1
+[1m[92m   Compiling[0m cargo-platform v0.1.9
+[1m[92m   Compiling[0m nom v7.1.3
+[1m[92m   Compiling[0m semver v1.0.28
+[1m[92m   Compiling[0m mime v0.3.18
+[1m[92m   Compiling[0m bytes v1.12.1
+[1m[92m   Compiling[0m paste v1.0.15
+[1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m utf8parse v0.2.2
+[1m[92m   Compiling[0m anstyle-parse v1.0.0
+[1m[92m   Compiling[0m askama_parser v0.2.1
+[1m[92m   Compiling[0m cargo_metadata v0.15.4
+[1m[92m   Compiling[0m basic-toml v0.1.10
+[1m[92m   Compiling[0m scroll_derive v0.12.1
+[1m[92m   Compiling[0m colorchoice v1.0.5
+[1m[92m   Compiling[0m anstyle v1.0.14
+[1m[92m   Compiling[0m log v0.4.35
+[1m[92m   Compiling[0m is_terminal_polyfill v1.70.2
+[1m[92m   Compiling[0m anstyle-query v1.1.5
+[1m[92m   Compiling[0m siphasher v0.3.11
+[1m[92m   Compiling[0m smawk v0.3.3
+[1m[92m   Compiling[0m uniffi_meta v0.28.3 (/Users/runner/.cargo/git/checkouts/uniffi-rs-dfd07ff6e8e05536/0d38fc5/uniffi_meta)
+[1m[92m   Compiling[0m textwrap v0.16.4
+[1m[92m   Compiling[0m anstream v1.0.0
+[1m[92m   Compiling[0m scroll v0.12.0
+[1m[92m   Compiling[0m askama_derive v0.12.5
+[1m[92m   Compiling[0m weedle2 v5.0.0 (/Users/runner/.cargo/git/checkouts/uniffi-rs-dfd07ff6e8e05536/0d38fc5/weedle2)
+[1m[92m   Compiling[0m uniffi_testing v0.28.3 (/Users/runner/.cargo/git/checkouts/uniffi-rs-dfd07ff6e8e05536/0d38fc5/uniffi_testing)
+[1m[92m   Compiling[0m heck v0.5.0
+[1m[92m   Compiling[0m clap_lex v1.1.1
+[1m[92m   Compiling[0m plain v0.2.3
+[1m[92m   Compiling[0m askama_escape v0.10.3
+[1m[92m   Compiling[0m strsim v0.11.1
+[1m[92m   Compiling[0m clap_builder v4.6.7
+[1m[92m   Compiling[0m askama v0.12.1
+[1m[92m   Compiling[0m goblin v0.8.2
+[1m[92m   Compiling[0m clap_derive v4.6.7
+[1m[92m   Compiling[0m uniffi_udl v0.28.3 (/Users/runner/.cargo/git/checkouts/uniffi-rs-dfd07ff6e8e05536/0d38fc5/uniffi_udl)
+[1m[92m   Compiling[0m toml v0.5.11
+[1m[92m   Compiling[0m bincode v1.3.3
+[1m[92m   Compiling[0m static_assertions v1.1.0
+[1m[92m   Compiling[0m glob v0.3.4
+[1m[92m   Compiling[0m uniffi_macros v0.28.3 (/Users/runner/.cargo/git/checkouts/uniffi-rs-dfd07ff6e8e05536/0d38fc5/uniffi_macros)
+[1m[92m   Compiling[0m uniffi_bindgen v0.28.3 (/Users/runner/.cargo/git/checkouts/uniffi-rs-dfd07ff6e8e05536/0d38fc5/uniffi_bindgen)
+[1m[92m   Compiling[0m uniffi_core v0.28.3 (/Users/runner/.cargo/git/checkouts/uniffi-rs-dfd07ff6e8e05536/0d38fc5/uniffi_core)
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:409:1
+    [1m[94m|[0m
+[1m[94m409[0m [1m[94m|[0m derive_ffi_traits!(blanket u8);
+    [1m[94m|[0m [1m[94m------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:410:1
+    [1m[94m|[0m
+[1m[94m410[0m [1m[94m|[0m derive_ffi_traits!(blanket i8);
+    [1m[94m|[0m [1m[94m------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:411:1
+    [1m[94m|[0m
+[1m[94m411[0m [1m[94m|[0m derive_ffi_traits!(blanket u16);
+    [1m[94m|[0m [1m[94m-------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:412:1
+    [1m[94m|[0m
+[1m[94m412[0m [1m[94m|[0m derive_ffi_traits!(blanket i16);
+    [1m[94m|[0m [1m[94m-------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:413:1
+    [1m[94m|[0m
+[1m[94m413[0m [1m[94m|[0m derive_ffi_traits!(blanket u32);
+    [1m[94m|[0m [1m[94m-------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:414:1
+    [1m[94m|[0m
+[1m[94m414[0m [1m[94m|[0m derive_ffi_traits!(blanket i32);
+    [1m[94m|[0m [1m[94m-------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:415:1
+    [1m[94m|[0m
+[1m[94m415[0m [1m[94m|[0m derive_ffi_traits!(blanket u64);
+    [1m[94m|[0m [1m[94m-------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:416:1
+    [1m[94m|[0m
+[1m[94m416[0m [1m[94m|[0m derive_ffi_traits!(blanket i64);
+    [1m[94m|[0m [1m[94m-------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:417:1
+    [1m[94m|[0m
+[1m[94m417[0m [1m[94m|[0m derive_ffi_traits!(blanket f32);
+    [1m[94m|[0m [1m[94m-------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:418:1
+    [1m[94m|[0m
+[1m[94m418[0m [1m[94m|[0m derive_ffi_traits!(blanket f64);
+    [1m[94m|[0m [1m[94m-------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:419:1
+    [1m[94m|[0m
+[1m[94m419[0m [1m[94m|[0m derive_ffi_traits!(blanket bool);
+    [1m[94m|[0m [1m[94m--------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:420:1
+    [1m[94m|[0m
+[1m[94m420[0m [1m[94m|[0m derive_ffi_traits!(blanket String);
+    [1m[94m|[0m [1m[94m----------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:421:1
+    [1m[94m|[0m
+[1m[94m421[0m [1m[94m|[0m derive_ffi_traits!(blanket Duration);
+    [1m[94m|[0m [1m[94m------------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: trait `GetConverterSpecialized` is never used[0m
+   [1m[94m--> [0muniffi_core/src/ffi/callbackinterface.rs:194:19
+    [1m[94m|[0m
+[1m[94m194[0m [1m[94m|[0m         pub trait GetConverterSpecialized {
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+   [1m[94m::: [0muniffi_core/src/ffi_converter_impls.rs:422:1
+    [1m[94m|[0m
+[1m[94m422[0m [1m[94m|[0m derive_ffi_traits!(blanket SystemTime);
+    [1m[94m|[0m [1m[94m--------------------------------------[0m [1m[94min this macro invocation[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: this warning originates in the macro `$crate::convert_unexpected_error` which comes from the expansion of the macro `derive_ffi_traits` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[33mwarning[0m[1m: unnecessary qualification[0m
+   [1m[94m--> [0muniffi_bindgen/src/interface/mod.rs:151:36
+    [1m[94m|[0m
+[1m[94m151[0m [1m[94m|[0m         self.types.add_known_type(&uniffi_meta::Type::String)?;
+    [1m[94m|[0m                                    [1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+[1m[92mnote[0m: the lint level is defined here
+   [1m[94m--> [0muniffi_bindgen/src/lib.rs:92:27
+    [1m[94m|[0m
+[1m[94m 92[0m [1m[94m|[0m #![warn(rust_2018_idioms, unused_qualifications)]
+    [1m[94m|[0m                           [1m[92m^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[96mhelp[0m: remove the unnecessary path segments
+    [1m[94m|[0m
+[1m[94m151[0m [91m- [0m        self.types.add_known_type(&[91muniffi_meta::[0mType::String)?;
+[1m[94m151[0m [92m+ [0m        self.types.add_known_type(&Type::String)?;
+    [1m[94m|[0m
+
+[1m[33mwarning[0m[1m: unnecessary qualification[0m
+   [1m[94m--> [0muniffi_bindgen/src/library_mode.rs:155:13
+    [1m[94m|[0m
+[1m[94m155[0m [1m[94m|[0m             uniffi_meta::Metadata::UdlFile(meta) => Some(meta),
+    [1m[94m|[0m             [1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: remove the unnecessary path segments
+    [1m[94m|[0m
+[1m[94m155[0m [91m- [0m            [91muniffi_meta::[0mMetadata::UdlFile(meta) => Some(meta),
+[1m[94m155[0m [92m+ [0m            Metadata::UdlFile(meta) => Some(meta),
+    [1m[94m|[0m
+
+[1m[33mwarning[0m[1m: unnecessary qualification[0m
+   [1m[94m--> [0muniffi_bindgen/src/macro_metadata/extract.rs:140:32
+    [1m[94m|[0m
+[1m[94m140[0m [1m[94m|[0m             && nlist.n_sect != goblin::mach::symbols::NO_SECT as usize
+    [1m[94m|[0m                                [1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: remove the unnecessary path segments
+    [1m[94m|[0m
+[1m[94m140[0m [91m- [0m            && nlist.n_sect != [91mgoblin::mach::[0msymbols::NO_SECT as usize
+[1m[94m140[0m [92m+ [0m            && nlist.n_sect != symbols::NO_SECT as usize
+    [1m[94m|[0m
+
+[1m[33mwarning[0m[1m: unnecessary qualification[0m
+   [1m[94m--> [0muniffi_bindgen/src/lib.rs:265:5
+    [1m[94m|[0m
+[1m[94m265[0m [1m[94m|[0m     crate::library_mode::calc_cdylib_name(library_file.as_ref()).is_some()
+    [1m[94m|[0m     [1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: remove the unnecessary path segments
+    [1m[94m|[0m
+[1m[94m265[0m [91m- [0m    [91mcrate::[0mlibrary_mode::calc_cdylib_name(library_file.as_ref()).is_some()
+[1m[94m265[0m [92m+ [0m    library_mode::calc_cdylib_name(library_file.as_ref()).is_some()
+    [1m[94m|[0m
+
+[1m[33mwarning[0m[1m: unnecessary qualification[0m
+   [1m[94m--> [0muniffi_bindgen/src/lib.rs:314:17
+    [1m[94m|[0m
+[1m[94m314[0m [1m[94m|[0m                 crate::library_mode::calc_cdylib_name(library_file.as_ref()).map(ToOwned::to_owned)
+    [1m[94m|[0m                 [1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: remove the unnecessary path segments
+    [1m[94m|[0m
+[1m[94m314[0m [91m- [0m                [91mcrate::[0mlibrary_mode::calc_cdylib_name(library_file.as_ref()).map(ToOwned::to_owned)
+[1m[94m314[0m [92m+ [0m                library_mode::calc_cdylib_name(library_file.as_ref()).map(ToOwned::to_owned)
+    [1m[94m|[0m
+
+[1m[33mwarning[0m: `uniffi_core` (lib) generated 14 warnings
+[1m[92m   Compiling[0m clap v4.6.7
+[1m[33mwarning[0m[1m: fields `some` and `paren` are never read[0m
+  [1m[94m--> [0muniffi_macros/src/default.rs:21:9
+   [1m[94m|[0m
+[1m[94m20[0m [1m[94m|[0m     Some {
+   [1m[94m|[0m     [1m[94m----[0m [1m[94mfields in this variant[0m
+[1m[94m21[0m [1m[94m|[0m         some: kw::Some,
+   [1m[94m|[0m         [1m[33m^^^^[0m
+[1m[94m22[0m [1m[94m|[0m         paren: Paren,
+   [1m[94m|[0m         [1m[33m^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `DefaultValue` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+   [1m[94m= [0m[1mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[33mwarning[0m[1m: field `0` is never read[0m
+  [1m[94m--> [0muniffi_macros/src/default.rs:25:14
+   [1m[94m|[0m
+[1m[94m25[0m [1m[94m|[0m     EmptySeq(Bracket),
+   [1m[94m|[0m     [1m[94m--------[0m [1m[33m^^^^^^^[0m
+   [1m[94m|[0m     [1m[94m|[0m
+   [1m[94m|[0m     [1m[94mfield in this variant[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `DefaultValue` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+[1m[96mhelp[0m: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   [1m[94m|[0m
+[1m[94m25[0m [91m- [0m    EmptySeq([91mBracket[0m),
+[1m[94m25[0m [92m+ [0m    EmptySeq([92m()[0m),
+   [1m[94m|[0m
+
+[1m[33mwarning[0m[1m: field `0` is never read[0m
+  [1m[94m--> [0muniffi_macros/src/derive.rs:29:12
+   [1m[94m|[0m
+[1m[94m29[0m [1m[94m|[0m     Record(kw::Record),
+   [1m[94m|[0m     [1m[94m------[0m [1m[33m^^^^^^^^^^[0m
+   [1m[94m|[0m     [1m[94m|[0m
+   [1m[94m|[0m     [1m[94mfield in this variant[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   [1m[94m|[0m
+[1m[94m29[0m [91m- [0m    Record([91mkw::Record[0m),
+[1m[94m29[0m [92m+ [0m    Record([92m()[0m),
+   [1m[94m|[0m
+
+[1m[33mwarning[0m[1m: field `0` is never read[0m
+  [1m[94m--> [0muniffi_macros/src/derive.rs:30:10
+   [1m[94m|[0m
+[1m[94m30[0m [1m[94m|[0m     Enum(kw::Enum),
+   [1m[94m|[0m     [1m[94m----[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m     [1m[94m|[0m
+   [1m[94m|[0m     [1m[94mfield in this variant[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   [1m[94m|[0m
+[1m[94m30[0m [91m- [0m    Enum([91mkw::Enum[0m),
+[1m[94m30[0m [92m+ [0m    Enum([92m()[0m),
+   [1m[94m|[0m
+
+[1m[33mwarning[0m[1m: field `0` is never read[0m
+  [1m[94m--> [0muniffi_macros/src/derive.rs:31:11
+   [1m[94m|[0m
+[1m[94m31[0m [1m[94m|[0m     Error(kw::Error),
+   [1m[94m|[0m     [1m[94m-----[0m [1m[33m^^^^^^^^^[0m
+   [1m[94m|[0m     [1m[94m|[0m
+   [1m[94m|[0m     [1m[94mfield in this variant[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   [1m[94m|[0m
+[1m[94m31[0m [91m- [0m    Error([91mkw::Error[0m),
+[1m[94m31[0m [92m+ [0m    Error([92m()[0m),
+   [1m[94m|[0m
+
+[1m[33mwarning[0m[1m: field `0` is never read[0m
+  [1m[94m--> [0muniffi_macros/src/derive.rs:32:12
+   [1m[94m|[0m
+[1m[94m32[0m [1m[94m|[0m     Object(kw::Object),
+   [1m[94m|[0m     [1m[94m------[0m [1m[33m^^^^^^^^^^[0m
+   [1m[94m|[0m     [1m[94m|[0m
+   [1m[94m|[0m     [1m[94mfield in this variant[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   [1m[94m|[0m
+[1m[94m32[0m [91m- [0m    Object([91mkw::Object[0m),
+[1m[94m32[0m [92m+ [0m    Object([92m()[0m),
+   [1m[94m|[0m
+
+[1m[33mwarning[0m[1m: field `eq_token` is never read[0m
+   [1m[94m--> [0muniffi_macros/src/export/attributes.rs:383:9
+    [1m[94m|[0m
+[1m[94m381[0m [1m[94m|[0m pub struct DefaultPair {
+    [1m[94m|[0m            [1m[94m-----------[0m [1m[94mfield in this struct[0m
+[1m[94m382[0m [1m[94m|[0m     pub name: Ident,
+[1m[94m383[0m [1m[94m|[0m     pub eq_token: Token![=],
+    [1m[94m|[0m         [1m[33m^^^^^^^^[0m
+
+[1m[33mwarning[0m[1m: field `sep` is never read[0m
+   [1m[94m--> [0muniffi_macros/src/util.rs:280:9
+    [1m[94m|[0m
+[1m[94m278[0m [1m[94m|[0m pub struct ExternalTypeItem {
+    [1m[94m|[0m            [1m[94m----------------[0m [1m[94mfield in this struct[0m
+[1m[94m279[0m [1m[94m|[0m     pub crate_ident: Ident,
+[1m[94m280[0m [1m[94m|[0m     pub sep: Token![,],
+    [1m[94m|[0m         [1m[33m^^^[0m
+
+[1m[33mwarning[0m: `uniffi_macros` (lib) generated 8 warnings
+[1m[33mwarning[0m[1m: method `imports` is never used[0m
+  [1m[94m--> [0muniffi_bindgen/src/bindings/kotlin/gen_kotlin/mod.rs:60:8
+   [1m[94m|[0m
+[1m[94m30[0m [1m[94m|[0m trait CodeType: Debug {
+   [1m[94m|[0m       [1m[94m--------[0m [1m[94mmethod in this trait[0m
+[1m[94m...[0m
+[1m[94m60[0m [1m[94m|[0m     fn imports(&self) -> Option<Vec<String>> {
+   [1m[94m|[0m        [1m[33m^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[33mwarning[0m[1m: methods `imports` and `initialization_fn` are never used[0m
+  [1m[94m--> [0muniffi_bindgen/src/bindings/python/gen_python/mod.rs:59:8
+   [1m[94m|[0m
+[1m[94m32[0m [1m[94m|[0m trait CodeType: Debug {
+   [1m[94m|[0m       [1m[94m--------[0m [1m[94mmethods in this trait[0m
+[1m[94m...[0m
+[1m[94m59[0m [1m[94m|[0m     fn imports(&self) -> Option<Vec<String>> {
+   [1m[94m|[0m        [1m[33m^^^^^^^[0m
+[1m[94m...[0m
+[1m[94m64[0m [1m[94m|[0m     fn initialization_fn(&self) -> Option<String> {
+   [1m[94m|[0m        [1m[33m^^^^^^^^^^^^^^^^^[0m
+
+[1m[33mwarning[0m[1m: method `imports` is never used[0m
+  [1m[94m--> [0muniffi_bindgen/src/bindings/swift/gen_swift/mod.rs:81:8
+   [1m[94m|[0m
+[1m[94m33[0m [1m[94m|[0m trait CodeType: Debug {
+   [1m[94m|[0m       [1m[94m--------[0m [1m[94mmethod in this trait[0m
+[1m[94m...[0m
+[1m[94m81[0m [1m[94m|[0m     fn imports(&self) -> Option<Vec<String>> {
+   [1m[94m|[0m        [1m[33m^^^^^^^[0m
+
+[1m[92m   Compiling[0m uniffi v0.28.3 (/Users/runner/.cargo/git/checkouts/uniffi-rs-dfd07ff6e8e05536/0d38fc5/uniffi)
+[1m[33mwarning[0m: `uniffi_bindgen` (lib) generated 8 warnings (run `cargo fix --lib -p uniffi_bindgen` to apply 5 suggestions)
+[1m[92m   Compiling[0m uniffi-bindgen-cli v0.1.0 (/Users/runner/.cargo/git/checkouts/uniffi-rs-dfd07ff6e8e05536/0d38fc5/examples/app/uniffi-bindgen-cli)
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 1m 00s
+[1m[92m  Installing[0m /Users/runner/.cargo/bin/uniffi-bindgen
+[1m[92m   Installed[0m package `uniffi-bindgen-cli v0.1.0 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)` (executable `uniffi-bindgen`)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
+[1m[92m     Locking[0m 165 packages to highest compatible versions
+[1m[92m      Adding[0m aes-gcm v0.10.3 [1m[33m(available: v0.11.1)[0m
+[1m[92m      Adding[0m bcrypt v0.15.1 [1m[33m(available: v0.19.3)[0m
+[1m[92m      Adding[0m bincode v1.3.3 [1m[33m(available: v3.0.0)[0m
+[1m[92m      Adding[0m criterion v0.5.1 [1m[33m(available: v0.8.2)[0m
+[1m[92m      Adding[0m generic-array v0.14.7 [1m[33m(available: v0.14.9)[0m
+[1m[92m      Adding[0m hmac v0.12.1 [1m[33m(available: v0.13.0)[0m
+[1m[92m      Adding[0m napi v2.16.17 [1m[33m(available: v3.16.1)[0m
+[1m[92m      Adding[0m napi-derive v2.16.13 [1m[33m(available: v3.7.0)[0m
+[1m[92m      Adding[0m sha2 v0.10.9 [1m[33m(available: v0.11.1)[0m
+[1m[92m      Adding[0m x25519-dalek v2.0.1 [1m[33m(available: v3.0.0)[0m
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m base64 v0.22.1
+[1m[92m  Downloaded[0m bcrypt v0.15.1
+[1m[92m  Downloaded[0m aes v0.8.4
+[1m[92m  Downloaded[0m byteorder v1.5.0
+[1m[92m  Downloaded[0m aead v0.5.2
+[1m[92m  Downloaded[0m inout v0.1.4
+[1m[92m  Downloaded[0m adler2 v2.0.1
+[1m[92m  Downloaded[0m getrandom v0.2.17
+[1m[92m  Downloaded[0m aes-gcm v0.10.3
+[1m[92m  Downloaded[0m blowfish v0.9.1
+[1m[92m  Downloaded[0m generic-array v0.14.7
+[1m[92m  Downloaded[0m crypto-common v0.1.7
+[1m[92m  Downloaded[0m crypto_box v0.9.1
+[1m[92m  Downloaded[0m block-buffer v0.10.4
+[1m[92m  Downloaded[0m cfg-if v1.0.5
+[1m[92m  Downloaded[0m digest v0.10.7
+[1m[92m  Downloaded[0m crypto_secretbox v0.1.1
+[1m[92m  Downloaded[0m ctr v0.9.2
+[1m[92m  Downloaded[0m cpufeatures v0.2.17
+[1m[92m  Downloaded[0m cipher v0.4.4
+[1m[92m  Downloaded[0m hmac v0.12.1
+[1m[92m  Downloaded[0m flate2 v1.1.11
+[1m[92m  Downloaded[0m ghash v0.5.1
+[1m[92m  Downloaded[0m miniz_oxide v0.9.1
+[1m[92m  Downloaded[0m crc32fast v1.5.4
+[1m[92m  Downloaded[0m subtle v2.6.1
+[1m[92m  Downloaded[0m curve25519-dalek v4.1.3
+[1m[92m  Downloaded[0m libc v0.2.191
+[1m[92m  Downloaded[0m napi-build v2.6.0
+[1m[92m  Downloaded[0m poly1305 v0.8.0
+[1m[92m  Downloaded[0m polyval v0.6.2
+[1m[92m  Downloaded[0m sha2 v0.10.9
+[1m[92m  Downloaded[0m rand_core v0.6.4
+[1m[92m  Downloaded[0m salsa20 v0.10.2
+[1m[92m  Downloaded[0m rustc_version v0.4.1
+[1m[92m  Downloaded[0m simd-adler32 v0.3.10
+[1m[92m  Downloaded[0m opaque-debug v0.3.1
+[1m[92m  Downloaded[0m typenum v1.20.1
+[1m[92m  Downloaded[0m universal-hash v0.5.1
+[1m[92m  Downloaded[0m zeroize_derive v1.5.0
+[1m[92m  Downloaded[0m zeroize v1.9.1
+[1m[92m  Downloaded[0m version_check v0.9.5
+[1m[92m  Downloaded[0m zlib-rs v0.6.8
+[1m[92m  Downloaded[0m x25519-dalek v2.0.1
+[1m[92m   Compiling[0m proc-macro2 v1.0.107
+[1m[92m   Compiling[0m quote v1.0.47
+[1m[92m   Compiling[0m unicode-ident v1.0.27
+[1m[92m   Compiling[0m libc v0.2.191
+[1m[92m   Compiling[0m cfg-if v1.0.5
+[1m[92m   Compiling[0m version_check v0.9.5
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m typenum v1.20.1
+[1m[92m   Compiling[0m syn v2.0.119
+[1m[92m   Compiling[0m getrandom v0.2.17
+[1m[92m   Compiling[0m rand_core v0.6.4
+[1m[92m   Compiling[0m subtle v2.6.1
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m syn v3.0.9
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m serde_derive v1.0.229
+[1m[92m   Compiling[0m anyhow v1.0.104
+[1m[92m   Compiling[0m opaque-debug v0.3.1
+[1m[92m   Compiling[0m semver v1.0.28
+[1m[92m   Compiling[0m zeroize_derive v1.5.0
+[1m[92m   Compiling[0m rustc_version v0.4.1
+[1m[92m   Compiling[0m zeroize v1.9.1
+[1m[92m   Compiling[0m crypto-common v0.1.7
+[1m[92m   Compiling[0m inout v0.1.4
+[1m[92m   Compiling[0m universal-hash v0.5.1
+[1m[92m   Compiling[0m cipher v0.4.4
+[1m[92m   Compiling[0m cpufeatures v0.2.17
+[1m[92m   Compiling[0m autocfg v1.5.1
+[1m[92m   Compiling[0m zmij v1.0.23
+[1m[92m   Compiling[0m fs-err v2.11.0
+[1m[92m   Compiling[0m curve25519-dalek v4.1.3
+[1m[92m   Compiling[0m camino v1.2.6
+[1m[92m   Compiling[0m paste v1.0.15
+[1m[92m   Compiling[0m thiserror v1.0.69
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m aead v0.5.2
+[1m[92m   Compiling[0m block-buffer v0.10.4
+[1m[92m   Compiling[0m thiserror-impl v1.0.69
+[1m[92m   Compiling[0m uniffi_checksum_derive v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
+[1m[92m   Compiling[0m memchr v2.8.3
+[1m[92m   Compiling[0m crc32fast v1.5.4
+[1m[92m   Compiling[0m itoa v1.0.18
+[1m[92m   Compiling[0m siphasher v0.3.11
+[1m[92m   Compiling[0m bytes v1.12.1
+[1m[92m   Compiling[0m uniffi_meta v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
+[1m[92m   Compiling[0m digest v0.10.7
+[1m[92m   Compiling[0m toml v0.5.11
+[1m[92m   Compiling[0m bincode v1.3.3
+[1m[92m   Compiling[0m cargo-platform v0.1.9
+[1m[92m   Compiling[0m polyval v0.6.2
+[1m[92m   Compiling[0m salsa20 v0.10.2
+[1m[92m   Compiling[0m poly1305 v0.8.0
+[1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m simd-adler32 v0.3.10
+[1m[92m   Compiling[0m napi-build v2.6.0
+[1m[92m   Compiling[0m log v0.4.35
+[1m[92m   Compiling[0m adler2 v2.0.1
+[1m[92m   Compiling[0m static_assertions v1.1.0
+[1m[92m   Compiling[0m byteorder v1.5.0
+[1m[92m   Compiling[0m miniz_oxide v0.9.1
+[1m[92m   Compiling[0m blowfish v0.9.1
+[1m[92m   Compiling[0m medchat-core v0.1.0 (/Users/runner/work/chat/chat/medchat-v2/core)
+[1m[92m   Compiling[0m uniffi_core v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
+[1m[92m   Compiling[0m uniffi_macros v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
+[1m[92m   Compiling[0m cargo_metadata v0.15.4
+[1m[92m   Compiling[0m crypto_secretbox v0.1.1
+[1m[92m   Compiling[0m ghash v0.5.1
+[1m[92m   Compiling[0m aes v0.8.4
+[1m[92m   Compiling[0m ctr v0.9.2
+[1m[92m   Compiling[0m base64 v0.22.1
+[1m[92m   Compiling[0m aes-gcm v0.10.3
+[1m[92m   Compiling[0m uniffi v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
+[1m[92m   Compiling[0m bcrypt v0.15.1
+[1m[92m   Compiling[0m flate2 v1.1.11
+[1m[92m   Compiling[0m crypto_box v0.9.1
+[1m[92m   Compiling[0m x25519-dalek v2.0.1
+[1m[92m   Compiling[0m sha2 v0.10.9
+[1m[92m   Compiling[0m hmac v0.12.1
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 26.70s
+../ios/MedchatCoreSmoke.swift:79:1: error: expressions are not allowed at the top level
+ 77 | 
+ 78 | // ---------- размеры и keypair ----------
+ 79 | check(keySize() == 32, "keySize() == 32")
+    | `- error: expressions are not allowed at the top level
+ 80 | check(nonceSize() == 24, "nonceSize() == 24")
+ 81 | check(ratchetHeaderSize() == 40, "ratchetHeaderSize() == 40")
+
+../ios/MedchatCoreSmoke.swift:80:1: error: expressions are not allowed at the top level
+ 78 | // ---------- размеры и keypair ----------
+ 79 | check(keySize() == 32, "keySize() == 32")
+ 80 | check(nonceSize() == 24, "nonceSize() == 24")
+    | `- error: expressions are not allowed at the top level
+ 81 | check(ratchetHeaderSize() == 40, "ratchetHeaderSize() == 40")
+ 82 | check(ratchetNonceSize() == 12, "ratchetNonceSize() == 12")
+
+../ios/MedchatCoreSmoke.swift:81:1: error: expressions are not allowed at the top level
+ 79 | check(keySize() == 32, "keySize() == 32")
+ 80 | check(nonceSize() == 24, "nonceSize() == 24")
+ 81 | check(ratchetHeaderSize() == 40, "ratchetHeaderSize() == 40")
+    | `- error: expressions are not allowed at the top level
+ 82 | check(ratchetNonceSize() == 12, "ratchetNonceSize() == 12")
+ 83 | let alice = generateKeypair()
+
+../ios/MedchatCoreSmoke.swift:82:1: error: expressions are not allowed at the top level
+ 80 | check(nonceSize() == 24, "nonceSize() == 24")
+ 81 | check(ratchetHeaderSize() == 40, "ratchetHeaderSize() == 40")
+ 82 | check(ratchetNonceSize() == 12, "ratchetNonceSize() == 12")
+    | `- error: expressions are not allowed at the top level
+ 83 | let alice = generateKeypair()
+ 84 | let bob = generateKeypair()
+
+../ios/MedchatCoreSmoke.swift:86:1: error: expressions are not allowed at the top level
+ 84 | let bob = generateKeypair()
+ 85 | let carol = generateKeypair()
+ 86 | check(alice.publicKey.count == 32, "publicKey 32 байта")
+    | `- error: expressions are not allowed at the top level
+ 87 | check(alice.secretKey.count == 32, "secretKey 32 байта")
+ 88 | ok("keySize/nonceSize/ratchetSizes/generateKeypair")
+
+../ios/MedchatCoreSmoke.swift:87:1: error: expressions are not allowed at the top level
+ 85 | let carol = generateKeypair()
+ 86 | check(alice.publicKey.count == 32, "publicKey 32 байта")
+ 87 | check(alice.secretKey.count == 32, "secretKey 32 байта")
+    | `- error: expressions are not allowed at the top level
+ 88 | ok("keySize/nonceSize/ratchetSizes/generateKeypair")
+ 89 | 
+
+../ios/MedchatCoreSmoke.swift:88:1: error: expressions are not allowed at the top level
+ 86 | check(alice.publicKey.count == 32, "publicKey 32 байта")
+ 87 | check(alice.secretKey.count == 32, "secretKey 32 байта")
+ 88 | ok("keySize/nonceSize/ratchetSizes/generateKeypair")
+    | `- error: expressions are not allowed at the top level
+ 89 | 
+ 90 | // ---------- конверт seal/open (x25519-box) ----------
+
+../ios/MedchatCoreSmoke.swift:93:1: error: expressions are not allowed at the top level
+ 91 | let msg = Data("roundtrip via uniffi wrappers".utf8)
+ 92 | let sealed = try! sealForRecipients(plaintext: msg, recipientPublicKeys: [alice.publicKey, bob.publicKey])
+ 93 | check(sealed.boxes.count == 2, "boxes по числу получателей")
+    | `- error: expressions are not allowed at the top level
+ 94 | check(sealed.epk.count == 32, "epk 32 байта")
+ 95 | check(sealed.nonce.count == 24, "nonce 24 байта")
+
+../ios/MedchatCoreSmoke.swift:94:1: error: expressions are not allowed at the top level
+ 92 | let sealed = try! sealForRecipients(plaintext: msg, recipientPublicKeys: [alice.publicKey, bob.publicKey])
+ 93 | check(sealed.boxes.count == 2, "boxes по числу получателей")
+ 94 | check(sealed.epk.count == 32, "epk 32 байта")
+    | `- error: expressions are not allowed at the top level
+ 95 | check(sealed.nonce.count == 24, "nonce 24 байта")
+ 96 | let opened = try! openSealed(sealed: sealed, myPublic: bob.publicKey, mySecret: bob.secretKey)
+
+../ios/MedchatCoreSmoke.swift:95:1: error: expressions are not allowed at the top level
+ 93 | check(sealed.boxes.count == 2, "boxes по числу получателей")
+ 94 | check(sealed.epk.count == 32, "epk 32 байта")
+ 95 | check(sealed.nonce.count == 24, "nonce 24 байта")
+    | `- error: expressions are not allowed at the top level
+ 96 | let opened = try! openSealed(sealed: sealed, myPublic: bob.publicKey, mySecret: bob.secretKey)
+ 97 | check(opened == msg, "получатель расшифровал")
+
+../ios/MedchatCoreSmoke.swift:97:1: error: expressions are not allowed at the top level
+ 95 | check(sealed.nonce.count == 24, "nonce 24 байта")
+ 96 | let opened = try! openSealed(sealed: sealed, myPublic: bob.publicKey, mySecret: bob.secretKey)
+ 97 | check(opened == msg, "получатель расшифровал")
+    | `- error: expressions are not allowed at the top level
+ 98 | let openedSender = try! openSealed(sealed: sealed, myPublic: alice.publicKey, mySecret: alice.secretKey)
+ 99 | check(openedSender == msg, "бокс отправителя читается ключом отправителя")
+
+../ios/MedchatCoreSmoke.swift:99:1: error: expressions are not allowed at the top level
+ 97 | check(opened == msg, "получатель расшифровал")
+ 98 | let openedSender = try! openSealed(sealed: sealed, myPublic: alice.publicKey, mySecret: alice.secretKey)
+ 99 | check(openedSender == msg, "бокс отправителя читается ключом отправителя")
+    | `- error: expressions are not allowed at the top level
+100 | ok("sealForRecipients/openSealed roundtrip (получатель + бокс отправителя)")
+101 | 
+
+../ios/MedchatCoreSmoke.swift:100:1: error: expressions are not allowed at the top level
+ 98 | let openedSender = try! openSealed(sealed: sealed, myPublic: alice.publicKey, mySecret: alice.secretKey)
+ 99 | check(openedSender == msg, "бокс отправителя читается ключом отправителя")
+100 | ok("sealForRecipients/openSealed roundtrip (получатель + бокс отправителя)")
+    | `- error: expressions are not allowed at the top level
+101 | 
+102 | let emptySealed = try! sealForRecipients(plaintext: msg, recipientPublicKeys: [])
+
+../ios/MedchatCoreSmoke.swift:103:1: error: expressions are not allowed at the top level
+101 | 
+102 | let emptySealed = try! sealForRecipients(plaintext: msg, recipientPublicKeys: [])
+103 | check(emptySealed.boxes.count == 0, "пустой список получателей — пустой конверт")
+    | `- error: expressions are not allowed at the top level
+104 | expectMedError("пустой конверт — NoBoxForRecipient", match: noBoxCase) {
+105 |     _ = try openSealed(sealed: emptySealed, myPublic: alice.publicKey, mySecret: alice.secretKey)
+
+../ios/MedchatCoreSmoke.swift:104:1: error: expressions are not allowed at the top level
+102 | let emptySealed = try! sealForRecipients(plaintext: msg, recipientPublicKeys: [])
+103 | check(emptySealed.boxes.count == 0, "пустой список получателей — пустой конверт")
+104 | expectMedError("пустой конверт — NoBoxForRecipient", match: noBoxCase) {
+    | `- error: expressions are not allowed at the top level
+105 |     _ = try openSealed(sealed: emptySealed, myPublic: alice.publicKey, mySecret: alice.secretKey)
+106 | }
+
+../ios/MedchatCoreSmoke.swift:107:1: error: expressions are not allowed at the top level
+105 |     _ = try openSealed(sealed: emptySealed, myPublic: alice.publicKey, mySecret: alice.secretKey)
+106 | }
+107 | expectMedError("чужой ключ — NoBoxForRecipient", match: noBoxCase) {
+    | `- error: expressions are not allowed at the top level
+108 |     _ = try openSealed(sealed: sealed, myPublic: carol.publicKey, mySecret: carol.secretKey)
+109 | }
+
+../ios/MedchatCoreSmoke.swift:111:1: error: expressions are not allowed at the top level
+109 | }
+110 | let badEpkEnvelope = MedSealedMessage(epk: Data(repeating: 0, count: 31), nonce: sealed.nonce, boxes: sealed.boxes)
+111 | expectMedError("битая длина epk — InvalidArgument", match: invalidArgCase) {
+    | `- error: expressions are not allowed at the top level
+112 |     _ = try openSealed(sealed: badEpkEnvelope, myPublic: alice.publicKey, mySecret: alice.secretKey)
+113 | }
+
+../ios/MedchatCoreSmoke.swift:115:1: error: expressions are not allowed at the top level
+113 | }
+114 | let badNonceEnvelope = MedSealedMessage(epk: sealed.epk, nonce: Data(repeating: 0, count: 23), boxes: sealed.boxes)
+115 | expectMedError("битая длина nonce — InvalidArgument", match: invalidArgCase) {
+    | `- error: expressions are not allowed at the top level
+116 |     _ = try openSealed(sealed: badNonceEnvelope, myPublic: alice.publicKey, mySecret: alice.secretKey)
+117 | }
+
+../ios/MedchatCoreSmoke.swift:133:1: error: expressions are not allowed at the top level
+131 | let (aliceR, bobR) = ratchetPair(7)
+132 | let m1 = try! aliceR.encrypt(plaintext: Data("swift ratchet one".utf8))
+133 | check(m1.header.count == 40, "header 40")
+    | `- error: expressions are not allowed at the top level
+134 | check(m1.nonce.count == 12, "nonce 12")
+135 | let pt1 = try! bobR.decrypt(message: m1)
+
+../ios/MedchatCoreSmoke.swift:134:1: error: expressions are not allowed at the top level
+132 | let m1 = try! aliceR.encrypt(plaintext: Data("swift ratchet one".utf8))
+133 | check(m1.header.count == 40, "header 40")
+134 | check(m1.nonce.count == 12, "nonce 12")
+    | `- error: expressions are not allowed at the top level
+135 | let pt1 = try! bobR.decrypt(message: m1)
+136 | check(pt1 == Data("swift ratchet one".utf8), "in-order plaintext")
+
+../ios/MedchatCoreSmoke.swift:136:1: error: expressions are not allowed at the top level
+134 | check(m1.nonce.count == 12, "nonce 12")
+135 | let pt1 = try! bobR.decrypt(message: m1)
+136 | check(pt1 == Data("swift ratchet one".utf8), "in-order plaintext")
+    | `- error: expressions are not allowed at the top level
+137 | ok("ratchet: encrypt/decrypt in-order")
+138 | 
+
+../ios/MedchatCoreSmoke.swift:137:1: error: expressions are not allowed at the top level
+135 | let pt1 = try! bobR.decrypt(message: m1)
+136 | check(pt1 == Data("swift ratchet one".utf8), "in-order plaintext")
+137 | ok("ratchet: encrypt/decrypt in-order")
+    | `- error: expressions are not allowed at the top level
+138 | 
+139 | let m2 = try! bobR.encrypt(plaintext: Data("swift ratchet two".utf8))
+
+../ios/MedchatCoreSmoke.swift:141:1: error: expressions are not allowed at the top level
+139 | let m2 = try! bobR.encrypt(plaintext: Data("swift ratchet two".utf8))
+140 | let wire = try! ratchetMessageToWire(message: m2)
+141 | check(wire.count == 40 + 12 + "swift ratchet two".utf8.count + 16, "wire = header+nonce+ct+tag")
+    | `- error: expressions are not allowed at the top level
+142 | let pt2 = try! aliceR.decryptWire(wire: wire)
+143 | check(pt2 == Data("swift ratchet two".utf8), "DH-шаг читается через wire")
+
+../ios/MedchatCoreSmoke.swift:143:1: error: expressions are not allowed at the top level
+141 | check(wire.count == 40 + 12 + "swift ratchet two".utf8.count + 16, "wire = header+nonce+ct+tag")
+142 | let pt2 = try! aliceR.decryptWire(wire: wire)
+143 | check(pt2 == Data("swift ratchet two".utf8), "DH-шаг читается через wire")
+    | `- error: expressions are not allowed at the top level
+144 | ok("ratchet: ответ по wire (DH-шаг) + decryptWire")
+145 | 
+
+../ios/MedchatCoreSmoke.swift:144:1: error: expressions are not allowed at the top level
+142 | let pt2 = try! aliceR.decryptWire(wire: wire)
+143 | check(pt2 == Data("swift ratchet two".utf8), "DH-шаг читается через wire")
+144 | ok("ratchet: ответ по wire (DH-шаг) + decryptWire")
+    | `- error: expressions are not allowed at the top level
+145 | 
+146 | let restoredMsg = try! ratchetMessageFromWire(wire: wire)
+
+../ios/MedchatCoreSmoke.swift:147:1: error: expressions are not allowed at the top level
+145 | 
+146 | let restoredMsg = try! ratchetMessageFromWire(wire: wire)
+147 | check(restoredMsg.header == m2.header, "fromWire header")
+    | `- error: expressions are not allowed at the top level
+148 | check(restoredMsg.nonce == m2.nonce, "fromWire nonce")
+149 | check(restoredMsg.ciphertext == m2.ciphertext, "fromWire ciphertext")
+
+../ios/MedchatCoreSmoke.swift:148:1: error: expressions are not allowed at the top level
+146 | let restoredMsg = try! ratchetMessageFromWire(wire: wire)
+147 | check(restoredMsg.header == m2.header, "fromWire header")
+148 | check(restoredMsg.nonce == m2.nonce, "fromWire nonce")
+    | `- error: expressions are not allowed at the top level
+149 | check(restoredMsg.ciphertext == m2.ciphertext, "fromWire ciphertext")
+150 | ok("ratchetMessageTo/FromWire — байт-в-байт")
+
+../ios/MedchatCoreSmoke.swift:149:1: error: expressions are not allowed at the top level
+147 | check(restoredMsg.header == m2.header, "fromWire header")
+148 | check(restoredMsg.nonce == m2.nonce, "fromWire nonce")
+149 | check(restoredMsg.ciphertext == m2.ciphertext, "fromWire ciphertext")
+    | `- error: expressions are not allowed at the top level
+150 | ok("ratchetMessageTo/FromWire — байт-в-байт")
+151 | 
+
+../ios/MedchatCoreSmoke.swift:150:1: error: expressions are not allowed at the top level
+148 | check(restoredMsg.nonce == m2.nonce, "fromWire nonce")
+149 | check(restoredMsg.ciphertext == m2.ciphertext, "fromWire ciphertext")
+150 | ok("ratchetMessageTo/FromWire — байт-в-байт")
+    | `- error: expressions are not allowed at the top level
+151 | 
+152 | expectMedError("короткий wire — BadHeader", match: badHeaderCase) {
+
+../ios/MedchatCoreSmoke.swift:152:1: error: expressions are not allowed at the top level
+150 | ok("ratchetMessageTo/FromWire — байт-в-байт")
+151 | 
+152 | expectMedError("короткий wire — BadHeader", match: badHeaderCase) {
+    | `- error: expressions are not allowed at the top level
+153 |     _ = try ratchetMessageFromWire(wire: Data(repeating: 0, count: 10))
+154 | }
+
+../ios/MedchatCoreSmoke.swift:161:1: error: expressions are not allowed at the top level
+159 | let ptS2 = try! bobS.decrypt(message: s2)
+160 | let ptS1 = try! bobS.decrypt(message: s1)
+161 | check(ptS2 == Data("second".utf8), "внеочередное s2")
+    | `- error: expressions are not allowed at the top level
+162 | check(ptS1 == Data("first".utf8), "внеочередное s1 через skip-store")
+163 | ok("skip-store: m2 раньше m1, оба читаются")
+
+../ios/MedchatCoreSmoke.swift:162:1: error: expressions are not allowed at the top level
+160 | let ptS1 = try! bobS.decrypt(message: s1)
+161 | check(ptS2 == Data("second".utf8), "внеочередное s2")
+162 | check(ptS1 == Data("first".utf8), "внеочередное s1 через skip-store")
+    | `- error: expressions are not allowed at the top level
+163 | ok("skip-store: m2 раньше m1, оба читаются")
+164 | 
+
+../ios/MedchatCoreSmoke.swift:163:1: error: expressions are not allowed at the top level
+161 | check(ptS2 == Data("second".utf8), "внеочередное s2")
+162 | check(ptS1 == Data("first".utf8), "внеочередное s1 через skip-store")
+163 | ok("skip-store: m2 раньше m1, оба читаются")
+    | `- error: expressions are not allowed at the top level
+164 | 
+165 | expectMedError("replay отклоняется (OutOfOrder)", match: outOfOrderCase) {
+
+../ios/MedchatCoreSmoke.swift:165:1: error: expressions are not allowed at the top level
+163 | ok("skip-store: m2 раньше m1, оба читаются")
+164 | 
+165 | expectMedError("replay отклоняется (OutOfOrder)", match: outOfOrderCase) {
+    | `- error: expressions are not allowed at the top level
+166 |     _ = try bobS.decrypt(message: s2)
+167 | }
+
+../ios/MedchatCoreSmoke.swift:170:1: error: expressions are not allowed at the top level
+168 | 
+169 | let (_, bobN) = ratchetPair(3)
+170 | expectMedError("битый nonce ratchet — InvalidArgument", match: invalidArgCase) {
+    | `- error: expressions are not allowed at the top level
+171 |     _ = try bobN.decrypt(message: MedRatchetMessage(header: Data(repeating: 0, count: 40), nonce: Data(repeating: 0, count: 11), ciphertext: Data()))
+172 | }
+
+../ios/MedchatCoreSmoke.swift:177:1: error: expressions are not allowed at the top level
+175 | let t1 = try! aliceT.encrypt(plaintext: Data("tamper me".utf8))
+176 | var tamperedBytes = t1.ciphertext
+177 | tamperedBytes[tamperedBytes.startIndex] ^= 0xff
+    | `- error: expressions are not allowed at the top level
+178 | let tampered = MedRatchetMessage(header: t1.header, nonce: t1.nonce, ciphertext: tamperedBytes)
+179 | expectMedError("tampered ciphertext — Aead", match: aeadCase) {
+
+../ios/MedchatCoreSmoke.swift:179:1: error: expressions are not allowed at the top level
+177 | tamperedBytes[tamperedBytes.startIndex] ^= 0xff
+178 | let tampered = MedRatchetMessage(header: t1.header, nonce: t1.nonce, ciphertext: tamperedBytes)
+179 | expectMedError("tampered ciphertext — Aead", match: aeadCase) {
+    | `- error: expressions are not allowed at the top level
+180 |     _ = try bobT.decrypt(message: tampered)
+181 | }
+
+../ios/MedchatCoreSmoke.swift:184:1: error: expressions are not allowed at the top level
+182 | 
+183 | let (_, bobEarly) = ratchetPair(11)
+184 | expectMedError("responder до первого сообщения — NotInitialized", match: notInitializedCase) {
+    | `- error: expressions are not allowed at the top level
+185 |     _ = try bobEarly.encrypt(plaintext: Data("too early".utf8))
+186 | }
+
+../ios/MedchatCoreSmoke.swift:191:1: error: expressions are not allowed at the top level
+189 | let (aliceP, bobP) = ratchetPair(6)
+190 | let pm1 = try! aliceP.encrypt(plaintext: Data("persist me".utf8))
+191 | _ = try! bobP.decrypt(message: pm1)
+    | `- error: expressions are not allowed at the top level
+192 | let saved = try! bobP.save()
+193 | check(!saved.isEmpty, "save вернул непустой буфер")
+
+../ios/MedchatCoreSmoke.swift:193:1: error: expressions are not allowed at the top level
+191 | _ = try! bobP.decrypt(message: pm1)
+192 | let saved = try! bobP.save()
+193 | check(!saved.isEmpty, "save вернул непустой буфер")
+    | `- error: expressions are not allowed at the top level
+194 | let bobRestored = try! MedRatchetState.restore(saved: saved)
+195 | let pm2 = try! aliceP.encrypt(plaintext: Data("after restore".utf8))
+
+../ios/MedchatCoreSmoke.swift:197:1: error: expressions are not allowed at the top level
+195 | let pm2 = try! aliceP.encrypt(plaintext: Data("after restore".utf8))
+196 | let ptP2 = try! bobRestored.decrypt(message: pm2)
+197 | check(ptP2 == Data("after restore".utf8), "диалог продолжается после restore")
+    | `- error: expressions are not allowed at the top level
+198 | ok("ratchet save/restore: диалог продолжается после рестарта")
+199 | 
+
+../ios/MedchatCoreSmoke.swift:198:1: error: expressions are not allowed at the top level
+196 | let ptP2 = try! bobRestored.decrypt(message: pm2)
+197 | check(ptP2 == Data("after restore".utf8), "диалог продолжается после restore")
+198 | ok("ratchet save/restore: диалог продолжается после рестарта")
+    | `- error: expressions are not allowed at the top level
+199 | 
+200 | expectMedError("replay после restore отклоняется (OutOfOrder)", match: outOfOrderCase) {
+
+../ios/MedchatCoreSmoke.swift:200:1: error: expressions are not allowed at the top level
+198 | ok("ratchet save/restore: диалог продолжается после рестарта")
+199 | 
+200 | expectMedError("replay после restore отклоняется (OutOfOrder)", match: outOfOrderCase) {
+    | `- error: expressions are not allowed at the top level
+201 |     _ = try bobRestored.decrypt(message: pm1)
+202 | }
+
+../ios/MedchatCoreSmoke.swift:203:1: error: expressions are not allowed at the top level
+201 |     _ = try bobRestored.decrypt(message: pm1)
+202 | }
+203 | expectMedError("restore битого буфера — ошибка, не паника", match: invalidArgCase) {
+    | `- error: expressions are not allowed at the top level
+204 |     _ = try MedRatchetState.restore(saved: Data())
+205 | }
+
+../ios/MedchatCoreSmoke.swift:209:1: error: expressions are not allowed at the top level
+207 | // ---------- bcrypt KAT (OpenBSD/crypt_blowfish, вектор U*U) ----------
+208 | let katHash = "$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW"
+209 | check(try! bcryptVerify(password: "U*U", hash: katHash) == true, "bcrypt KAT верный пароль")
+    | `- error: expressions are not allowed at the top level
+210 | check(try! bcryptVerify(password: "U*U*", hash: katHash) == false, "bcrypt KAT неверный пароль")
+211 | expectMedError("битый bcrypt-хэш — BadHash", match: badHashCase) {
+
+../ios/MedchatCoreSmoke.swift:210:1: error: expressions are not allowed at the top level
+208 | let katHash = "$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW"
+209 | check(try! bcryptVerify(password: "U*U", hash: katHash) == true, "bcrypt KAT верный пароль")
+210 | check(try! bcryptVerify(password: "U*U*", hash: katHash) == false, "bcrypt KAT неверный пароль")
+    | `- error: expressions are not allowed at the top level
+211 | expectMedError("битый bcrypt-хэш — BadHash", match: badHashCase) {
+212 |     _ = try bcryptVerify(password: "x", hash: "not-a-bcrypt-hash")
+
+../ios/MedchatCoreSmoke.swift:211:1: error: expressions are not allowed at the top level
+209 | check(try! bcryptVerify(password: "U*U", hash: katHash) == true, "bcrypt KAT верный пароль")
+210 | check(try! bcryptVerify(password: "U*U*", hash: katHash) == false, "bcrypt KAT неверный пароль")
+211 | expectMedError("битый bcrypt-хэш — BadHash", match: badHashCase) {
+    | `- error: expressions are not allowed at the top level
+212 |     _ = try bcryptVerify(password: "x", hash: "not-a-bcrypt-hash")
+213 | }
+
+../ios/MedchatCoreSmoke.swift:214:1: error: expressions are not allowed at the top level
+212 |     _ = try bcryptVerify(password: "x", hash: "not-a-bcrypt-hash")
+213 | }
+214 | ok("bcryptVerify — KAT OpenBSD (U*U) + BadHash")
+    | `- error: expressions are not allowed at the top level
+215 | 
+216 | print("[swift-smoke] все проверки пройдены: " + String(passed))
+
+../ios/MedchatCoreSmoke.swift:216:1: error: expressions are not allowed at the top level
+214 | ok("bcryptVerify — KAT OpenBSD (U*U) + BadHash")
+215 | 
+216 | print("[swift-smoke] все проверки пройдены: " + String(passed))
+    | `- error: expressions are not allowed at the top level
+217 | 
