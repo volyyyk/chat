@@ -4,7 +4,7 @@
  * (medchat-core, этап 2 ROADMAP_NATIVE.md; DoD этапа 2: «бенчмарк ≥ x10
  * к Node на крипто-пути»).
  *
- * Те же примитивы, payload (31 байт) и cost, что в Rust-бенчмарках:
+ * Те же примитивы, payload (30 байт) и cost, что в Rust-бенчмарках:
  *  - tweetnacl box (X25519 + XSalsa20-Poly1305) — реализация мобильного
  *    клиента (см. server/tests/coreInterop.test.js): эфемерная пара +
  *    боксы по числу получателей, открытие своим ключом;
@@ -25,7 +25,7 @@ const crypto = require('crypto');
 const nacl = require('tweetnacl');
 const bcrypt = require('bcrypt');
 
-// Типовое сообщение чата (31 байт) — тот же payload в benches/crypto.rs.
+// Типовое сообщение чата (30 байт) — тот же payload в benches/crypto.rs.
 const MSG = Buffer.from('Patient: good evening, doctor!', 'utf8');
 const BENCH_BUDGET_MS = 2000; // длительность замера быстрых операций
 const SLOW_MIN_ITERS = 4;     // минимум итераций для медленных (cost 12)

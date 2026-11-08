@@ -18,7 +18,7 @@ use medchat_core::{
     RatchetState,
 };
 
-/// Типовое сообщение чата (31 байт) — тот же payload в coreBench.js.
+/// Типовое сообщение чата (30 байт) — тот же payload в coreBench.js.
 const MSG: &[u8] = b"Patient: good evening, doctor!";
 
 fn bench_envelope(c: &mut Criterion) {
