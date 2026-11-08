@@ -824,7 +824,18 @@ jobs:
           echo "[ci-android] compiling kotlinc (обвязка + smoke)"
           /opt/kotlinc/bin/kotlinc $KT_FILES smoke-kotlin/MedchatCoreSmoke.kt -cp /tmp/jna.jar -d smoke-classes
           echo "[ci-android] running smoke in JVM via JNA (host cdylib)"
-          java -Djna.library.path="$PWD/target/release" -cp "/tmp/jna.jar:smoke-classes" "$PKG.MedchatCoreSmokeKt"
+          # kotlin-stdlib обязательна в РАНТАЙМ-класспасе: kotlinc
+          # подставляет её для компиляции сам, но голый java — нет
+          # (run 42520064455: NoClassDefFoundError
+          # kotlin/jvm/functions/Function0 в UniffiLib.<clinit>).
+          STDLIB=$(find /opt/kotlinc -name "kotlin-stdlib.jar" | head -n 1 || true)
+          if [ -z "$STDLIB" ]; then
+            echo "[ci-android] FAIL: kotlin-stdlib.jar not found in /opt/kotlinc"
+            find /opt/kotlinc -name "*.jar" | head -n 20
+            exit 1
+          fi
+          echo "[ci-android] kotlin-stdlib: $STDLIB"
+          java -Djna.library.path="$PWD/target/release" -cp "$STDLIB:/tmp/jna.jar:smoke-classes" "$PKG.MedchatCoreSmokeKt"
           echo "[ci-android] kotlin smoke: done"
 
       - name: Install Android NDK r27c

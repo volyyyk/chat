@@ -210,6 +210,9 @@ Play Console и подписи — на машине оператора (сек�
     генерируются как Exception — класс в Kotlin-обвязке называется
     MedCryptoException (Swift имя не меняет), smoke-файл поправлен
     синхронно.
+    Прогон 42520064455: компиляция kotlinc зелёная, JNA-рантайм упал
+    на kotlin-stdlib вне класспаса (NoClassDefFoundError Function0) —
+    stdlib добавлена в -cp java (find в /opt/kotlinc с диагностикой).
 
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
 **Tauri 2** (Rust + системный webview): один UI на обе платформы.
