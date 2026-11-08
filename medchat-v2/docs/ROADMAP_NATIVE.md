@@ -120,7 +120,7 @@ test обёрток (в отличие от napi, uniffi-код линкуетс
 uniffi-крейтов отсутствует в sparse-индексе crates.io (прогоны #105–#107 —
 «could not find uniffi-bindgen in registry crates-io»), git-источник
 фиксирует версию и не требует индексных записей (внутренние зависимости —
-path-депы workspace). Прогон #109: в workspace тега v0.28.3 пакета uniffi-bindgen нет — CLI-пакет называется uniffi-bindgen-cli (member examples/app/uniffi-bindgen-cli, publish=false, бинарь uniffi-bindgen); cargo install выбирает пакет по имени, поэтому установка идёт как uniffi-bindgen-cli. Прогон #110 (run 42479915852):
+path-депы workspace). Прогон #108: в workspace тега v0.28.3 пакета uniffi-bindgen нет — CLI-пакет называется uniffi-bindgen-cli (member examples/app/uniffi-bindgen-cli, publish=false, бинарь uniffi-bindgen); cargo install выбирает пакет по имени, поэтому установка идёт как uniffi-bindgen-cli. Прогон #109 (run 42479915852):
 сборка cdylib упала с 8 ошибками E0277 — uniffi::Error (0.28) требует
 std::fmt::Display у ошибок экспортов; добавлен ручной impl Display для
 MedCryptoError. Склейка сгенерированной обвязки с Xcode/Gradle-проектами — этапы 3/4.
@@ -128,8 +128,8 @@ MedCryptoError. Склейка сгенерированной обвязки с 
 AES-256-GCM, bcrypt), бенчмарк ≥ x10 (11.6–15.2x на конвертном пути),
 cargo-fuzz scaffold + smoke в CI, биндинги napi-rs (Node) и UniFFI
 (Swift/Kotlin); суточный fuzz-прогон — отдельный запуск по требованию.
-Далее: этапы 3/4 (нативные клиенты поверх ядра), интеграция Double Ratchet
-в клиенты (этап 7).
+Далее: этапы 3/4 (нативные клиенты поверх ядра), этап 5 (каркас desktop начат,
+см. ниже), интеграция Double Ratchet в клиенты (этап 7).
 
 ### Этап 3. Нативный iOS (Swift/SwiftUI)
 SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudio), рецепты, приёмы;
@@ -149,6 +149,16 @@ Ubuntu: `.deb` + AppImage, systemd-автостарт по желанию.
 Секреты: **Windows Credential Manager** / **libsecret (GNOME Keyring)**.
 **DoD:** установщики собираются в CI (matrix: windows-latest, ubuntu-latest);
 обновление конфигурации сервера без правки клиента.
+
+**Прогресс (ноябрь 2026):** каркас готов (medchat-v2/desktop): Tauri 2 +
+системный webview (wry), статическая обвязка ui/index.html; ядро medchat-core
+подключено напрямую path-депом (Rust → Rust, без FFI — desktop единственный
+клиент без биндингов), tauri-команды core_probe (конверт x25519-box) и
+ratchet_probe (Double Ratchet через wire) гоняют крипто-путь ядра из
+приложения; джоба CI desktop-check (apt libwebkit2gtk-4.1-dev + cargo check
+--all-targets) гейтит компиляцию каркаса и интеграцию. Сборка установщиков,
+matrix windows/ubuntu, подписи, секреты Credential Manager/libsecret —
+следующие шаги этапа.
 
 ### Этап 6. Сервер: горячие пути
 napi-rs-плагин для крипто/checksum/сжатия; при росте — вынос websocket-gateway

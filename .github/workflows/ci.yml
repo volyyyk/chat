@@ -463,7 +463,7 @@ jobs:
       # реестр для них не нужен. Диагностируемость (урок #105): вывод
       # пишется в ci-uniffi.log с первой команды (заголовок прогона для
       # сверки метки времени, cargo --version для контекста).
-      # Прогон #109 (run 42479207992): тег резолвится, но пакета
+      # Прогон #108 (run 42479207992): тег резолвится, но пакета
       # uniffi-bindgen в workspace v0.28.3 НЕТ — имя пакета crates.io
       # не обязано совпадать с git-workspace: CLI на этом теге —
       # пакет uniffi-bindgen-cli (member examples/app/uniffi-bindgen-cli,
@@ -518,6 +518,67 @@ jobs:
           mkdir -p ci-logs
           if [ -f ci-uniffi.log ]; then
             cp ci-uniffi.log ci-logs/ci-uniffi.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
+
+  desktop-check:
+    name: Desktop check (Tauri 2 scaffold, этап 5 ROADMAP_NATIVE)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/desktop/src-tauri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            medchat-v2/core
+            medchat-v2/desktop/src-tauri
+
+      # wry/tao на Linux собираются против webkit2gtk/gtk: их -sys-крейты
+      # проверяют системные библиотеки pkg-config'ом уже на этапе cargo
+      # check (build-скрипты выполняются и без линковки) — стандартный
+      # набор системных зависимостей Tauri для Linux.
+      - name: Install system deps (webkit2gtk)
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; sudo apt-get update; sudo apt-get install -y libwebkit2gtk-4.1-dev; } 2>&1 | tee ../../../ci-desktop.log
+
+      # cargo check гейтит: tauri.conf.json валиден (build.rs tauri-build
+      # валидирует конфиг), дерево tauri 2 резолвится, команды-пробы
+      # core_probe/ratchet_probe типо-совместимы с medchat-core
+      # (path-деп Rust -> Rust, default-features = false). Сборка
+      # установщиков (.deb/AppImage/exe, matrix windows/ubuntu) —
+      # следующий шаг этапа 5.
+      - name: Type-check Tauri app + core integration
+        run: |
+          set -o pipefail
+          { cargo check --all-targets; } 2>&1 | tee -a ../../../ci-desktop.log
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../../..
+          mkdir -p ci-logs
+          if [ -f ci-desktop.log ]; then
+            cp ci-desktop.log ci-logs/ci-desktop.log
           fi
           git config user.name "ci-reporter"
           git config user.email "ci-reporter@users.noreply.github.com"

@@ -1,0 +1,18 @@
+[package]
+name = "medchat-desktop"
+version = "0.1.0"
+description = "MedChat Desktop — каркас этапа 5 ROADMAP_NATIVE.md (Tauri 2)"
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+# Крипто-ядро — напрямую path-депом (Rust -> Rust): desktop — единственный
+# клиент MedChat без биндингов (napi — Node, UniFFI — Swift/Kotlin).
+# default-features = false: napi-bind не нужен; CoreError реализует
+# Display + std::error::Error — ок для сообщений tauri-команд.
+medchat-core = { path = "../../core", default-features = false }

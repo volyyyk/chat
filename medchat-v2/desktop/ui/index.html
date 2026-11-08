@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MedChat Desktop</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; color: #1a1a2e; }
+    h1 { font-size: 1.4rem; }
+    button { padding: 0.5rem 1rem; margin: 0.25rem 0.25rem 0.25rem 0; cursor: pointer; }
+    pre { background: #f4f4f8; padding: 0.75rem; border-radius: 6px; min-height: 1.5rem; }
+  </style>
+</head>
+<body>
+  <h1>MedChat Desktop (каркас этапа 5)</h1>
+  <p>Tauri 2, крипто-ядро medchat-core — напрямую path-депом (Rust → Rust, без FFI).</p>
+  <button id="probe-core">Проверить конверт x25519-box</button>
+  <button id="probe-ratchet">Проверить Double Ratchet</button>
+  <pre id="out">нажмите кнопку…</pre>
+  <script>
+    const out = document.getElementById('out');
+    async function run(cmd) {
+      out.textContent = '…выполняется';
+      try {
+        out.textContent = await window.__TAURI__.core.invoke(cmd);
+      } catch (e) {
+        out.textContent = 'ошибка: ' + e;
+      }
+    }
+    document.getElementById('probe-core').addEventListener('click', () => run('core_probe'));
+    document.getElementById('probe-ratchet').addEventListener('click', () => run('ratchet_probe'));
+  </script>
+</body>
+</html>

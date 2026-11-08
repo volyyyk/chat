@@ -52,7 +52,7 @@ pub enum MedCryptoError {
 // требует E: LowerError + Display + Debug + Send + Sync (LowerReturn для
 // Result в uniffi_core/ffi_converter_impls.rs). derive uniffi::Error даёт
 // LowerError, но Display пишется руками — человекочитаемые сообщения по
-// вариантам (прогон #110: 8 x E0277 без него).
+// вариантам (прогон #109: 8 x E0277 без него).
 impl std::fmt::Display for MedCryptoError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

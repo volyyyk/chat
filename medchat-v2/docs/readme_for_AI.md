@@ -38,6 +38,9 @@ decrypt, roundtrip произвольного plaintext; джоба CI fuzz-smok
 UniFFI-биндинги Swift/Kotlin (feature uniffi-bind: обёртки конвертов + bcrypt
 + MedRatchetState для Double Ratchet; генерация обвязки — джоба CI
 uniffi-bindings).
+Каркас desktop-клиента этапа 5 (Tauri 2, medchat-v2/desktop: крипто-ядро напрямую
+path-депом Rust→Rust без FFI, tauri-команды-пробы конверта и Double Ratchet,
+джоба CI desktop-check).
 
 ---
 
@@ -65,6 +68,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
+| desktop | Tauri 2 (Rust + системный webview): каркас этапа 5; ядро medchat-core напрямую path-депом (Rust→Rust, без FFI) |
 | core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs); uniffi-биндинги Swift/Kotlin (feature uniffi-bind) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
@@ -129,6 +133,10 @@ medchat-v2/
 │   ├── components/ (8)         — MessageBubble (🔒 на E2E-сообщениях), AudioPlayer, ...
 │   ├── navigation/, styles/, utils/
 ├── web/src/             — pages (7), services, context
+├── desktop/            — каркас этапа 5 (Tauri 2): src-tauri/ (Cargo.toml, build.rs,
+│                        tauri.conf.json, src/main.rs — tauri-команды core_probe/
+│                        ratchet_probe поверх medchat-core path-депом),
+│                        ui/index.html (статическая обвязка для системного webview)
 ├── core/                — Rust-ядро medchat-core (Cargo.toml, src/lib.rs, src/ratchet.rs):
 │                          SalsaBox (X25519 + XSalsa20-Poly1305, crypto_box 0.9),
 │                          generate_keypair / seal_for_recipients / open_sealed,
@@ -684,7 +692,7 @@ yanked, линейка до 0.32.2). cargo не может разрешить з
 не спасают. Фикс: зависимость крейта и установка CLI переведены на
 git-тег v0.28.3 (внутренние зависимости uniffi — uniffi-macro,
 uniffi-meta — path-депы того же workspace, обращений к отсутствующим
-индекс-записям не остаётся; Cargo.lock в gitignore). Прогон #109: cargo install --tag v0.28.3 uniffi-bindgen упал «could not find» уже НА git-источнике — имя пакета crates.io НЕ обязано совпадать с именем в git-workspace: CLI на теге v0.28.3 — это пакет uniffi-bindgen-cli (member examples/app/uniffi-bindgen-cli, publish=false, [[bin]] name = uniffi-bindgen); cargo install выбирает пакет по имени, бинарь может называться иначе (фикс: uniffi-bindgen-cli). УРОКИ:
+индекс-записям не остаётся; Cargo.lock в gitignore). Прогон #108: cargo install --tag v0.28.3 uniffi-bindgen упал «could not find» уже НА git-источнике — имя пакета crates.io НЕ обязано совпадать с именем в git-workspace: CLI на теге v0.28.3 — это пакет uniffi-bindgen-cli (member examples/app/uniffi-bindgen-cli, publish=false, [[bin]] name = uniffi-bindgen); cargo install выбирает пакет по имени, бинарь может называться иначе (фикс: uniffi-bindgen-cli). УРОКИ:
 (1) шаги ДО первого tee невидимы для ci-reporter — потенциально
 капризный шаг обязан писать лог с самого начала (#105: причина была
 недиагностируема, пока лог не стал писаться с первой команды;
@@ -693,7 +701,7 @@ uniffi-meta — path-депы того же workspace, обращений к о�
 crates.io API и sparse-индекс cargo расходятся — при «could not find
 in registry» проверять index.crates.io/<2 буквы>/<2 буквы>/<имя>
 напрямую (NoSuchKey) и держать в голове git-тег как альтернативный
-источник пина версии; (3) cargo install из git ищет ПАКЕТ по имени среди workspace-мемберов: имя пакета в реестре может отсутствовать в git-workspace, а бинарь может называться не как пакет (фикс #109: uniffi-bindgen-cli → бинарь uniffi-bindgen). Прогон #110 (run 42479915852): установка uniffi-bindgen-cli из git прошла (159 пакетов залочено, uniffi 0.28.3 скомпилировался), но сборка cdylib упала с 8 ошибками E0277 — uniffi::Error (0.28) требует std::fmt::Display у ошибок экспортов (LowerReturn для Result: E: LowerError + Display + Debug; derive даёт LowerError, Display пишется руками) — добавлен ручной impl Display для MedCryptoError. Прогон #112 (run
+источник пина версии; (3) cargo install из git ищет ПАКЕТ по имени среди workspace-мемберов: имя пакета в реестре может отсутствовать в git-workspace, а бинарь может называться не как пакет (фикс: uniffi-bindgen-cli → бинарь uniffi-bindgen). Прогон #109 (run 42479915852): установка uniffi-bindgen-cli из git прошла (159 пакетов залочено, uniffi 0.28.3 скомпилировался), но сборка cdylib упала с 8 ошибками E0277 — uniffi::Error (0.28) требует std::fmt::Display у ошибок экспортов (LowerReturn для Result: E: LowerError + Display + Debug; derive даёт LowerError, Display пишется руками) — добавлен ручной impl Display для MedCryptoError. Прогон #111 (run
 42480547136): Display-фикс снял E0277 — cdylib собрался, bindgen
 сгенерировал Kotlin/Swift-обвязку, 19/20 тестов зелёные; единственный
 красный — ratchet_wire_roundtrip_and_replay (unwrap на Err(Aead),
@@ -705,6 +713,7 @@ generate_keypair() в тесте (как в harness ratchet_roundtrip_fuzz,
 обёрток, не только fuzz-целей. Честное ограничение:
 компиляция сгенерированного кода в Xcode/Gradle — этапы 3/4 (на ubuntu их
 нет); джоба гейтит сборку, тесты обёрток и генерацию.
+**Desktop: каркас этапа 5 (Tauri 2)** (этот коммит): medchat-v2/desktop — src-tauri (tauri 2, wry = системный webview) + статическая обвязка ui/index.html (app.withGlobalTauri — invoke без npm-сборки фронтенда). Крипто-ядро подключено напрямую path-депом (Rust → Rust, без FFI: desktop — единственный клиент без биндингов napi/UniFFI; default-features = false, napi-bind не нужен). Tauri-команды-пробы: core_probe (roundtrip конверта x25519-box) и ratchet_probe (Double Ratchet: init_initiator/init_responder на согласованной паре generate_keypair — урок #104/#105/#111; encrypt → to_wire → from_wire → decrypt). Джоба CI desktop-check: apt libwebkit2gtk-4.1-dev (-sys-крейты wry/tao проверяют системные библиотеки pkg-config'ом уже на cargo check) + cargo check --all-targets. Честные ограничения: сборка установщиков (.deb/AppImage/exe, подписи, matrix windows/ubuntu) — следующий шаг этапа 5; UI — заглушка-пробы, не клиент; TLS-pinning и секреты в Credential Manager/libsecret — по мере роста каркаса.
 **Сервер: идентификация пользователей 149-ФЗ ст. 10.1** (этот коммит): эндпоинты POST /api/auth/phone/request-code и /phone/verify (оба под authenticate): одноразовый 6-значный код (crypto.randomInt), хранится в VerificationToken (type=phone, формат hex:код, срок 10 минут), повторный запрос инвалидирует предыдущие коды (update usedAt), успешная сверка ставит user.phoneVerified=true, смена номера сбрасывает phoneVerified; Joi-схемы phoneRequestSchema/phoneVerifySchema; интеграционные тесты (успешный флоу, неверный/истёкший код, 400 без номера, 401 без токена, 400 на невалидное тело). Честно: SMS-доставка — заглушка (logger.info), реальный SMS-гейт/Госуслуги — оператору перед продом; NODE_ENV != production возвращает devCode в ответе.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
@@ -727,7 +736,7 @@ node stop.js [--docker]                     # остановить процес�
 
 ## 10. CI (.github/workflows/ci.yml)
 
-Семь джоб на каждый пуш в main:
+Восемь джоб на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
   валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
@@ -775,6 +784,10 @@ node stop.js [--docker]                     # остановить процес�
   cargo тестов обёрток (uniffi-метаданные — обычный Rust, линкуются чисто,
   в отличие от napi); лог падений — ci-logs/ci-uniffi.log. Компиляция
   сгенерированного кода в Xcode/Gradle — этапы 3/4, на ubuntu недоступна.
+- **desktop-check**: каркас этапа 5 (Tauri 2) — apt libwebkit2gtk-4.1-dev, cargo
+  check --all-targets в medchat-v2/desktop/src-tauri (гейтит валидность
+  tauri.conf.json, резолв дерева tauri, типо-совместимость tauri-команд с
+  medchat-core path-депом Rust→Rust); лог падений — ci-logs/ci-desktop.log.
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -807,9 +820,9 @@ node stop.js [--docker]                     # остановить процес�
   зелёная, все три цели проходят smoke-итерации). Джоба uniffi-bindings —
   генерация Swift/Kotlin-обвязки ядра (этап 2 закрыт; прогоны #105–#107:
   uniffi-крейтов нет в sparse-индексе crates.io — крейт и CLI переведены
-  на git-тег v0.28.3; #109 — пакет CLI в git-workspace зовётся uniffi-bindgen-cli (бинарь uniffi-bindgen), уроки в §8); #110 — uniffi::Error требует Display у ошибок экспортов (фикс: impl Display для MedCryptoError, §8); #112 — тест обёртки uniffi повторил баг фиктивной X25519-пары #104/#105 (Aead; фикс — generate_keypair() в тесте), §8. Логи
+  на git-тег v0.28.3; #108 — пакет CLI в git-workspace зовётся uniffi-bindgen-cli (бинарь uniffi-bindgen), уроки в §8); #109 — uniffi::Error требует Display у ошибок экспортов (фикс: impl Display для MedCryptoError, §8); #111 — тест обёртки uniffi повторил баг фиктивной X25519-пары #104/#105 (Aead; фикс — generate_keypair() в тесте), §8. Логи
   падений бот ci-reporter
-  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log; ci-bench.log пишется при любом исходе) — при
+  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log / ci-desktop.log; ci-bench.log пишется при любом исходе) — при
   красном прогоне читать оттуда.
 
 ## 11. Что осталось сделать (roadmap)
@@ -853,7 +866,9 @@ node stop.js [--docker]                     # остановить процес�
     core-bench; первый прогон 42474787549: конвертный путь 11.6–15.2x — DoD закрыт),
     ~~сборка .node-артефакта в CI + Node-интеграция юнит-тестов обёрток~~ —
     сделано (джоба napi-build: medchat-core.linux-x64-gnu.node + napi-smoke.js,
-    артефакт через upload-artifact).
+    артефакт через upload-artifact). Этап 5 начат: каркас desktop (Tauri 2,
+    medchat-v2/desktop) — ядро path-депом без FFI, tauri-команды-пробы, джоба
+    CI desktop-check; установщики/подписи — далее.
 
 ---
 
