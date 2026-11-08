@@ -13,8 +13,9 @@
 //!   за один шаг и MAX_SKIPPED_KEYS одноразовых ключей в хранилище;
 //! - заголовок (dh_pub, pn, n) передаётся открытым текстом — как в Signal;
 //! - НЕ интегрирован в клиенты: мобильный клиент работает на конвертах
-//!   x25519-box, сервер видит только конверты. Интеграция — после
-//!   napi-rs/UniFFI-биндингов и согласования wire-формата.
+//!   x25519-box, сервер видит только конверты. Wire-формат сообщения
+//!   определён (to_wire/from_wire: header || nonce || ciphertext,
+//!   pn/n в little-endian); интеграция — после napi-rs/UniFFI-биндингов.
 
 use std::collections::HashMap;
 
@@ -26,8 +27,9 @@ use sha2::Sha256;
 
 /// Размер nonce AES-256-GCM (12 байт).
 pub const AEAD_NONCE_SIZE: usize = 12;
-/// dh_pub (32) + pn (4) + n (4).
-const HEADER_SIZE: usize = KEY_SIZE + 4 + 4;
+/// dh_pub (32) + pn (4) + n (4). Публичная: нужна биндингам и вызывающим
+/// для проверки минимальной длины wire-сообщения.
+pub const HEADER_SIZE: usize = KEY_SIZE + 4 + 4;
 /// Максимум message-ключей, выводимых в skip-store за один шаг (анти-DoS).
 pub const MAX_SKIP: u32 = 2000;
 /// Максимум одноразовых ключей в skip-store одновременно.
@@ -103,6 +105,42 @@ pub struct RatchetMessage {
     pub header: Vec<u8>,
     pub nonce: [u8; AEAD_NONCE_SIZE],
     pub ciphertext: Vec<u8>,
+}
+
+impl RatchetMessage {
+    /// Wire-формат сообщения для транспорта и биндингов:
+    /// header (HEADER_SIZE = dh_pub || pn LE || n LE) || nonce (12) || ciphertext.
+    /// Раскладка фиксированная, без length-prefix: длины всех частей известны
+    /// из констант, шифротекст — всё, что осталось.
+    pub fn to_wire(&self) -> Vec<u8> {
+        let mut out =
+            Vec::with_capacity(self.header.len() + AEAD_NONCE_SIZE + self.ciphertext.len());
+        out.extend_from_slice(&self.header);
+        out.extend_from_slice(&self.nonce);
+        out.extend_from_slice(&self.ciphertext);
+        out
+    }
+
+    /// Обратное преобразование. Валидирует минимальную длину
+    /// (HEADER_SIZE + AEAD_NONCE_SIZE) и структуру заголовка сразу,
+    /// а не лениво на decrypt: битые байты отклоняются на границе формата.
+    pub fn from_wire(bytes: &[u8]) -> Result<Self, CoreError> {
+        if bytes.len() < HEADER_SIZE + AEAD_NONCE_SIZE {
+            return Err(CoreError::BadHeader);
+        }
+        let header = bytes[..HEADER_SIZE].to_vec();
+        // немедленная проверка структуры заголовка (длина уже верна —
+        // parse_header проверит ровно HEADER_SIZE байт)
+        let _ = parse_header(&header)?;
+        let mut nonce = [0u8; AEAD_NONCE_SIZE];
+        nonce.copy_from_slice(&bytes[HEADER_SIZE..HEADER_SIZE + AEAD_NONCE_SIZE]);
+        let ciphertext = bytes[HEADER_SIZE + AEAD_NONCE_SIZE..].to_vec();
+        Ok(RatchetMessage {
+            header,
+            nonce,
+            ciphertext,
+        })
+    }
 }
 
 /// Состояние Double Ratchet одной стороны диалога.
@@ -409,5 +447,37 @@ mod tests {
         // одинаковый dh_pub (ratchet не менялся), разные n
         assert_eq!(h1[..KEY_SIZE], h2[..KEY_SIZE]);
         assert_ne!(h1[KEY_SIZE..], h2[KEY_SIZE..]);
+    }
+
+    #[test]
+    fn wire_roundtrip_and_decrypt() {
+        let (mut alice, mut bob) = session();
+        let m = alice.encrypt(b"over the wire").unwrap();
+        let wire = m.to_wire();
+        // фиксированная раскладка: header 40 + nonce 12 + шифротекст
+        assert_eq!(wire.len(), HEADER_SIZE + AEAD_NONCE_SIZE + m.ciphertext.len());
+        let restored = RatchetMessage::from_wire(&wire).unwrap();
+        assert_eq!(restored, m);
+        assert_eq!(bob.decrypt(&restored).unwrap(), b"over the wire".to_vec());
+    }
+
+    #[test]
+    fn wire_too_short_rejected() {
+        let (mut alice, mut _bob) = session();
+        let wire = alice.encrypt(b"x").unwrap().to_wire();
+        // обрезка до 51 байта < header(40) + nonce(12)
+        let truncated = &wire[..HEADER_SIZE + AEAD_NONCE_SIZE - 1];
+        assert_eq!(RatchetMessage::from_wire(truncated), Err(CoreError::BadHeader));
+    }
+
+    #[test]
+    fn wire_tampered_ciphertext_rejected_by_aead() {
+        let (mut alice, mut bob) = session();
+        let wire = alice.encrypt(b"integrity").unwrap().to_wire();
+        let mut bad = wire.clone();
+        let last = bad.len() - 1;
+        bad[last] ^= 0xFF;
+        let m = RatchetMessage::from_wire(&bad).unwrap();
+        assert_eq!(bob.decrypt(&m), Err(CoreError::Aead));
     }
 }

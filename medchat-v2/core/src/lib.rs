@@ -12,7 +12,8 @@
 //! открываются мобильным клиентом, и наоборот.
 //!
 //! Double Ratchet (forward secrecy) — модуль ratchet (этап 7 ROADMAP_NATIVE,
-//! прототип: строго по порядку сообщений, без skip-store).
+//! прототип: skip-store внеочередных сообщений реализован; wire-формат
+//! RatchetMessage определён — to_wire/from_wire: header || nonce || ciphertext).
 //! Дальнейшие шаги: napi-rs-биндинги для Node-сервера, UniFFI-биндинги для Swift/Kotlin,
 //! опционально ГОСТ СКЗИ для сертифицированного контура.
 
@@ -37,7 +38,8 @@ pub enum CoreError {
     NoBoxForRecipient,
     /// Ratchet: нет ключа собеседника/цепочки (нужно получить первое сообщение).
     NotInitialized,
-    /// Ratchet: сообщение пришло не по порядку (прототип без skip-store).
+    /// Ratchet: replay, ключ уже израсходован или n за пределами лимитов
+    /// skip-store (MAX_SKIP / MAX_SKIPPED_KEYS).
     OutOfOrder,
     /// Ratchet: заголовок неверной длины.
     BadHeader,
