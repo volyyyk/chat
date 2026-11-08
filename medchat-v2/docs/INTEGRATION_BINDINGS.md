@@ -103,6 +103,14 @@ modulemap. Компиляция сгенерированного кода в Xco
   SealedMessage/KeyPair-обёртки; bcryptVerify.
 - Персистентность: blob от save() — в Keychain (kSecClassGenericPassword,
   accessibility AfterFirstUnlockThisDeviceOnly); restore при старте чата.
+- Каркас SwiftUI-клиента: medchat-v2/ios/*.swift (этап 3 ч.2) — экраны,
+  ApiService (REST + Bearer), KeychainStore (сервисы medchat.app /
+  medchat.e2e / medchat.ratchet), CryptoService (generateKeypair /
+  sealForRecipients / openSealed; wire байт-в-байт с мобильным клиентом),
+  RatchetService (save/restore MedRatchetState в Keychain). Исходники
+  компилируются ВМЕСТЕ со сгенерированной обвязкой (один модуль, без
+  import MedchatCore): typecheck в джобе ios-smoke; сборка в Xcode
+  (обвязка в target + bridging header) — README_IOS.md.
 
 ### 3.4 Чек-лист склейки (этапы 3/4)
 

@@ -604,6 +604,21 @@ jobs:
               -o swift-smoke-bin; } 2>&1 | tee -a ../../ci-ios.log
           { ./swift-smoke-bin; } 2>&1 | tee -a ../../ci-ios.log
 
+      # Этап 3 ч.2: typecheck каркаса SwiftUI-источников клиента.
+      # Исходники ios/*.swift компилируются ВМЕСТЕ со сгенерированной
+      # обвязкой (один модуль, без import MedchatCore — тот же путь, что
+      # описан в README_IOS.md для Xcode-проекта оператора), так что
+      # компиляция каркаса гейтится в CI до появления Xcode-проекта.
+      - name: Typecheck SwiftUI sources (ios/, этап 3 ч.2)
+        run: |
+          set -o pipefail
+          HEADER=$(ls uniffi-out/swift/*.h | head -n 1)
+          { swiftc -typecheck uniffi-out/swift/*.swift \
+              ../ios/MedChatApp.swift ../ios/ApiService.swift ../ios/KeychainStore.swift \
+              ../ios/CryptoService.swift ../ios/RatchetService.swift ../ios/AuthViews.swift \
+              ../ios/ChatListView.swift ../ios/ChatView.swift \
+              -import-objc-header "$HEADER"; } 2>&1 | tee -a ../../ci-ios.log
+
       # Кросс-компиляция под устройство и симулятор: staticlib (dylib на
       # iOS запрещены App Store) — cargo rustc --crate-type override,
       # Cargo.toml ядра не трогаем. Гейтит сборку против iOS SDK (Xcode на

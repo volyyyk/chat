@@ -153,6 +153,21 @@ SwiftUI-клиента, TestFlight и APNs требуют Xcode-проекта �
 в desktop, DESKTOP_RELEASE.md): гейтится всё, что секретов не требует.
 Следующий шаг — каркас SwiftUI-источников + Keychain-слой.
 
+**Прогресс (ноябрь 2026, ч.2 — каркас SwiftUI-клиента):** medchat-v2/ios/ —
+экраны connect/login/main (зеркало desktop ui/index.html), ApiService (REST +
+Bearer; refresh не хранится, 401 сбрасывает сессию), KeychainStore
+(kSecClassGenericPassword, AfterFirstUnlockThisDeviceOnly; сервисы
+medchat.app / medchat.e2e / medchat.ratchet), CryptoService (конверты
+x25519-box через ядро, wire байт-в-байт с мобильным клиентом; POST /api/keys,
+keyId вида ios-*; E2E при полном покрытии участников, иначе
+plaintext-fallback), RatchetService (save/restore MedRatchetState в Keychain;
+склейка с UI-путём — этап 7), README_IOS.md (сборка Xcode-проекта: обвязка в
+target + bridging header, честные ограничения). Джоба ios-smoke дополнена
+шагом typecheck: исходники клиента компилируются вместе со сгенерированной
+обвязкой (один модуль, без import MedchatCore) — компиляция каркаса гейтится
+в CI до появления Xcode-проекта (сборка .ipa, TestFlight, подписи, APNs —
+оператор).
+
 ### Этап 4. Нативный Android (Kotlin/Compose)
 Jetpack Compose-клиент поверх того же ядра: ключи в **Android Keystore**,
 FCM-пуши, фоновая доставка сообщений.

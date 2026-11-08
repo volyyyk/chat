@@ -852,6 +852,21 @@ desktop, DESKTOP_RELEASE.md); здесь гейтится всё, что не т
 взяты по конвенции uniffi (варианты Rust UpperCamelCase) — при расхождении
 джоба покраснеет, читать ci-logs/ci-ios.log и править smoke-файл.
 
+**iOS: каркас SwiftUI-клиента (этап 3, ч.2)**: medchat-v2/ios/*.swift (кроме
+CI-файла MedchatCoreSmoke.swift): экраны connect/login/main — зеркало desktop
+ui/index.html; ApiService — REST-контракты (Bearer accessToken; refresh
+сознательно НЕ хранится, 401 сбрасывает сессию → экран входа); KeychainStore —
+kSecClassGenericPassword + AfterFirstUnlockThisDeviceOnly, три сервиса:
+medchat.app (токен/сервер/email), medchat.e2e (пары ключей), medchat.ratchet
+(блобы Double Ratchet) — зеркало secure_store desktop; CryptoService — конверты
+x25519-box через ядро (generateKeypair/sealForRecipients/openSealed; keyId
+вида ios-<uuid>; POST /api/keys; E2E при полном покрытии участников, иначе
+plaintext-fallback — «чат никогда не ломается»); RatchetService — save/restore
+MedRatchetState в Keychain (в кнопку отправки не вклеен: этап 7). Джоба
+ios-smoke дополнена шагом typecheck: исходники клиента компилируются вместе со
+сгенерированной обвязкой (один модуль, без import MedchatCore — тот же путь,
+что в README_IOS.md для Xcode), гейт компиляции каркаса до появления
+Xcode-проекта.
 
 ## 9. Лаунчер («запуск по кнопке»)
 
@@ -1031,6 +1046,9 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     на host-cdylib), кросс-компиляция iOS device/sim (staticlib), артефакт
     MedchatCore.xcframework; SwiftUI-каркас, Keychain-слой и склейка ratchet —
     следующие шаги; TestFlight/подписи/APNs — оператор (DESKTOP_RELEASE.md-паттерн).
+    Этап 3 ч.2: каркас SwiftUI-источников ios/ (экраны, ApiService, KeychainStore,
+    CryptoService, RatchetService, README_IOS.md) + typecheck в ios-smoke; сборка
+    .ipa/TestFlight/подписи — оператор (README_IOS.md); склейка Double Ratchet — этап 7.
 
 ---
 
