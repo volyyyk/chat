@@ -401,17 +401,17 @@ jobs:
       - name: fuzz open_sealed_fuzz (враждебный конверт)
         run: |
           set -o pipefail
-          cargo fuzz run open_sealed_fuzz -runs=5000 2>&1 | tee ../../ci-fuzz.log
+          cargo fuzz run open_sealed_fuzz -- -runs=5000 2>&1 | tee ../../ci-fuzz.log
 
       - name: fuzz ratchet_wire_fuzz (мусорный wire + decrypt)
         run: |
           set -o pipefail
-          cargo fuzz run ratchet_wire_fuzz -runs=5000 2>&1 | tee -a ../../ci-fuzz.log
+          cargo fuzz run ratchet_wire_fuzz -- -runs=5000 2>&1 | tee -a ../../ci-fuzz.log
 
       - name: fuzz ratchet_roundtrip_fuzz (произвольный plaintext)
         run: |
           set -o pipefail
-          cargo fuzz run ratchet_roundtrip_fuzz -runs=5000 2>&1 | tee -a ../../ci-fuzz.log
+          cargo fuzz run ratchet_roundtrip_fuzz -- -runs=5000 2>&1 | tee -a ../../ci-fuzz.log
 
       - name: Publish failure logs to the repo
         if: failure()
