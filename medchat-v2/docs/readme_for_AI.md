@@ -714,6 +714,12 @@ generate_keypair() в тесте (как в harness ratchet_roundtrip_fuzz,
 компиляция сгенерированного кода в Xcode/Gradle — этапы 3/4 (на ubuntu их
 нет); джоба гейтит сборку, тесты обёрток и генерацию.
 **Desktop: каркас этапа 5 (Tauri 2)** (этот коммит): medchat-v2/desktop — src-tauri (tauri 2, wry = системный webview) + статическая обвязка ui/index.html (app.withGlobalTauri — invoke без npm-сборки фронтенда). Крипто-ядро подключено напрямую path-депом (Rust → Rust, без FFI: desktop — единственный клиент без биндингов napi/UniFFI; default-features = false, napi-bind не нужен). Tauri-команды-пробы: core_probe (roundtrip конверта x25519-box) и ratchet_probe (Double Ratchet: init_initiator/init_responder на согласованной паре generate_keypair — урок #104/#105/#111; encrypt → to_wire → from_wire → decrypt). Джоба CI desktop-check: apt libwebkit2gtk-4.1-dev (-sys-крейты wry/tao проверяют системные библиотеки pkg-config'ом уже на cargo check) + cargo check --all-targets. Честные ограничения: сборка установщиков (.deb/AppImage/exe, подписи, matrix windows/ubuntu) — следующий шаг этапа 5; UI — заглушка-пробы, не клиент; TLS-pinning и секреты в Credential Manager/libsecret — по мере роста каркаса.
+Прогон #113 (run 42481634795) — единственная красная джоба (desktop-check): generate_context! паниковал
+«failed to open icon icons/icon.png» — при отсутствии поля bundle.icon tauri-utils применяет ДЕФОЛТНЫЙ
+список иконок, и кодген открывает их с диска даже при bundle.active=false (иконка идёт в default_window_icon).
+Фикс — явный пустой массив "icon": [] в tauri.conf.json (окно без встроенной иконки на этапе каркаса
+приемлемо). Двоичные иконки (PNG/ICO/ICNS) в репо не коммитятся (push_files — только текст): для
+установщиков этапа 5 иконки нужно будет положить в репо иным каналом.
 **Сервер: идентификация пользователей 149-ФЗ ст. 10.1** (этот коммит): эндпоинты POST /api/auth/phone/request-code и /phone/verify (оба под authenticate): одноразовый 6-значный код (crypto.randomInt), хранится в VerificationToken (type=phone, формат hex:код, срок 10 минут), повторный запрос инвалидирует предыдущие коды (update usedAt), успешная сверка ставит user.phoneVerified=true, смена номера сбрасывает phoneVerified; Joi-схемы phoneRequestSchema/phoneVerifySchema; интеграционные тесты (успешный флоу, неверный/истёкший код, 400 без номера, 401 без токена, 400 на невалидное тело). Честно: SMS-доставка — заглушка (logger.info), реальный SMS-гейт/Госуслуги — оператору перед продом; NODE_ENV != production возвращает devCode в ответе.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
@@ -787,7 +793,9 @@ node stop.js [--docker]                     # остановить процес�
 - **desktop-check**: каркас этапа 5 (Tauri 2) — apt libwebkit2gtk-4.1-dev, cargo
   check --all-targets в medchat-v2/desktop/src-tauri (гейтит валидность
   tauri.conf.json, резолв дерева tauri, типо-совместимость tauri-команд с
-  medchat-core path-депом Rust→Rust); лог падений — ci-logs/ci-desktop.log.
+  medchat-core path-депом Rust→Rust); лог падений — ci-logs/ci-desktop.log. Прогон #113
+(run 42481634795): паника generate_context! на дефолтных иконках tauri (bundle.icon отсутствовал в conf —
+tauri подставлял icons/icon.png); фикс — явный "icon": [].
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
