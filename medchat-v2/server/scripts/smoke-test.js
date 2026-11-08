@@ -383,7 +383,7 @@ async function main() {
   log(createAppt.status === 201 && appt && appt.id, 'пациент 1 записался на приём', createAppt.status);
 
   const myAppts = await request('GET', '/api/appointments/my?limit=50', { token: patient1.accessToken });
-  const myApptList = (myAppts.json && (myAppts.json.data || myAppt.json)) || [];
+  const myApptList = (myAppts.json && (myAppts.json.data || myAppts.json)) || [];
   log(myAppts.status === 200 && myApptList.length >= 2, 'у пациента 1 есть приёмы (прошлый + новый)', myApptList.length);
 
   const confirmAppt = await request('POST', '/api/appointments/' + appt.id + '/confirm', {
@@ -394,7 +394,7 @@ async function main() {
 
   const doctorAppts = await request('GET', '/api/appointments?limit=50', { token: doctor.accessToken });
   const doctorApptList = (doctorAppts.json && (doctorAppts.json.data || doctorAppts.json)) || [];
-  log(doctorAppts.status === 200 && doctorApptList.length >= 2, 'врач видит приёмы пациентов', doctorApptList.length);
+  log(doctorAppts.status === 200 && doctorApptList.length >= 2, 'врач видит приёмы пациентов', doctorApptsList.length);
 
   const foreignAppt = await request('GET', '/api/appointments/' + appt.id, { token: patient2.accessToken });
   log(foreignAppt.status === 403 || foreignAppt.status === 404, 'пациент 2 не видит чужой приём', foreignAppt.status);
@@ -486,6 +486,147 @@ async function main() {
 
   const docTx = await request('GET', '/api/payments/doctor/transactions?limit=20', { token: doctor.accessToken });
   log(docTx.status === 200, 'врач видит свои транзакции', docTx.status);
+
+  // ------------------------------------------------------------------
+  console.log('\n[12] E2E: реестр публичных ключей и зашифрованные конверты');
+
+  const p1UserId = patient1.user && patient1.user.id;
+  const docUserId = doctor.user && doctor.user.id;
+  const runStamp = String(Date.now());
+  const p1KeyId = 'smoke-p1-' + runStamp;
+  const docKeyId = 'smoke-doc-' + runStamp;
+  const P1_PUB_A = Buffer.alloc(32, 1).toString('base64');
+  const P1_PUB_B = Buffer.alloc(32, 2).toString('base64');
+  const DOC_PUB = Buffer.alloc(32, 3).toString('base64');
+
+  const regP1 = await request('POST', '/api/keys', {
+    token: patient1.accessToken,
+    body: { keyId: p1KeyId, publicKey: P1_PUB_A, deviceName: 'smoke-test' },
+  });
+  log(
+    regP1.status === 201 && regP1.json && regP1.json.data && regP1.json.data.keyId === p1KeyId,
+    'пациент 1 зарегистрировал публичный ключ (201)',
+    regP1.status
+  );
+
+  const rotateP1 = await request('POST', '/api/keys', {
+    token: patient1.accessToken,
+    body: { keyId: p1KeyId, publicKey: P1_PUB_B, deviceName: 'smoke-test' },
+  });
+  log(
+    rotateP1.status === 200 && rotateP1.json && rotateP1.json.data && rotateP1.json.data.rotated === true,
+    'повторная регистрация = ротация ключа (200, rotated)',
+    rotateP1.status
+  );
+
+  const badPub = await request('POST', '/api/keys', {
+    token: patient1.accessToken,
+    body: { keyId: 'smoke-bad-' + runStamp, publicKey: 'AQID' },
+  });
+  log(badPub.status === 400, 'невалидный publicKey отклоняется (400)', badPub.status);
+
+  const regDoc = await request('POST', '/api/keys', {
+    token: doctor.accessToken,
+    body: { keyId: docKeyId, publicKey: DOC_PUB, deviceName: 'smoke-test' },
+  });
+  log(regDoc.status === 201, 'врач зарегистрировал публичный ключ', regDoc.status);
+
+  const myKeys = await request('GET', '/api/keys', { token: patient1.accessToken });
+  const myKeysList = (myKeys.json && myKeys.json.data) || [];
+  log(
+    myKeys.status === 200 && myKeysList.some((k) => k.keyId === p1KeyId && k.publicKey === P1_PUB_B),
+    'GET /api/keys возвращает ключи с ротированным значением',
+    myKeys.status
+  );
+
+  const chatKeys = await request('GET', '/api/chats/' + chat1.id + '/keys', { token: patient1.accessToken });
+  const chatKeysList = (chatKeys.json && chatKeys.json.data) || [];
+  const chatKeyUserIds = chatKeysList.map((k) => String(k.userId));
+  log(
+    chatKeys.status === 200 &&
+      chatKeysList.length >= 2 &&
+      chatKeyUserIds.includes(String(p1UserId)) &&
+      chatKeyUserIds.includes(String(docUserId)),
+    'ключи чата отдают активные ключи обоих участников',
+    chatKeysList.length
+  );
+
+  const foreignKeys = await request('GET', '/api/chats/' + chat1.id + '/keys', { token: patient2.accessToken });
+  log(foreignKeys.status === 403, 'чужой пользователь не может собрать ключи чата (403)', foreignKeys.status);
+
+  // Зашифрованный конверт: сервер видит ТОЛЬКО шифротекст
+  const envelope = {
+    v: 1,
+    alg: 'x25519-box',
+    epk: 'A'.repeat(43),
+    nonce: 'B'.repeat(32),
+    boxes: {},
+  };
+  envelope.boxes[p1UserId] = 'C'.repeat(88);
+  envelope.boxes[docUserId] = 'C'.repeat(88);
+
+  const e2eMsg = await request('POST', '/api/chats/' + chat1.id + '/messages', {
+    token: patient1.accessToken,
+    body: { envelope, content: '', type: 'text' },
+  });
+  log(
+    e2eMsg.status === 201 &&
+      e2eMsg.json &&
+      e2eMsg.json.isEncrypted === true &&
+      e2eMsg.json.content === '' &&
+      e2eMsg.json.metadata &&
+      e2eMsg.json.metadata.e2e &&
+      e2eMsg.json.metadata.e2e.alg === 'x25519-box',
+    'E2E-сообщение принято: content пуст, конверт в metadata.e2e',
+    e2eMsg.status
+  );
+
+  const leakAttempt = await request('POST', '/api/chats/' + chat1.id + '/messages', {
+    token: patient1.accessToken,
+    body: { envelope, content: 'plaintext рядом с конвертом' },
+  });
+  log(leakAttempt.status === 400, 'plaintext рядом с конвертом отклоняется (400)', leakAttempt.status);
+
+  const noSenderBox = {
+    v: 1,
+    alg: 'x25519-box',
+    epk: 'A'.repeat(43),
+    nonce: 'B'.repeat(32),
+    boxes: {},
+  };
+  noSenderBox.boxes[docUserId] = 'C'.repeat(88);
+  const noSelfBox = await request('POST', '/api/chats/' + chat1.id + '/messages', {
+    token: patient1.accessToken,
+    body: { envelope: noSenderBox, content: '' },
+  });
+  log(noSelfBox.status === 400, 'конверт без бокса отправителя отклоняется (400)', noSelfBox.status);
+
+  const docHistory = await request('GET', '/api/chats/' + chat1.id + '/messages?limit=50', { token: doctor.accessToken });
+  const docMsgs = (docHistory.json && (docHistory.json.data || docHistory.json.messages)) || [];
+  const e2eInHistory = docMsgs.find((m) => m.isEncrypted === true);
+  log(
+    docHistory.status === 200 &&
+      Boolean(e2eInHistory) &&
+      e2eInHistory.content === '' &&
+      e2eInHistory.metadata &&
+      e2eInHistory.metadata.e2e &&
+      typeof e2eInHistory.metadata.e2e.boxes[String(docUserId)] === 'string',
+    'врач читает E2E-сообщение: только шифротекст, без plaintext',
+    Boolean(e2eInHistory)
+  );
+
+  const delKey = await request('DELETE', '/api/keys/' + p1KeyId, { token: patient1.accessToken });
+  log(delKey.status === 200, 'деактивация ключа устройства (DELETE /api/keys/:keyId)', delKey.status);
+
+  const chatKeysAfter = await request('GET', '/api/chats/' + chat1.id + '/keys', { token: patient1.accessToken });
+  const afterList = (chatKeysAfter.json && chatKeysAfter.json.data) || [];
+  log(
+    chatKeysAfter.status === 200 &&
+      afterList.some((k) => k.keyId === docKeyId) &&
+      !afterList.some((k) => k.keyId === p1KeyId),
+    'после деактивации в реестре чата остались только активные ключи',
+    afterList.length
+  );
 
   // ------------------------------------------------------------------
   console.log('\n==============================================');
