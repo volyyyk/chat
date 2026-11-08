@@ -51,6 +51,14 @@
 Биндинги: **napi-rs** (Node), **UniFFI** (Swift/Kotlin).
 **DoD:** тест-векторы совпадают с текущей Node-реализацией байт-в-байт;
 cargo-fuzz без падений 24 ч; бенчмарк ≥ x10 к Node на крипто-пути.
+**Прогресс (ноябрь 2026):** пункт DoD «тест-векторы байт-в-байт» закрыт для
+примитива NaCl box (1ce9516): канонический вектор из дистрибуции NaCl
+(public domain) проверяется сразу в двух реализациях на общей фикстуре
+core/tests/nacl_box_vector.hex — Rust-ядро (SalsaBox, crypto_box 0.9,
+core/tests/interop_vectors.rs, джоба CI core-tests) и tweetnacl, библиотека
+мобильного клиента (server/tests/coreInterop.test.js, джоба server-tests).
+Осталось: векторы AES-GCM/bcrypt-путей (после napi-rs-биндингов), cargo-fuzz,
+бенчмарки.
 
 ### Этап 3. Нативный iOS (Swift/SwiftUI)
 SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudio), рецепты, приёмы;
