@@ -729,9 +729,16 @@ generate_keypair() в тесте (как в harness ratchet_roundtrip_fuzz,
 Прогон #113 (run 42481634795) — единственная красная джоба (desktop-check): generate_context! паниковал
 «failed to open icon icons/icon.png» — при отсутствии поля bundle.icon tauri-utils применяет ДЕФОЛТНЫЙ
 список иконок, и кодген открывает их с диска даже при bundle.active=false (иконка идёт в default_window_icon).
-Фикс — явный пустой массив "icon": [] в tauri.conf.json (окно без встроенной иконки на этапе каркаса
-приемлемо). Двоичные иконки (PNG/ICO/ICNS) в репо не коммитятся (push_files — только текст): для
-установщиков этапа 5 иконки нужно будет положить в репо иным каналом.
+Первый фикс — явный пустой массив "icon": [] (bfe1dad) — оказался НЕДОСТАТОЧНЫМ: прогоны #114–#116
+красные с той же паникой — на ПУСТОМ списке tauri-codegen также подставляет дефолтные пути
+(icons/icon.png, 32x32.png, ...). Рабочий фикс: build.rs генерирует валидный PNG (32x32 RGBA,
+solid #0E7490; CRC32/Adler32 считаются в build.rs, zlib-поток — один stored-deflate блок)
+в icons/icon.png ДО tauri_build::build() — build-скрипт крейта выполняется раньше его
+proc-макросов; tauri.conf.json указывает "icon": ["icons/icon.png"] — непустой список без
+дефолтного фолбэка. Генерация только при отсутствии файла: настоящие иконки установщиков
+этапа 5 (бинарные, иной канал коммита) build.rs не перезапишет. УРОК: «отсутствие значения»
+и «явный пустой список» для serde-default полей — НЕ одно и то же, если потребитель
+применяет дефолт и к пустому значению; проверяй поведение потребителя на обоих вариантах.
 **Сервер: идентификация пользователей 149-ФЗ ст. 10.1** (этот коммит): эндпоинты POST /api/auth/phone/request-code и /phone/verify (оба под authenticate): одноразовый 6-значный код (crypto.randomInt), хранится в VerificationToken (type=phone, формат hex:код, срок 10 минут), повторный запрос инвалидирует предыдущие коды (update usedAt), успешная сверка ставит user.phoneVerified=true, смена номера сбрасывает phoneVerified; Joi-схемы phoneRequestSchema/phoneVerifySchema; интеграционные тесты (успешный флоу, неверный/истёкший код, 400 без номера, 401 без токена, 400 на невалидное тело). Честно: SMS-доставка — заглушка (logger.info), реальный SMS-гейт/Госуслуги — оператору перед продом; NODE_ENV != production возвращает devCode в ответе.
 **Double Ratchet: сериализация состояния (serde)** (этот коммит): feature serde
 (derive на KeyPair и RatchetState) — персистентность сессий между запусками
@@ -831,7 +838,9 @@ node stop.js [--docker]                     # остановить процес�
   tauri.conf.json, резолв дерева tauri, типо-совместимость tauri-команд с
   medchat-core path-депом Rust→Rust); лог падений — ci-logs/ci-desktop.log. Прогон #113
 (run 42481634795): паника generate_context! на дефолтных иконках tauri (bundle.icon отсутствовал в conf —
-tauri подставлял icons/icon.png); фикс — явный "icon": [].
+tauri подставлял icons/icon.png); пустой "icon": [] (bfe1dad) дефолтный фолбэк НЕ отменил (прогоны
+#114–#116 красные); фикс — генерация icons/icon.png в build.rs (PNG 32x32 RGBA валиден по построению:
+CRC32/Adler32/stored-deflate собираются кодом) + явный "icon": ["icons/icon.png"].
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),

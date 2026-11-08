@@ -156,7 +156,12 @@ Ubuntu: `.deb` + AppImage, systemd-автостарт по желанию.
 клиент без биндингов), tauri-команды core_probe (конверт x25519-box) и
 ratchet_probe (Double Ratchet через wire) гоняют крипто-путь ядра из
 приложения; джоба CI desktop-check (apt libwebkit2gtk-4.1-dev + cargo check
---all-targets) гейтит компиляцию каркаса и интеграцию. Сборка установщиков,
+--all-targets) гейтит компиляцию каркаса и интеграцию. Иконка приложения (каркас):
+PNG генерируется в build.rs (32x32 RGBA, CRC32/Adler32 на месте — канал
+коммита текстовый, бинарные ассеты в репо не попадают) и подключена явным
+bundle.icon: ["icons/icon.png"]: generate_context! требует существующий png
+даже при bundle.active=false, а пустой список иконок дефолтный фолбэк tauri
+не отменяет (прогоны #113–#116). Сборка установщиков,
 matrix windows/ubuntu, подписи, секреты Credential Manager/libsecret —
 следующие шаги этапа.
 
