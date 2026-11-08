@@ -41,7 +41,7 @@ uniffi-bind = ["dep:uniffi"]
 # состояние в secure storage устройства). НЕ default — как napi-bind/uniffi-bind:
 # serde не нужен сборкам .node/cdylib без персистентности; CI-прогон ядра
 # включает её: cargo test --no-default-features --features serde.
-serde = ["dep:serde"]
+serde = ["dep:serde", "dep:bincode"]
 
 [dependencies]
 crypto_box = "0.9"
@@ -80,6 +80,11 @@ uniffi = { git = "https://github.com/mozilla/uniffi-rs", tag = "v0.28.3", option
 # — бинарный (bincode в тестах). derive: KeyPair (lib.rs) тоже сериализуется
 # (поле dh_self состояния).
 serde = { version = "1", features = ["derive"], optional = true }
+# bincode (feature serde): бинарный формат персистентности RatchetState.
+# Дублирует dev-зависимость: сериализация нужна теперь и ЛИБ-коду —
+# методам save/restore биндингов (node.rs / uniffi_iface.rs), а не только
+# тестам ratchet.rs (где bincode идёт как dev-зависимость).
+bincode = { version = "1", optional = true }
 
 [build-dependencies]
 napi-build = "2"

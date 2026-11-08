@@ -139,4 +139,25 @@ t1.ciphertext[0] = t1.ciphertext[0] ^ 0xff;
 assert.throws(() => bobT.decrypt(t1.header, t1.nonce, t1.ciphertext), Error);
 ok('tampered ciphertext отклоняется AEAD');
 
+// ---------- save/restore персистентности (feature serde) ----------
+const [aliceP, bobP] = ratchetPair(6);
+const pm1 = aliceP.encrypt(Buffer.from('persist me', 'utf8'));
+const ptP1 = bobP.decrypt(pm1.header, pm1.nonce, pm1.ciphertext);
+assert.ok(ptP1.equals(Buffer.from('persist me', 'utf8')));
+
+const savedState = bobP.save();
+assert.ok(Buffer.isBuffer(savedState));
+assert.ok(savedState.length > 0);
+const bobRestored = core.JsRatchetState.restore(savedState);
+const pm2 = aliceP.encrypt(Buffer.from('after restore', 'utf8'));
+const ptP2 = bobRestored.decrypt(pm2.header, pm2.nonce, pm2.ciphertext);
+assert.ok(ptP2.equals(Buffer.from('after restore', 'utf8')));
+ok('ratchet save/restore: диалог продолжается после рестарта');
+
+assert.throws(() => bobRestored.decrypt(pm1.header, pm1.nonce, pm1.ciphertext), Error);
+ok('replay после restore отклоняется');
+
+assert.throws(() => core.JsRatchetState.restore(Buffer.alloc(0)), Error);
+ok('restore битого буфера — ошибка, не паника');
+
 console.log('[napi-smoke] все проверки пройдены: ' + passed);

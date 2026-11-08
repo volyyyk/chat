@@ -20,7 +20,7 @@
 |---|---|---|---|
 | Криптография at-rest (cryptoService) | Node (AES-GCM через crypto) | **Rust**: `libmedchat_core` + napi-rs | Memory safety, единая реализация на сервере и всех клиентах, готовность к аудиту |
 | E2E X25519-box | реализовано (tweetnacl в мобильном, Rust-ядро совместимо; контракт — readme_for_AI §5) | остаётся в клиентах | Рабочий E2E-контур: сервер хранит только шифротекст |
-| Double Ratchet (forward secrecy) | прототип в medchat-core (src/ratchet.rs, 6aff983 + skip-store d033eeb + wire-формат a43102d + сериализация serde) | **Rust** в ядре + napi-rs/UniFFI биндинги | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
+| Double Ratchet (forward secrecy) | прототип в medchat-core (src/ratchet.rs, 6aff983 + skip-store d033eeb + wire-формат a43102d + сериализация serde + биндинги save/restore) | **Rust** в ядре + napi-rs/UniFFI биндинги | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
 | Хэширование чексумм файлов, сжатие бэкапов | Node streams | **Rust** (napi-rs) | CPU-bound, разгружает event-loop сервера |
 | Realtime gateway (fan-out тысяч соединений) | Node Socket.IO | Этап A: Node + Redis pub/sub; Этап B: **Rust** (tokio) при >10k соединений | Node справляется до тысяч; переписывать раньше времени — риск без выгоды |
 | Поиск по сообщениям | Postgres ILIKE + GIN pg_trgm (seed: messages_content_trgm_idx) | **Rust** (Tantivy) при полнотексте | «Сначала pg_trgm + GIN» — сделано; дешёвая оптимизация раньше тяжёлой |
@@ -188,8 +188,12 @@ Swift/Kotlin и интеграция в клиенты — далее. Сери�
 (feature serde, bincode-совместимая; JSON не подходит — ключи skip-store
 нестроковые) — персистентность сессий между запусками готова (3 теста:
 roundtrip диалога после восстановления, skip-store переживает сериализацию,
-blob содержит секреты — только secure storage); следующий шаг — биндинги
-save/restore (napi/UniFFI) и склейка с клиентами.
+blob содержит секреты — только secure storage); биндинги save/restore
+сделаны (napi: JsRatchetState.save()/restore(), src/node.rs; UniFFI:
+MedRatchetState.save()/restore(), src/uniffi_iface.rs; feature serde,
+bincode-буфер; проверки: napi-smoke.js и юнит-тест uniffi — диалог
+продолжается после restore, replay отклоняется); следующий шаг —
+склейка с клиентами (UI + secure storage).
 Реализация в Rust-ядре: X25519 + Double Ratchet, серверный key-registry.
 Верификация fingerprint-кодов: РЕАЛИЗОВАНА в мобильном клиенте
 (347bc9d + ec1a0de: safety number — 60 цифр из SHA-512 по набору ключей чата,

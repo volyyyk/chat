@@ -8,15 +8,16 @@
 //! - uniffi-метаданные — обычный Rust (без внешних рантайм-символов):
 //!   тесты обёрток линкуются в тестовый бинарник чисто, в отличие от napi
 //!   (issue #1099) — их гоняет джоба CI uniffi-bindings:
-//!   cargo test --no-default-features --features uniffi-bind.
+//!   cargo test --no-default-features --features uniffi-bind,serde.
 //!
 //! Сборка и генерация обвязки (джоба CI uniffi-bindings):
-//!   cargo build --release --no-default-features --features uniffi-bind
+//!   cargo build --release --no-default-features --features uniffi-bind,serde
 //!   uniffi-bindgen generate --library target/release/libmedchat_core.so
 //!     --language kotlin --out-dir uniffi-out/kotlin  (swift — аналогично).
 //!
-//! Как и в napi: состояние ratchet наружу НЕ сериализуется — персистентность
-//! на вызывающей стороне (Keychain / Android Keystore).
+//! Как и в napi: персистентность — save()/restore() (feature serde):
+//! bincode-буфер состояния ↔ secure storage вызывающей стороны (Keychain /
+//! Android Keystore); буфер содержит СЕКРЕТЫ — не для логов и не для сервера.
 
 use std::sync::Mutex;
 
@@ -247,7 +248,8 @@ pub fn ratchet_message_from_wire(wire: Vec<u8>) -> Result<MedRatchetMessage, Med
 
 /// Double Ratchet-сессия (одна — с одним собеседником). Методы uniffi
 /// иммутабельны, состояние мутируется через Mutex. Персистентность —
-/// на вызывающей стороне (сериализации состояния наружу нет).
+/// save()/restore() (feature serde): bincode-буфер состояния ↔ secure
+/// storage вызывающей стороны.
 #[derive(uniffi::Object)]
 pub struct MedRatchetState {
     inner: Mutex<RatchetState>,
@@ -313,6 +315,39 @@ impl MedRatchetState {
         let msg = RatchetMessage::from_wire(&wire)?;
         let mut st = lock(&self.inner);
         Ok(st.decrypt(&msg)?)
+    }
+}
+
+// Персистентность сессии (этап 7, feature serde): bincode-буфер состояния.
+// Отдельный impl-блок под #[cfg] на весь блок: cfg вырезает его ДО
+// раскрытия #[uniffi::export] — при выключенной serde методов в обвязке
+// нет начисто. Буфер содержит СЕКРЕТЫ (root key, цепочки, приватный
+// ratchet-ключ): только secure storage устройства (Keychain/Keystore),
+// никогда — логи или сервер.
+#[cfg(feature = "serde")]
+#[uniffi::export]
+impl MedRatchetState {
+    /// Сохранить состояние сессии (bincode) — для персистентности между
+    /// запусками. Восстановление — MedRatchetState.restore(saved).
+    pub fn save(&self) -> Result<Vec<u8>, MedCryptoError> {
+        let st = lock(&self.inner);
+        bincode::serialize(&*st).map_err(|e| MedCryptoError::InvalidArgument {
+            message: format!("serialization failed: {}", e),
+        })
+    }
+
+    /// Восстановить сессию из буфера save(): счётчики и skip-store на
+    /// месте, диалог продолжается. Битый буфер — InvalidArgument.
+    #[uniffi::constructor]
+    pub fn restore(saved: Vec<u8>) -> Result<Self, MedCryptoError> {
+        let st: RatchetState = bincode::deserialize(&saved).map_err(|e| {
+            MedCryptoError::InvalidArgument {
+                message: format!("deserialization failed: {}", e),
+            }
+        })?;
+        Ok(MedRatchetState {
+            inner: Mutex::new(st),
+        })
     }
 }
 
@@ -391,5 +426,36 @@ mod tests {
         assert_eq!(nonce_size(), 24);
         assert_eq!(ratchet_header_size(), 40);
         assert_eq!(ratchet_nonce_size(), 12);
+    }
+
+    /// save/restore (feature serde): сессия переживает «рестарт» — после
+    /// restore диалог продолжается, replay уже расшифрованного — OutOfOrder.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn ratchet_save_restore_roundtrip() {
+        let bob_kp = generate_keypair();
+        let alice =
+            MedRatchetState::init_initiator(vec![7u8; 32], bob_kp.public_key.clone())
+                .unwrap();
+        let bob = MedRatchetState::init_responder(
+            vec![7u8; 32],
+            bob_kp.public_key.clone(),
+            bob_kp.secret_key.clone(),
+        )
+        .unwrap();
+        let m1 = alice.encrypt(b"persist me".to_vec()).unwrap();
+        assert_eq!(bob.decrypt(m1.clone()).unwrap(), b"persist me".to_vec());
+
+        // «рестарт»: состояние ушло в bincode-буфер и вернулось
+        let saved = bob.save().unwrap();
+        assert!(!saved.is_empty());
+        assert!(MedRatchetState::restore(vec![0xffu8; 4]).is_err());
+        let bob2 = MedRatchetState::restore(saved).unwrap();
+
+        let m2 = alice.encrypt(b"after restore".to_vec()).unwrap();
+        assert_eq!(bob2.decrypt(m2).unwrap(), b"after restore".to_vec());
+        // replay m1 после restore — ключ израсходован
+        let err = bob2.decrypt(m1).unwrap_err();
+        assert!(matches!(err, MedCryptoError::OutOfOrder));
     }
 }

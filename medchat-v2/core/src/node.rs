@@ -8,8 +8,9 @@
 //! Double Ratchet (этап 7, прототип): класс JsRatchetState с фабриками
 //! initInitiator/initResponder и методами encrypt/decrypt/decryptWire;
 //! ratchetMessageToWire/ratchetMessageFromWire, ratchetHeaderSize (40),
-//! ratchetNonceSize (12). Состояние НЕ сериализуется наружу — персистентность
-//! сессии на вызывающей стороне (secure storage устройства).
+//! ratchetNonceSize (12). Персистентность (feature serde): save()/restore()
+//! JsRatchetState — bincode-буфер состояния для secure storage вызывающей
+//! стороны; буфер содержит секреты — не для логов и не для сервера.
 //!
 //! E2E-контракт не меняется: JS собирает JSON-конверт
 //! { v: 1, alg: "x25519-box", epk, nonce, boxes: { [userId]: ct } } поверх
@@ -215,9 +216,9 @@ pub fn ratchet_message_from_wire(wire: Buffer) -> Result<JsRatchetMessage> {
 }
 
 /// Состояние Double Ratchet одной стороны диалога. Секреты (root key,
-/// цепочки, приватный ratchet-ключ) живут только в памяти объекта;
-/// сериализация состояния наружу НЕ предоставляется — персистентность
-/// сессии остаётся на вызывающей стороне (secure storage устройства).
+/// цепочки, приватный ratchet-ключ) живут в памяти объекта; save()/restore()
+/// (feature serde) сериализуют состояние в bincode-буфер — персистентность
+/// сессии на вызывающей стороне (secure storage устройства).
 #[napi]
 pub struct JsRatchetState {
     inner: RatchetState,
@@ -297,6 +298,34 @@ impl JsRatchetState {
         let msg = RatchetMessage::from_wire(bytes(&wire)).map_err(core_err)?;
         let pt = self.inner.decrypt(&msg).map_err(core_err)?;
         Ok(Buffer::from(pt))
+    }
+}
+
+// Персистентность сессии (этап 7, feature serde): bincode-буфер состояния.
+// Отдельный impl-блок под #[cfg] на весь блок: cfg вырезает его ДО
+// раскрытия #[napi] — при выключенной serde методов в API нет начисто.
+// Буфер содержит СЕКРЕТЫ (root key, цепочки, приватный ratchet-ключ):
+// только secure storage устройства (Keychain/Keystore), никогда — логи
+// или сервер.
+#[cfg(feature = "serde")]
+#[napi]
+impl JsRatchetState {
+    /// Сохранить состояние сессии (bincode) — для персистентности между
+    /// запусками. Восстановление — JsRatchetState.restore(saved).
+    #[napi]
+    pub fn save(&self) -> Result<Buffer> {
+        let buf = bincode::serialize(&self.inner)
+            .map_err(|e| NapiError::new(Status::GenericFailure, format!("{}", e)))?;
+        Ok(Buffer::from(buf))
+    }
+
+    /// Восстановить состояние из буфера save(): счётчики и skip-store
+    /// на месте, диалог продолжается. Битый буфер — GenericFailure.
+    #[napi(factory)]
+    pub fn restore(saved: Buffer) -> Result<Self> {
+        let inner = bincode::deserialize(bytes(&saved))
+            .map_err(|e| NapiError::new(Status::GenericFailure, format!("{}", e)))?;
+        Ok(JsRatchetState { inner })
     }
 }
 
@@ -455,5 +484,37 @@ mod tests {
             .err()
             .unwrap();
         assert!(err.to_string().contains("nonce must be 12 bytes, got 11"));
+    }
+
+    /// save/restore (feature serde): сессия переживает «рестарт» — счётчики
+    /// и skip-store восстановлены; replay уже расшифрованного сообщения
+    /// отклоняется и после restore.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn napi_ratchet_save_restore_roundtrip() {
+        let (mut alice, mut bob, _) = ratchet_pair(6);
+        let m1 = alice
+            .encrypt(Buffer::from(b"persist me".to_vec()))
+            .unwrap();
+        let (h, n, c) = parts(&m1);
+        let pt1 = bob.decrypt(h, n, c).unwrap();
+        assert_eq!(bytes(&pt1), b"persist me");
+
+        // «рестарт процесса»: состояние ушло в bincode-буфер и вернулось
+        let saved = bob.save().unwrap();
+        assert!(saved.len() > 0);
+        assert!(JsRatchetState::restore(Buffer::from(vec![0xffu8; 4])).is_err());
+        let mut bob2 = JsRatchetState::restore(saved).unwrap();
+
+        let m2 = alice
+            .encrypt(Buffer::from(b"after restore".to_vec()))
+            .unwrap();
+        let (h, n, c) = parts(&m2);
+        let pt2 = bob2.decrypt(h, n, c).unwrap();
+        assert_eq!(bytes(&pt2), b"after restore");
+
+        // replay m1 после restore — ключ израсходован, OutOfOrder
+        let (h, n, c) = parts(&m1);
+        assert!(bob2.decrypt(h, n, c).is_err());
     }
 }

@@ -69,7 +69,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
 | desktop | Tauri 2 (Rust + системный webview): каркас этапа 5; ядро medchat-core напрямую path-депом (Rust→Rust, без FFI) |
-| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs); uniffi-биндинги Swift/Kotlin (feature uniffi-bind); serde-сериализация RatchetState (feature serde, персистентность сессий для клиентов) |
+| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs); uniffi-биндинги Swift/Kotlin (feature uniffi-bind); serde-сериализация RatchetState (feature serde) + биндинги save/restore наружу (napi/UniFFI; персистентность сессий для клиентов) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
 ## 3. Структура проекта
@@ -310,8 +310,10 @@ E2E-сообщений серверу недоступен (хранится т�
   JsRatchetState (фабрики initInitiator/initResponder, encrypt/decrypt/
   decryptWire, ratchetMessageToWire/FromWire, ratchetHeaderSize(40),
   ratchetNonceSize(12)). CoreError → napi::Error, битые длины → InvalidArg.
-  Состояние ratchet наружу НЕ сериализуется — персистентность на вызывающей
-  стороне (secure storage). .node-артефакт собирает джоба CI napi-build (cargo build --release →
+  Персистентность сессии — save()/restore() (feature serde): bincode-буфер
+  состояния для secure storage вызывающей стороны; буфер содержит секреты.
+  .node-артефакт собирает джоба CI napi-build (cargo build --release
+  --no-default-features --features napi-bind,serde →
   rename cdylib → medchat-core.linux-x64-gnu.node, upload-artifact;
   прод-упаковка с метаданными платформ — napi-cli); в core-tests биндинги
   проверяются компиляцией (cargo check --tests), тесты логики ядра —
@@ -319,7 +321,7 @@ E2E-сообщений серверу недоступен (хранится т�
   бинарник не может линковать napi_*-символы — их даёт только процесс Node,
   napi-rs issue #1099; юнит-тесты самих обёрток выполняются джобой napi-build
   в настоящем Node: napi-smoke.js — JS-зеркало тех же проверок).
-  UniFFI-биндинги для Swift/Kotlin реализованы (feature uniffi-bind: src/uniffi_iface.rs — обёртки конвертов, bcrypt_verify, MedRatchetState на Mutex (uniffi-методы иммутабельны), to_wire/from_wire; генерация обвязки — uniffi-bindgen 0.28.3 из git-тега v0.28.3 (library mode; uniffi-крейты отсутствуют в sparse-индексе crates.io, см. §8) в джобе CI uniffi-bindings; персистентность состояния — на вызывающей стороне, Keychain/Keystore).
+  UniFFI-биндинги для Swift/Kotlin реализованы (feature uniffi-bind: src/uniffi_iface.rs — обёртки конвертов, bcrypt_verify, MedRatchetState на Mutex (uniffi-методы иммутабельны), to_wire/from_wire; генерация обвязки — uniffi-bindgen 0.28.3 из git-тега v0.28.3 (library mode; uniffi-крейты отсутствуют в sparse-индексе crates.io, см. §8) в джобе CI uniffi-bindings; персистентность состояния — save()/restore() (feature serde): bincode-буфер в secure storage вызывающей стороны, Keychain/Keystore).
 - **Double Ratchet** (этап 7, прототип): medchat-core/src/ratchet.rs — KDF_RK/KDF_CK на
   HMAC-SHA256 (x25519-dalek 2.0.1 для raw DH, явная feature static_secrets), каждое
   сообщение AES-256-GCM на одноразовом message key, DH-шаг при смене ratchet-ключа
@@ -327,7 +329,7 @@ E2E-сообщений серверу недоступен (хранится т�
   message keys пропущенных номеров буферизуются (MAX_SKIP=2000, MAX_SKIPPED_KEYS=500,
   превышение → OutOfOrder), replay по-прежнему отклоняется — сообщения доставляются
   и расшифровываются вне порядка. В клиенты НЕ интегрирован (мобильный клиент работает
-  на конвертах x25519-box) — интеграция после биндингов.
+  на конвертах x25519-box) — склейка с клиентским UI/secure storage — следующий шаг (биндинги и персистентность ядра готовы).
   Персистентность сессий: feature serde (bincode-совместимая сериализация RatchetState;
   JSON не подходит — ключи skip-store нестроковые); сериализованный blob содержит СЕКРЕТЫ
   (dh_self.secret_key, цепочки) — хранить только в secure storage устройства.
@@ -748,8 +750,18 @@ proc-макросов; tauri.conf.json указывает "icon": ["icons/icon.p
 отклонён); сериализованный blob содержит СЕКРЕТЫ — честно зафиксировано тестом
 (только secure storage). CI: cargo test --no-default-features --features serde.
 Честно: JSON не подходит — ключи skip-store HashMap(([u8;32], u32)) нестроковые;
-формат персистентности — bincode-класс (бинарный). Биндинги save/restore наружу
-(napi/UniFFI) — следующий шаг интеграции.
+формат персистентности — bincode-класс (бинарный).
+**Биндинги save/restore (этот коммит)**: JsRatchetState.save()/restore() (napi,
+feature serde) и MedRatchetState.save()/restore() (UniFFI) — bincode-буфер
+состояния наружу и обратно; оба блока — отдельные cfg-гейтые impl (cfg вырезает
+блок ДО раскрытия napi/uniffi-макросов: без serde методов в API нет начисто).
+Буфер содержит СЕКРЕТЫ (root key, цепочки, приватный ratchet-ключ) — только
+secure storage устройства (Keychain/Keystore), никогда логи/сервер. CI:
+napi-build собирает .node с napi-bind,serde (napi-smoke.js: save → restore →
+decrypt, replay после restore, битый буфер); uniffi-bindings гоняет
+uniffi-bind,serde (юнит-тест roundtrip + генерация обвязки); core-tests
+проверяет компиляцию тестов save/restore (check --tests с napi-bind,serde —
+без линковки, napi_* даёт только Node).
 **Поиск по сообщениям: pg_trgm + GIN** (этот коммит): роут /api/messages/search существовал и
 был корректен, но каждый запрос — seq scan по всей messages. Индекс
 messages_content_trgm_idx (gin, gin_trgm_ops) создаётся raw-SQL в seed-скрипте
@@ -801,8 +813,10 @@ node stop.js [--docker]                     # остановить процес�
   чате; глобальный поиск изолирован по доступным чатам. Сид (seed:test) создаёт
   pg_trgm + GIN-индекс по content (non-fatal warn при отсутствии прав).
 - **core-tests**: Rust-ядро medchat-v2/core — stable-тулчейн, кэш (Swatinem/rust-cache),
-  два шага (с e411a54): `cargo check --tests` (компиляция ядра + napi-биндингов
-  src/node.rs и их #[cfg(test)]-кода; type-check без линковки — napi_*-символы
+  два шага (с e411a54): `cargo check --tests --no-default-features
+  --features napi-bind,serde` (компиляция ядра + napi-биндингов src/node.rs
+  и их #[cfg(test)]-кода; с feature serde — и методы save/restore JsRatchetState
+  с их тестами; type-check без линковки — napi_*-символы
   тестовому бинарнику дать некому, их даёт только процесс Node, napi-rs issue
   #1099) и `cargo test --no-default-features --features serde` (тесты логики ядра: lib + ratchet
   (Double Ratchet, 13 кейсов с skip-store + 3 сериализационных при feature serde) + контрактные векторы
@@ -816,7 +830,7 @@ node stop.js [--docker]                     # остановить процес�
   ВСЕГДА (числа для сверки DoD «≥ x10»; тайминги машин шатательны — не
   автогейт). Джоба гейтит сборку и прогон бенчмарков (паника в бенче =
   красный прогон).
-- **napi-build**: cargo build --release (cdylib, дефолтные фичи с napi-bind) →
+- **napi-build**: cargo build --release --no-default-features --features napi-bind,serde (cdylib) →
   rename в medchat-core.linux-x64-gnu.node; node napi-smoke.js — Node-интеграция
   обёрток (то, что cargo test дать не может: линковка napi_*, issue #1099);
   артефакт через actions/upload-artifact@v4; лог падений — ci-logs/ci-napi.log.
@@ -827,7 +841,9 @@ node stop.js [--docker]                     # остановить процес�
   байт-в-байт); -runs=5000 на цель — smoke, суточный DoD-прогон — отдельный запуск
   по требованию; лог падений — ci-logs/ci-fuzz.log.
 - **uniffi-bindings**: UniFFI-биндинги Swift/Kotlin (этап 2): сборка cdylib
-  с scaffolding (--no-default-features --features uniffi-bind) → uniffi-bindgen
+  с scaffolding (--no-default-features --features uniffi-bind,serde —
+  serde даёт MedRatchetState.save()/restore(), персистентность этапа 7)
+  → uniffi-bindgen
   0.28.3 из git-тега v0.28.3 (library mode) генерирует Kotlin/Swift-обвязку
   (uniffi-out/, артефакт);
   cargo тестов обёрток (uniffi-метаданные — обычный Rust, линкуются чисто,
@@ -885,7 +901,7 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
    ключей UserKey, конверты в Message.metadata, graceful fallback. Остаточное (в порядке
    приоритета): интеграция Double Ratchet (прототип в ядре готов — ratchet.rs, 6aff983;
    wire-формат заголовков готов (a43102d), napi-биндинги JsRatchetState готовы;
-   skip-store сделан d033eeb); сериализация состояния — feature serde (персистентность сессий между запусками); ~~E2E для файлов/голосовых~~ — сделано
+   skip-store сделан d033eeb); сериализация состояния и биндинги save/restore (napi/UniFFI) — сделано: feature serde, персистентность сессий между запусками готова; ~~E2E для файлов/голосовых~~ — сделано
    (42e5a1d → ed9a661: гибридное шифрование, ключ файла в конверте,
    расшифровка при просмотре); ~~верификация fingerprint-кодов~~ — сделано
    (347bc9d + ec1a0de: safety number в шапке чата); идентификация
@@ -913,7 +929,7 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     JsRatchetState, feature napi-bind — CI зелёный). ~~UniFFI для Swift/Kotlin~~ — сделано (feature uniffi-bind: src/uniffi_iface.rs,
     обёртки конвертов + bcrypt + MedRatchetState (Mutex), генерация обвязки —
     джоба uniffi-bindings; склейка в Xcode/Gradle — этапы 3/4). Дальше:
-    интеграция ratchet в клиенты (сериализация состояния — feature serde, персистентность готова; биндинги save/restore и склейка с клиентским UI — далее), ~~cargo-fuzz~~ (scaffold: fuzz/ с тремя целями + джоба fuzz-smoke;
+    интеграция ratchet в клиенты (~~сериализация состояния + биндинги save/restore (napi/UniFFI)~~ — сделано: feature serde + JsRatchetState.save()/restore() (napi) и MedRatchetState.save()/restore() (UniFFI); осталась склейка с клиентским UI/secure storage), ~~cargo-fuzz~~ (scaffold: fuzz/ с тремя целями + джоба fuzz-smoke;
     суточный DoD-прогон — отдельный запуск по требованию), ~~бенчмарки (DoD ≥ x10
     к Node)~~ — сделано (d2db23e + f79de00: criterion + Node-зеркало + джоба
     core-bench; первый прогон 42474787549: конвертный путь 11.6–15.2x — DoD закрыт),

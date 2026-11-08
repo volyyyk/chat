@@ -203,14 +203,16 @@ jobs:
           workspaces: medchat-v2/core
 
       # Шаг 1: полная проверка компиляции, включая napi-биндинги (src/node.rs)
-      # и их #[cfg(test)]-код. cargo check не линкует бинарник, поэтому
+      # и их #[cfg(test)]-код; feature serde добавляет к проверке методы
+      # save/restore персистентности RatchetState и их тесты (node.rs).
+      # cargo check не линкует бинарник, поэтому
       # napi_*-символы (которые в рантайме даёт только процесс Node —
       # libnode.so в дистрибутиве Node нет, napi-rs issue #1099) не нужны.
       # Ловит все ошибки типов (включая E0277-класс из прогона a1061cd).
       - name: Type-check core + napi bindings and tests (no linking)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo check --tests; } 2>&1 | tee ../../ci-rust.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo check --tests --no-default-features --features napi-bind,serde; } 2>&1 | tee ../../ci-rust.log
 
       # Шаг 2: юнит-тесты логики ядра (lib, ratchet, контрактные векторы)
       # — без napi-биндингов: тестовый бинарник линкуется чисто, потому что
@@ -325,14 +327,16 @@ jobs:
         with:
           node-version: '18'
 
-      # cdylib с дефолтными фичами (napi-bind) — это и есть .node-артефакт:
+      # cdylib с napi-bind + serde — это и есть .node-артефакт:
       # napi-rs2-модуль = обычный cdylib (rename-рецепт из документации
       # napi.rs), build.rs уже настроен (napi_build::setup). napi-cli нужен
-      # только для прод-упаковки с метаданными платформ.
+      # только для прод-упаковки с метаданными платформ. serde включает
+      # методы save/restore JsRatchetState (персистентность RatchetState,
+      # этап 7) — их проверяет napi-smoke.js ниже.
       - name: Build cdylib into .node artifact
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo build --release; } 2>&1 | tee ../../ci-napi.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo build --release --no-default-features --features napi-bind,serde; } 2>&1 | tee ../../ci-napi.log
           cp target/release/libmedchat_core.so medchat-core.linux-x64-gnu.node
           ls -la medchat-core.linux-x64-gnu.node
 
@@ -480,17 +484,18 @@ jobs:
 
       # cdylib c UniFFI-scaffolding (без napi): setup_scaffolding! эмитит
       # metadata-символы, по которым bindgen строит обвязку в library mode.
+      # serde добавляет MedRatchetState.save()/restore() в экспорт (этап 7).
       - name: Build cdylib with UniFFI scaffolding
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo build --release --no-default-features --features uniffi-bind; } 2>&1 | tee ../../ci-uniffi.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo build --release --no-default-features --features uniffi-bind,serde; } 2>&1 | tee ../../ci-uniffi.log
 
       # В отличие от napi-обёрток, uniffi-код линкуется в тестовый бинарник
       # чисто (metadata-функции — обычный Rust) — гоняем юнит-тесты обёрток.
       - name: Run uniffi wrapper unit tests
         run: |
           set -o pipefail
-          { cargo test --no-default-features --features uniffi-bind; } 2>&1 | tee -a ../../ci-uniffi.log
+          { cargo test --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-uniffi.log
 
       # Генерация обвязки из метаданных собранного cdylib (library mode):
       # гейтит консистентность обёрток и саму генерацию. Компиляция
