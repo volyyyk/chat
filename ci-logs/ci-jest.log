@@ -1,34 +1,42 @@
-=== run 42417931973 job server-tests Sat Nov  7 21:54:28 UTC 2026 ===
+=== run 42507470647 job server-tests Sun Nov  8 17:58:41 UTC 2026 ===
 
 > medchat-server@2.0.0 test
 > jest --ci --runInBand
 
 PASS tests/integration/auth.test.js
   POST /api/auth/login
-    ✓ rejects an invalid body with 400 (validation layer) (27 ms)
-    ✓ logs in an active patient and returns tokens (12 ms)
-    ✓ returns 401 for a wrong password (6 ms)
-    ✓ returns 401 for an unknown email (no user enumeration) (4 ms)
-    ✓ blocks a doctor whose clinic has not verified them yet (6 ms)
+    ✓ rejects an invalid body with 400 (validation layer) (28 ms)
+    ✓ logs in an active patient and returns tokens (11 ms)
+    ✓ returns 401 for a wrong password (7 ms)
+    ✓ returns 401 for an unknown email (no user enumeration) (3 ms)
+    ✓ blocks a doctor whose clinic has not verified them yet (7 ms)
     ✓ blocks an inactive account (5 ms)
   POST /api/auth/register
-    ✓ registers a patient and returns tokens (201) (290 ms)
+    ✓ registers a patient and returns tokens (201) (293 ms)
     ✓ rejects a doctor registration without a clinic code (400) (4 ms)
-    ✓ rejects a doctor registration with an unknown clinic code (400) (5 ms)
+    ✓ rejects a doctor registration with an unknown clinic code (400) (4 ms)
     ✓ rejects a weak password (400) (4 ms)
+  POST /api/auth/phone/* (идентификация 149-ФЗ ст. 10.1)
+    ✓ rejects a request without an access token (401) (8 ms)
+    ✓ requests a code for a new phone number and returns devCode in test mode (14 ms)
+    ✓ rejects a request when no phone is provided and none is stored (400) (12 ms)
+    ✓ verifies a valid code and marks the phone verified (10 ms)
+    ✓ rejects a wrong code (400) (10 ms)
+    ✓ rejects an expired code (400) (9 ms)
+    ✓ rejects a non-6-digit code body (400, validation layer) (9 ms)
   unknown routes
-    ✓ falls through to the 404 handler with structured JSON (4 ms)
+    ✓ falls through to the 404 handler with structured JSON (3 ms)
 
 PASS tests/security/transactionsIdor.test.js
   Transaction IDOR (controllers/transactionController.js)
     ✓ refund of a foreign transaction is forbidden (403) (10 ms)
     ✓ cancel of a foreign transaction is forbidden (403) (4 ms)
-    ✓ reading a foreign transaction is forbidden (403) (4 ms)
+    ✓ reading a foreign transaction is forbidden (403) (3 ms)
     ✓ refund of your own completed transaction succeeds (200) (3 ms)
-    ✓ test-balance deposit rejects a negative amount (400) (4 ms)
+    ✓ test-balance deposit rejects a negative amount (400) (3 ms)
   canAccessChat (utils/chatAccess.js)
-    ✓ a stranger gets false
-    ✓ an explicit participant gets true (1 ms)
+    ✓ a stranger gets false (1 ms)
+    ✓ an explicit participant gets true
     ✓ the doctor of the chat gets true
     ✓ the clinic admin of the chat clinic gets true
     ✓ a clinic admin of another clinic gets false (1 ms)
@@ -38,298 +46,138 @@ PASS tests/paymentService.test.js
   PaymentService
     findChat
       ✓ resolves a chat by UUID primary key (1 ms)
-      ✓ resolves a chat by public chatId string without touching findByPk (1 ms)
+      ✓ resolves a chat by public chatId string without touching findByPk
     resolveMessageFree
-      ✓ doctor messages are always free (doctor_initiated) (1 ms)
+      ✓ doctor messages are always free (doctor_initiated) (5 ms)
       ✓ first message in a chat is free
       ✓ completed appointment within the window makes messages free
-      ✓ without appointment in the window the message is paid (1 ms)
+      ✓ without appointment in the window the message is paid
     chargeMessagePayment
-      ✓ returns failure when the patient has insufficient balance
+      ✓ returns failure when the patient has insufficient balance (1 ms)
       ✓ charges the default price and creates a completed transaction (1 ms)
       ✓ credits the doctor share after a successful charge (1 ms)
     isMessageFree
       ✓ returns paid for an unknown chat without throwing
-
-  console.error
-    ❌ Unable to connect to the database: ConnectionRefusedError [SequelizeConnectionRefusedError]: connect ECONNREFUSED ::1:5432
-        at Client._connectionCallback (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/src/dialects/postgres/connection-manager.js:184:24)
-        at Client._handleErrorWhileConnecting (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/client.js:408:19)
-        at Client._handleErrorEvent (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/client.js:418:19)
-        at Connection.emit (node:events:517:28)
-        at Socket.reportStreamError (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/connection.js:59:12)
-        at Socket.emit (node:events:517:28)
-        at emitErrorNT (node:internal/streams/destroy:151:8)
-        at emitErrorCloseNT (node:internal/streams/destroy:116:3)
-        at processTicksAndRejections (node:internal/process/task_queues:82:21) {
-      parent: Error: connect ECONNREFUSED ::1:5432
-          at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-        errno: -111,
-        code: 'ECONNREFUSED',
-        syscall: 'connect',
-        address: '::1',
-        port: 5432
-      },
-      original: Error: connect ECONNREFUSED ::1:5432
-          at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-        errno: -111,
-        code: 'ECONNREFUSED',
-        syscall: 'connect',
-        address: '::1',
-        port: 5432
-      }
-    }
-
-    [0m [90m 132 |[39m   })
-     [90m 133 |[39m   [33m.[39m[36mcatch[39m((err) [33m=>[39m {
-    [31m[1m>[22m[39m[90m 134 |[39m     console[33m.[39merror([32m'❌ Unable to connect to the database:'[39m[33m,[39m err)[33m;[39m
-     [90m     |[39m             [31m[1m^[22m[39m
-     [90m 135 |[39m   })[33m;[39m
-     [90m 136 |[39m
-     [90m 137 |[39m module[33m.[39mexports [33m=[39m sequelize[33m;[39m[0m
-
-      at error (src/config/database.js:134:13)
-
-  console.error
-    Error processing message payment: ConnectionRefusedError [SequelizeConnectionRefusedError]: connect ECONNREFUSED ::1:5432
-        at Client._connectionCallback (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/src/dialects/postgres/connection-manager.js:184:24)
-        at Client._handleErrorWhileConnecting (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/client.js:408:19)
-        at Client._handleErrorEvent (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/client.js:418:19)
-        at Connection.emit (node:events:517:28)
-        at Socket.reportStreamError (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/connection.js:59:12)
-        at Socket.emit (node:events:517:28)
-        at emitErrorNT (node:internal/streams/destroy:151:8)
-        at emitErrorCloseNT (node:internal/streams/destroy:116:3)
-        at processTicksAndRejections (node:internal/process/task_queues:82:21) {
-      parent: Error: connect ECONNREFUSED ::1:5432
-          at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-        errno: -111,
-        code: 'ECONNREFUSED',
-        syscall: 'connect',
-        address: '::1',
-        port: 5432
-      },
-      original: Error: connect ECONNREFUSED ::1:5432
-          at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-        errno: -111,
-        code: 'ECONNREFUSED',
-        syscall: 'connect',
-        address: '::1',
-        port: 5432
-      }
-    }
-
-    [0m [90m 204 |[39m       [36mreturn[39m result[33m;[39m
-     [90m 205 |[39m     } [36mcatch[39m (error) {
-    [31m[1m>[22m[39m[90m 206 |[39m       console[33m.[39merror([32m'Error processing message payment:'[39m[33m,[39m error)[33m;[39m
-     [90m     |[39m               [31m[1m^[22m[39m
-     [90m 207 |[39m       [36mreturn[39m {
-     [90m 208 |[39m         success[33m:[39m [36mfalse[39m[33m,[39m
-     [90m 209 |[39m         error[33m:[39m [32m'PAYMENT_ERROR'[39m[33m,[39m[0m
-
-      at Function.error [as processMessagePayment] (src/services/paymentService.js:206:15)
-      at Object.<anonymous> (tests/security/paymentsSecurity.test.js:69:15)
-
-  console.error
-    Error processing file payment: ConnectionRefusedError [SequelizeConnectionRefusedError]: connect ECONNREFUSED ::1:5432
-        at Client._connectionCallback (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/src/dialects/postgres/connection-manager.js:184:24)
-        at Client._handleErrorWhileConnecting (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/client.js:408:19)
-        at Client._handleErrorEvent (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/client.js:418:19)
-        at Connection.emit (node:events:517:28)
-        at Socket.reportStreamError (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/connection.js:59:12)
-        at Socket.emit (node:events:517:28)
-        at emitErrorNT (node:internal/streams/destroy:151:8)
-        at emitErrorCloseNT (node:internal/streams/destroy:116:3)
-        at processTicksAndRejections (node:internal/process/task_queues:82:21) {
-      parent: Error: connect ECONNREFUSED ::1:5432
-          at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-        errno: -111,
-        code: 'ECONNREFUSED',
-        syscall: 'connect',
-        address: '::1',
-        port: 5432
-      },
-      original: Error: connect ECONNREFUSED ::1:5432
-          at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-        errno: -111,
-        code: 'ECONNREFUSED',
-        syscall: 'connect',
-        address: '::1',
-        port: 5432
-      }
-    }
-
-    [0m [90m 255 |[39m       [36mreturn[39m result[33m;[39m
-     [90m 256 |[39m     } [36mcatch[39m (error) {
-    [31m[1m>[22m[39m[90m 257 |[39m       console[33m.[39merror([32m'Error processing file payment:'[39m[33m,[39m error)[33m;[39m
-     [90m     |[39m               [31m[1m^[22m[39m
-     [90m 258 |[39m       [36mreturn[39m {
-     [90m 259 |[39m         success[33m:[39m [36mfalse[39m[33m,[39m
-     [90m 260 |[39m         error[33m:[39m [32m'PAYMENT_ERROR'[39m[33m,[39m[0m
-
-      at Function.error [as processFilePayment] (src/services/paymentService.js:257:15)
-      at Object.<anonymous> (tests/security/paymentsSecurity.test.js:75:15)
-
-  console.error
-    Error processing subscription payment: ConnectionRefusedError [SequelizeConnectionRefusedError]: connect ECONNREFUSED ::1:5432
-        at Client._connectionCallback (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/src/dialects/postgres/connection-manager.js:184:24)
-        at Client._handleErrorWhileConnecting (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/client.js:408:19)
-        at Client._handleErrorEvent (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/client.js:418:19)
-        at Connection.emit (node:events:517:28)
-        at Socket.reportStreamError (/home/runner/work/chat/chat/medchat-v2/server/node_modules/pg/lib/connection.js:59:12)
-        at Socket.emit (node:events:517:28)
-        at emitErrorNT (node:internal/streams/destroy:151:8)
-        at emitErrorCloseNT (node:internal/streams/destroy:116:3)
-        at processTicksAndRejections (node:internal/process/task_queues:82:21) {
-      parent: Error: connect ECONNREFUSED ::1:5432
-          at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-        errno: -111,
-        code: 'ECONNREFUSED',
-        syscall: 'connect',
-        address: '::1',
-        port: 5432
-      },
-      original: Error: connect ECONNREFUSED ::1:5432
-          at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-        errno: -111,
-        code: 'ECONNREFUSED',
-        syscall: 'connect',
-        address: '::1',
-        port: 5432
-      }
-    }
-
-    [0m [90m 306 |[39m       [36mreturn[39m result[33m;[39m
-     [90m 307 |[39m     } [36mcatch[39m (error) {
-    [31m[1m>[22m[39m[90m 308 |[39m       console[33m.[39merror([32m'Error processing subscription payment:'[39m[33m,[39m error)[33m;[39m
-     [90m     |[39m               [31m[1m^[22m[39m
-     [90m 309 |[39m       [36mreturn[39m {
-     [90m 310 |[39m         success[33m:[39m [36mfalse[39m[33m,[39m
-     [90m 311 |[39m         error[33m:[39m [32m'PAYMENT_ERROR'[39m[33m,[39m[0m
-
-      at Function.error [as processSubscriptionPayment] (src/services/paymentService.js:308:15)
-      at Object.<anonymous> (tests/security/paymentsSecurity.test.js:81:5)
-
-FAIL tests/security/paymentsSecurity.test.js
-  Server-side price pinning (services/paymentService.js)
-    ✕ a message payment cannot be made cheaper by the client (79 ms)
-    ✕ a file payment cannot be made cheaper by the client (14 ms)
-    ✕ subscription prices are fixed (monthly=500, yearly=5000) (13 ms)
-    ✕ chargeMessagePayment ignores the amount option (1 ms)
-  Payment schema validation
-    ✓ rejects zero, negative, string amounts and invalid types (3 ms)
-    ✓ test-balance deposit is capped at 100000 (1 ms)
-  HTTP hardening
-    ✓ oversized JSON bodies are rejected with 413 (default 100kb limit) (9 ms)
-
-  ● Server-side price pinning (services/paymentService.js) › a message payment cannot be made cheaper by the client
-
-    expect(received).toBe(expected) // Object.is equality
-
-    Expected: true
-    Received: false
-
-    [0m [90m 68 |[39m   test([32m'a message payment cannot be made cheaper by the client'[39m[33m,[39m [36masync[39m () [33m=>[39m {
-     [90m 69 |[39m     [36mconst[39m r [33m=[39m [36mawait[39m [33mPaymentService[39m[33m.[39mprocessMessagePayment([32m'patient-user'[39m[33m,[39m [35m1[39m[33m,[39m [32m'RUB'[39m[33m,[39m [33mCHAT_ID[39m[33m,[39m [36mnull[39m[33m,[39m [36mnull[39m)[33m;[39m
-    [31m[1m>[22m[39m[90m 70 |[39m     expect(r[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
-     [90m    |[39m                       [31m[1m^[22m[39m
-     [90m 71 |[39m     expect([33mBalanceService[39m[33m.[39mcharge)[33m.[39mtoHaveBeenCalledWith([32m'patient-user'[39m[33m,[39m [35m50[39m[33m,[39m [32m'RUB'[39m[33m,[39m [32m'Оплата сообщения'[39m[33m,[39m expect[33m.[39manything())[33m;[39m
-     [90m 72 |[39m   })[33m;[39m
-     [90m 73 |[39m[0m
-
-      at Object.toBe (tests/security/paymentsSecurity.test.js:70:23)
-
-  ● Server-side price pinning (services/paymentService.js) › a file payment cannot be made cheaper by the client
-
-    expect(received).toBe(expected) // Object.is equality
-
-    Expected: true
-    Received: false
-
-    [0m [90m 74 |[39m   test([32m'a file payment cannot be made cheaper by the client'[39m[33m,[39m [36masync[39m () [33m=>[39m {
-     [90m 75 |[39m     [36mconst[39m r [33m=[39m [36mawait[39m [33mPaymentService[39m[33m.[39mprocessFilePayment([32m'patient-user'[39m[33m,[39m [35m1[39m[33m,[39m [32m'RUB'[39m[33m,[39m [32m'file-1'[39m[33m,[39m [36mnull[39m)[33m;[39m
-    [31m[1m>[22m[39m[90m 76 |[39m     expect(r[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
-     [90m    |[39m                       [31m[1m^[22m[39m
-     [90m 77 |[39m     expect([33mBalanceService[39m[33m.[39mcharge)[33m.[39mtoHaveBeenCalledWith([32m'patient-user'[39m[33m,[39m [35m100[39m[33m,[39m [32m'RUB'[39m[33m,[39m [32m'Оплата файла'[39m[33m,[39m expect[33m.[39manything())[33m;[39m
-     [90m 78 |[39m   })[33m;[39m
-     [90m 79 |[39m[0m
-
-      at Object.toBe (tests/security/paymentsSecurity.test.js:76:23)
-
-  ● Server-side price pinning (services/paymentService.js) › subscription prices are fixed (monthly=500, yearly=5000)
-
-    expect(jest.fn()).toHaveBeenLastCalledWith(...expected)
-
-    Expected: "u1", 500, "RUB", "Оплата подписки", Anything
-
-    Number of calls: 0
-
-    [0m [90m 80 |[39m   test([32m'subscription prices are fixed (monthly=500, yearly=5000)'[39m[33m,[39m [36masync[39m () [33m=>[39m {
-     [90m 81 |[39m     [36mawait[39m [33mPaymentService[39m[33m.[39mprocessSubscriptionPayment([32m'u1'[39m[33m,[39m [35m1[39m[33m,[39m [32m'RUB'[39m[33m,[39m [32m'monthly'[39m[33m,[39m [36mnull[39m)[33m;[39m
-    [31m[1m>[22m[39m[90m 82 |[39m     expect([33mBalanceService[39m[33m.[39mcharge)[33m.[39mtoHaveBeenLastCalledWith([32m'u1'[39m[33m,[39m [35m500[39m[33m,[39m [32m'RUB'[39m[33m,[39m [32m'Оплата подписки'[39m[33m,[39m expect[33m.[39manything())[33m;[39m
-     [90m    |[39m                                   [31m[1m^[22m[39m
-     [90m 83 |[39m     [36mawait[39m [33mPaymentService[39m[33m.[39mprocessSubscriptionPayment([32m'u1'[39m[33m,[39m [35m1[39m[33m,[39m [32m'RUB'[39m[33m,[39m [32m'yearly'[39m[33m,[39m [36mnull[39m)[33m;[39m
-     [90m 84 |[39m     expect([33mBalanceService[39m[33m.[39mcharge)[33m.[39mtoHaveBeenLastCalledWith([32m'u1'[39m[33m,[39m [35m5000[39m[33m,[39m [32m'RUB'[39m[33m,[39m [32m'Оплата подписки'[39m[33m,[39m expect[33m.[39manything())[33m;[39m
-     [90m 85 |[39m   })[33m;[39m[0m
-
-      at Object.toHaveBeenLastCalledWith (tests/security/paymentsSecurity.test.js:82:35)
-
-  ● Server-side price pinning (services/paymentService.js) › chargeMessagePayment ignores the amount option
-
-    SequelizeConnectionRefusedError: connect ECONNREFUSED ::1:5432
-
-      at Client._connectionCallback (node_modules/sequelize/src/dialects/postgres/connection-manager.js:184:24)
-      at Client._handleErrorWhileConnecting (node_modules/pg/lib/client.js:408:19)
-      at Client._handleErrorEvent (node_modules/pg/lib/client.js:418:19)
-      at Socket.reportStreamError (node_modules/pg/lib/connection.js:59:12)
 
 PASS tests/errorHandler.test.js
   errorHandler middleware
     notFound
       ✓ returns 404 with structured JSON and endpoint info (2 ms)
     errorHandler
-      ✓ uses the error status and code when provided (1 ms)
-      ✓ logs the error with request context (method, url, code, status) (8 ms)
+      ✓ uses the error status and code when provided
+      ✓ logs the error with request context (method, url, code, status) (11 ms)
       ✓ includes the stack trace in the log for 500 errors
       ✓ defaults to 500 INTERNAL_ERROR for unknown errors (1 ms)
-      ✓ hides internal error messages from clients in production
-      ✓ never leaks error messages with status < 500 even in production (1 ms)
+      ✓ hides internal error messages from clients in production (1 ms)
+      ✓ never leaks error messages with status < 500 even in production
     wrapAsync
-      ✓ passes errors from rejected async handlers to next() (1 ms)
-      ✓ does not call next for successful handlers
+      ✓ passes errors from rejected async handlers to next()
+      ✓ does not call next for successful handlers (1 ms)
+
+PASS tests/security/paymentsSecurity.test.js
+  Server-side price pinning (services/paymentService.js)
+    ✓ a message payment cannot be made cheaper by the client (1 ms)
+    ✓ a file payment cannot be made cheaper by the client
+    ✓ subscription prices are fixed (monthly=500, yearly=5000)
+    ✓ chargeMessagePayment ignores the amount option (1 ms)
+  Payment schema validation
+    ✓ rejects zero, negative, string amounts and invalid types (5 ms)
+    ✓ test-balance deposit is capped at 100000 (1 ms)
+  HTTP hardening
+    ✓ oversized JSON bodies are rejected with 413 (default 100kb limit) (8 ms)
 
 PASS tests/security/registerSecurity.test.js
   Privilege escalation via role (validators/auth.js)
-    ✓ rejects self-registration as clinic_admin (8 ms)
-    ✓ rejects self-registration as system_admin (3 ms)
-    ✓ a normal patient registration still works (201) (268 ms)
+    ✓ rejects self-registration as clinic_admin (10 ms)
+    ✓ rejects self-registration as system_admin (2 ms)
+    ✓ a normal patient registration still works (201) (267 ms)
   Mass assignment / unknown fields
     ✓ unknown fields (isAdmin, status) never reach User.create (260 ms)
   Prototype pollution via __proto__
     ✓ a __proto__ payload neither poisons Object.prototype nor crashes (no 500) (259 ms)
 
+FAIL tests/backupIntegrity.test.js
+  ● Test suite failed to run
+
+    Cannot find module '../models' from 'tests/backupIntegrity.test.js'
+
+    [0m [90m 11 |[39m [36mconst[39m crypto [33m=[39m require([32m'crypto'[39m)[33m;[39m
+     [90m 12 |[39m
+    [31m[1m>[22m[39m[90m 13 |[39m jest[33m.[39mmock([32m'../models'[39m[33m,[39m () [33m=>[39m ({
+     [90m    |[39m      [31m[1m^[22m[39m
+     [90m 14 |[39m   [33mUser[39m[33m:[39m { findByPk[33m:[39m jest[33m.[39mfn() }[33m,[39m
+     [90m 15 |[39m   [33mBackup[39m[33m:[39m { findByPk[33m:[39m jest[33m.[39mfn()[33m,[39m create[33m:[39m jest[33m.[39mfn()[33m,[39m findAll[33m:[39m jest[33m.[39mfn()[33m,[39m count[33m:[39m jest[33m.[39mfn() }[33m,[39m
+     [90m 16 |[39m   sequelize[33m:[39m { query[33m:[39m jest[33m.[39mfn() }[33m,[39m[0m
+
+      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
+      at Object.mock (tests/backupIntegrity.test.js:13:6)
+
+PASS tests/coreAesGcm.test.js
+  E2E cross-platform contract (AES-256-GCM known-answer vectors)
+    ✓ фикстура — векторы ожидаемой формы (размеры полей) (2 ms)
+    ✓ Node crypto воспроизводит ct и tag вектора v1 (1 ms)
+    ✓ Node crypto воспроизводит ct и tag вектора v2 (1 ms)
+    ✓ Node crypto воспроизводит ct и tag вектора v3
+    ✓ Node crypto расшифровывает эталонный вектор v1
+    ✓ Node crypto расшифровывает эталонный вектор v2 (1 ms)
+    ✓ Node crypto расшифровывает эталонный вектор v3
+    ✓ подделанный тег отклоняется AEAD (4 ms)
+
 PASS tests/security/jwtSecurity.test.js
   JWT security (middleware/auth.js)
-    ✓ accepts a valid HS256 token (4 ms)
+    ✓ accepts a valid HS256 token (6 ms)
     ✓ rejects a forged alg:none token (2 ms)
-    ✓ rejects a token signed with the wrong secret (3 ms)
+    ✓ rejects a token signed with the wrong secret (4 ms)
     ✓ rejects an expired token (2 ms)
-    ✓ rejects a tampered payload (signature mismatch) (2 ms)
+    ✓ rejects a tampered payload (signature mismatch) (3 ms)
     ✓ rejects a missing or malformed Authorization header (3 ms)
+
+PASS tests/e2eEnvelope.test.js
+  validateE2EEnvelope
+    ✓ accepts a well-formed envelope (1 ms)
+    ✓ accepts multiple recipients up to the limit
+    ✓ rejects non-object, null and undefined envelopes (1 ms)
+    ✓ rejects wrong version or algorithm
+    ✓ rejects malformed ephemeral public key
+    ✓ rejects malformed nonce (1 ms)
+    ✓ rejects missing, empty or oversized boxes (1 ms)
+    ✓ rejects an envelope larger than the total limit (1 ms)
 
 PASS tests/cryptoService.test.js
   CryptoService
-    ✓ generates a valid X25519 key pair (31 ms)
+    ✓ generates a valid X25519 key pair (33 ms)
     ✓ both sides derive the same shared secret (ECDH) (75 ms)
     ✓ encrypts and decrypts a message (2 ms)
-    ✓ rejects decryption with a wrong key (9 ms)
+    ✓ rejects decryption with a wrong key (10 ms)
     ✓ encrypts and decrypts objects (JSON) (1 ms)
-    ✓ encrypts and decrypts file buffers
+    ✓ encrypts and decrypts file buffers (1 ms)
     ✓ hash functions are deterministic (1 ms)
-    ✓ HMAC verify works and rejects tampering (1 ms)
+    ✓ HMAC verify works and rejects tampering
 
-Test Suites: 1 failed, 7 passed, 8 total
-Tests:       4 failed, 63 passed, 67 total
+PASS tests/coreInterop.test.js
+  E2E cross-platform contract (canonical NaCl crypto_box vector)
+    ✓ фикстура — канонический вектор NaCl (размеры полей) (2 ms)
+    ✓ tweetnacl воспроизводит эталонный шифртекст байт-в-байт (27 ms)
+    ✓ tweetnacl открывает эталонный бокс ключом получателя Bob (19 ms)
+
+PASS tests/checksum.test.js
+  checksum hot-path (этап 6)
+    ✓ backend экспортируется: native | fallback (1 ms)
+    ✓ KAT FIPS 180-4: SHA-256("abc") и пустой буфер
+    ✓ parity с node:crypto на произвольном буфере
+    ✓ sha256Verify: совпадение (в т.ч. uppercase/пробелы), несовпадение (1 ms)
+    ✓ честно: если native-аддон доступен — parity с node:crypto и на нём
+
+PASS tests/bcryptInterop.test.js
+  Контрактные векторы bcrypt (OpenBSD KAT, фикстура core/tests)
+    ✓ вектор v1: серверный bcrypt верифицирует KAT (2 ms)
+    ✓ вектор v2: серверный bcrypt верифицирует KAT (2 ms)
+    ✓ вектор v3: серверный bcrypt верифицирует KAT (3 ms)
+    ✓ вектор v4: серверный bcrypt верифицирует KAT (2 ms)
+    ✓ неверный пароль отклоняется (2 ms)
+
+Test Suites: 1 failed, 13 passed, 14 total
+Tests:       103 passed, 103 total
 Snapshots:   0 total
-Time:        4.053 s
+Time:        3.774 s
 Ran all test suites.
