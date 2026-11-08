@@ -1,128 +1,28 @@
-=== run 42455054791 job e2e-smoke Sun Nov  8 06:33:04 UTC 2026 ===
+=== run 42455351709 job e2e-smoke Sun Nov  8 06:37:09 UTC 2026 ===
 
 > medchat-server@2.0.0 test:smoke
 > node scripts/smoke-test.js
 
 MedChat smoke test
 Base URL: http://127.0.0.1:3990
-  ✓ server started, /health responds
+Server exited unexpectedly with code 1:
+/home/runner/work/chat/chat/medchat-v2/server/src/services/backupService.js:74
+t cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  ^^^^^^
 
-[1] Аутентификация всех сторон
-  ✓ логин: admin, doctor, patient1, patient2
-  ✓ неверный пароль отклоняется (401)
-  ✓ запрос без токена отклоняется (401)
+SyntaxError: Unexpected identifier
+    at internalCompileFunction (node:internal/vm:76:18)
+    at wrapSafe (node:internal/modules/cjs/loader:1283:20)
+    at Module._compile (node:internal/modules/cjs/loader:1328:27)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Module.require (node:internal/modules/cjs/loader:1231:19)
+    at require (node:internal/modules/helpers:177:18)
+    at Object.<anonymous> (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/backupController.js:21:23)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
 
-[2] Чаты и контроль доступа
-  ✓ врач видит оба чата
-  ✓ чаты test-chat-0001/0002 доступны по chatId
-  ✓ администратор клиники видит чаты своей клиники
-  ✓ пациент 1 видит свой чат
-  ✓ пациент 1 НЕ видит чужой чат (403)
-  ✓ пациент 2 НЕ видит чужой чат (403)
+Node.js v18.20.8
 
-[3] Бесплатные/платные сообщения (check-free)
-  ✓ пациент 1: сообщение бесплатно (прием был 5 дней назад)
-  ✓ пациент 2: сообщение платно (прием был 40 дней назад)
-  ✓ врач всегда пишет бесплатно
-
-[4] Отправка бесплатного сообщения (последовательная связь)
-  ✓ сообщение отправлено и помечено как бесплатное
-  ✓ ответ врача отправлен
-  ✓ история сообщений читается обеими сторонами
-
-[5] Платный поток: process -> отправка с paymentTransactionId
-  ✓ платеж обработан (тестовый баланс)
-  ✓ транзакция: message_payment/completed/50
-  ✓ сплит дохода 80/20: врач 40, клиника 10
-  ✓ платное сообщение отправлено с paymentTransactionId
-  ✓ повторное использование транзакции отклонено (409)
-  ✓ баланс пациента 2 доступен
-  ✓ баланс врача получил доход (>= 40)
-  ✓ баланс клиники доступен администратору
-
-[6] Одновременная связь: 40 параллельных сообщений
-  ✓ 40/40 параллельных сообщений доставлено
-
-[7] Socket.IO: комнаты, права, real-time доставка
-  ✓ оба сокета подключены с JWT
-  ✓ пациент 1 вошел в свой чат
-  ✓ пациент 1 НЕ может войти в чужой чат (forbidden)
-  ✓ индикатор печати доставлен врачу в реальном времени
-  ✓ новое сообщение доставлено врачу через Socket.IO
-  ✓ сокеты отключены
-
-[8] Приёмы (Appointments)
-  ✓ пациент 1 записался на приём
-  ✓ у пациента 1 есть приёмы (прошлый + новый)
-  ✓ врач подтвердил приём
-  ✓ врач видит приёмы пациентов
-  ✓ пациент 2 не видит чужой приём
-
-[9] Электронные рецепты (E-Prescriptions)
-  ✓ врач создал рецепт
-  ✓ medications сохранились как массив
-  ✓ врач подписал рецепт (route /:id/sign)
-  ✓ повторная подписка идемпотентна
-  ✗ пациент 1 видит свой рецепт
-  ✓ пациент 2 не видит чужой рецепт
-  ✓ GET /api/eprescriptions/statistics не перехватывается как /:id
-
-[10] Облачные бэкапы
-  ✓ бэкап создан
-  ✓ список бэкапов доступен
-  ✓ verify-password отвечает
-
-[11] Порядок роутов и статистика
-  ✓ GET /api/messages/unread-count отвечает 200 (не 404)
-  ✓ GET /api/payments/statistics отвечает 200
-  ✓ GET /api/transactions не 404
-  ✓ врач видит свои транзакции
-
-==============================================
-Проверок: 50, ошибок: 1
-==============================================
-SMOKE TEST FAILED
----- server stderr (tail) ----
-❌ Error initializing MinIO bucket: Error: connect ECONNREFUSED ::1:9000
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-  errno: -111,
-  code: 'ECONNREFUSED',
-  syscall: 'connect',
-  address: '::1',
-  port: 9000
-}
-❌ Error setting bucket policy: Error: connect ECONNREFUSED ::1:9000
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-  errno: -111,
-  code: 'ECONNREFUSED',
-  syscall: 'connect',
-  address: '::1',
-  port: 9000
-}
-
---- SERVER STDOUT TAIL (winston error logs go here) ---
-✅ Redis client connected.
-✅ Database connection has been established successfully (test).
-2026-11-08 06:33:06 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/a0910128-4832-4a67-96f6-704408168896" requestId="98c07c60-d576-48c9-922e-a08438a84f7a" userId="2e719875-c705-4d68-a4b8-3b858baf8bf1" stack=undefined
-2026-11-08 06:33:06 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/53ea2d91-6b03-4cb1-a79c-175e23b295de" requestId="269aebbb-2b71-48fd-9c1a-43a0a4e85469" userId="9e7196b0-7e32-4eed-9778-977ddb91c66d" stack=undefined
-2026-11-08 06:33:06 [error] [TRANSACTION_ALREADY_USED] Payment transaction has already been used code="TRANSACTION_ALREADY_USED" status=409 method="POST" url="/api/chats/a0910128-4832-4a67-96f6-704408168896/messages" requestId="0c4a2b9c-572d-4967-b1c7-8d32f82dcf6b" userId="9e7196b0-7e32-4eed-9778-977ddb91c66d" stack=undefined
-2026-11-08 06:33:07 [error] [FORBIDDEN] Cannot access this appointment code="FORBIDDEN" status=403 method="GET" url="/api/appointments/3ab0d76d-590f-45cd-b740-fda56b7cb56c" requestId="a386e6ec-5170-4685-9603-ae9fe01bcf39" userId="9e7196b0-7e32-4eed-9778-977ddb91c66d" stack=undefined
-2026-11-08 06:33:07 [error] [INTERNAL_ERROR] Appointment is associated to EPrescription using an alias. You must use the 'as' keyword to specify the alias within your include statement.  SequelizeEagerLoadingError: Appointment is associated to EPrescription using an alias. You must use the 'as' keyword to specify the alias within your include statement.
-    at EPrescription._getIncludedAssociation (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:576:13)
-    at EPrescription._validateIncludedElement (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:502:53)
-    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:421:37
-    at Array.map (<anonymous>)
-    at EPrescription._validateIncludedElements (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:417:39)
-    at EPrescription.aggregate (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1252:12)
-    at EPrescription.count (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1306:31)
-    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
-    at async Promise.all (index 0)
-    at async EPrescription.findAndCountAll (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1322:27)
-2026-11-08 06:33:07 [error] [FORBIDDEN] Cannot access this e-prescription code="FORBIDDEN" status=403 method="GET" url="/api/eprescriptions/939296d4-b897-4761-ae45-792f0e6c6daf" requestId="a4773979-4be6-444a-841e-1e3126194c98" userId="9e7196b0-7e32-4eed-9778-977ddb91c66d" stack=undefined
-2026-11-08 06:33:07 [error] Error exporting chats: column "chatId" does not exist  Error
-    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
-    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
-    at async BackupService.exportData (/home/runner/work/chat/chat/medchat-v2/server/src/services/backupService.js:397:23)
-    at async BackupService.createBackup (/home/runner/work/chat/chat/medchat-v2/server/src/services/backupService.js:169:32)
-    at async create (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/backupController.js:49:22)
+Server did not start in time. Server stderr:
 
