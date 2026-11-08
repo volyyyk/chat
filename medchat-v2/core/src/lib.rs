@@ -4,11 +4,8 @@
 //! мобильным клиентом (tweetnacl, x25519-box) и серверным контрактом
 //! (docs/readme_for_AI.md, раздел «E2E-контракт»):
 //!
-//! { v: 1, alg: "x25519-box", epk: <ephemeral pubkey>, nonce: <24 байта>,
+//! { v: 1, alg: "x25519-box", epk: <ephemeral pubkey>, nonce: <24 bytes>,
 //!   boxes: { [userId]: <ciphertext> } }
-//!
-//! Бинарная раскладка одного бокса (base64-независимая, та же, что у tweetnacl):
-//!   ciphertext = XSalsa20-Poly1305(plaintext) с MAC, зашитым Poly1305.
 //!
 //! Дальнейшие шаги (см. ROADMAP_NATIVE.md): Double Ratchet (forward secrecy),
 //! napi-rs-биндинги для Node-сервера, UniFFI-биндинги для Swift/Kotlin,
@@ -23,6 +20,35 @@ use crypto_box::{
 pub const KEY_SIZE: usize = 32;
 /// Размер nonce XSalsa20 (24 байта, как в NaCl).
 pub const NONCE_SIZE: usize = 24;
+
+/// Ошибки ядра. Отдельный тип вместо проброса aead::Error: его нельзя
+/// сконструировать вне крейта aead, а вызывающим (биндингам) нужен свой enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoreError {
+    /// Ошибка шифрования/расшифровки (AEAD).
+    Aead,
+    /// Ни один бокс конверта не расшифрован нашей парой ключей.
+    NoBoxForRecipient,
+}
+
+impl From<crypto_box::aead::Error> for CoreError {
+    fn from(_: crypto_box::aead::Error) -> Self {
+        CoreError::Aead
+    }
+}
+
+impl std::fmt::Display for CoreError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CoreError::Aead => write!(f, "aead encrypt/decrypt failed"),
+            CoreError::NoBoxForRecipient => {
+                write!(f, "no box in envelope decryptable by this keypair")
+            }
+        }
+    }
+}
+
+impl std::error::Error for CoreError {}
 
 /// Пара ключей устройства. Секретный ключ НИКОГДА не покидает устройство —
 /// наружу отдаётся только public_key (см. E2E-контракт, модель UserKey).
@@ -59,13 +85,12 @@ pub struct SealedMessage {
 /// Зашифровать plaintext для списка публичных ключей получателей.
 ///
 /// Каждому получателю — свой бокс (один nonce под одной эфемерной парой:
-/// разные получатели, разные Diffie-Hellman ключи, nonce не переиспользуется
-/// с одним ключом). Отправитель не участвует в шифровании своим статическим
-/// ключом: epk эфемерный, как в модели «sealed box + own copy».
+/// разные получатели = разные Diffie-Hellman ключи, nonce не переиспользуется
+/// с одним ключом). Статический ключ отправителя не участвует: epk эфемерный.
 pub fn seal_for_recipients(
     plaintext: &[u8],
     recipient_public_keys: &[[u8; KEY_SIZE]],
-) -> Result<SealedMessage, crypto_box::aead::Error> {
+) -> Result<SealedMessage, CoreError> {
     let mut rng = OsRng;
     let ephemeral_secret = SecretKey::generate(&mut rng);
     let ephemeral_public = PublicKey::from(&ephemeral_secret);
@@ -82,9 +107,7 @@ pub fn seal_for_recipients(
     for recipient in recipient_public_keys {
         let recipient_public = PublicKey::from(*recipient);
         let box_ = CryptoBox::new(&recipient_public, &ephemeral_secret);
-        // Транслируем ошибку aead, чтобы типы совпадали.
-        let nonce_ref: &Nonce = &nonce;
-        sealed.boxes.push(box_.seal(nonce_ref, plaintext)?);
+        sealed.boxes.push(box_.seal(&nonce, plaintext)?);
     }
 
     Ok(sealed)
@@ -92,30 +115,25 @@ pub fn seal_for_recipients(
 
 /// Расшифровать SealedMessage своим (public, secret): перебирает боксы и
 /// возвращает plaintext первого, который расшифровывается нашей парой.
+/// my_public зарезервирован для маппинга userId → box (когда конверт
+/// сериализуется с именованными боксами); при поиске перебором он не нужен.
 pub fn open_sealed(
     sealed: &SealedMessage,
-    my_public: &[u8; KEY_SIZE],
+    _my_public: &[u8; KEY_SIZE],
     my_secret: &[u8; KEY_SIZE],
-) -> Result<Vec<u8>, crypto_box::aead::Error> {
-    let my_public = PublicKey::from(*my_public);
+) -> Result<Vec<u8>, CoreError> {
     let my_secret = SecretKey::from(*my_secret);
     let sender_ephemeral = PublicKey::from(sealed.epk);
     let nonce = Nonce::from(sealed.nonce);
 
     let box_ = CryptoBox::new(&sender_ephemeral, &my_secret);
-    let mut last_err = None;
     for ciphertext in &sealed.boxes {
-        match box_.open(&nonce, ciphertext.as_slice()) {
-            Ok(plaintext) => return Ok(plaintext),
-            Err(e) => last_err = Some(e),
+        if let Ok(plaintext) = box_.open(&nonce, ciphertext.as_slice()) {
+            return Ok(plaintext);
         }
     }
 
-    // Ни один бокс не расшифровался: сообщение не для этой пары ключей
-    // (или повреждено). my_public используется вызывающей стороной для
-    // выбора бокса при маппинге userId → box.
-    let _ = my_public;
-    Err(last_err.unwrap_or(crypto_box::aead::Error))
+    Err(CoreError::NoBoxForRecipient)
 }
 
 #[cfg(test)]
@@ -126,7 +144,7 @@ mod tests {
     fn roundtrip_multiple_recipients() {
         let alice = generate_keypair();
         let bob = generate_keypair();
-        let plaintext = b"Пациент: добрый вечер, доктор!";
+        let plaintext = b"Patient: good evening, doctor!";
 
         let sealed =
             seal_for_recipients(plaintext, &[alice.public_key, bob.public_key]).unwrap();
@@ -147,7 +165,10 @@ mod tests {
         let mallory = generate_keypair();
         let sealed = seal_for_recipients(b"secret", &[alice.public_key]).unwrap();
 
-        assert!(open_sealed(&sealed, &mallory.public_key, &mallory.secret_key).is_err());
+        assert_eq!(
+            open_sealed(&sealed, &mallory.public_key, &mallory.secret_key),
+            Err(CoreError::NoBoxForRecipient)
+        );
     }
 
     #[test]
@@ -155,13 +176,19 @@ mod tests {
         let alice = generate_keypair();
         let mut sealed = seal_for_recipients(b"secret", &[alice.public_key]).unwrap();
         sealed.boxes[0][0] ^= 0xFF;
-        assert!(open_sealed(&sealed, &alice.public_key, &alice.secret_key).is_err());
+        assert_eq!(
+            open_sealed(&sealed, &alice.public_key, &alice.secret_key),
+            Err(CoreError::NoBoxForRecipient)
+        );
     }
 
     #[test]
     fn empty_recipients_is_empty_envelope() {
         let sealed = seal_for_recipients(b"x", &[]).unwrap();
         assert!(sealed.boxes.is_empty());
-        assert!(open_sealed(&sealed, &[0u8; KEY_SIZE], &[0u8; KEY_SIZE]).is_err());
+        assert_eq!(
+            open_sealed(&sealed, &[0u8; KEY_SIZE], &[0u8; KEY_SIZE]),
+            Err(CoreError::NoBoxForRecipient)
+        );
     }
 }
