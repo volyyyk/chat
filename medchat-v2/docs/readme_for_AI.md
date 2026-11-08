@@ -14,7 +14,10 @@
 > Message.isEncrypted=false — легаси true ложно помечал plaintext), skip-store
 > в Double Ratchet (6aff983 → d033eeb: расшифровка внеочередных сообщений) и фикс
 > критической синтаксической ошибки в Message.js, внесённой a508fda (ad575d3 —
-> из-за неё сервер не запускался вовсе).
+> из-за неё сервер не запускался вовсе). E2E распространено на файлы и
+голосовые (42e5a1d → ed9a661: гибридное шифрование payload, ключ файла внутри
+конверта, расшифровка при просмотре) и wire-формат RatchetMessage для
+биндингов (a43102d).
 
 ---
 
@@ -23,8 +26,10 @@
 MedChat v2 — телемедицинская платформа «клиника — врачи — пациенты»:
 
 - **Чаты** пациент ↔ врач: текст, голосовые (expo-av, m4a), файлы; Socket.IO real-time.
-- **E2E-шифрование содержимого текстовых сообщений** (X25519 + NaCl box, шифрование
-  на устройстве, сервер хранит только шифротекст — раздел 5).
+- **E2E-шифрование содержимого сообщений, файлов и голосовых** (X25519 + NaCl box;
+  файлы — гибридно: payload шифруется случайным ключом secretbox, ключ файла едет
+  в том же конверте; шифрование на устройстве, сервер хранит только шифротекст —
+  раздел 5).
 - **Платные сообщения**: первое сообщение в чате бесплатно; 30 дней после completed-приёма
   бесплатно; далее 50 ₽ за сообщение. Оплата с **тестового баланса** — реальных платёжных
   шлюзов НЕТ, и это осознанное требование владельца (см. п. 8).
@@ -91,7 +96,8 @@ medchat-v2/
 │   │                            notification, backup, e2eCryptoService (X25519 E2E:
 │   │                            base64/UTF-8 pure JS, keypair в expo-secure-store
 │   │                            (Keychain/Keystore) с fallback и миграцией, конверты,
-│   │                            расшифровка)
+│   │                            гибридное шифрование файлов/голосовых,
+│   │                            расшифровка при просмотре)
 │   ├── components/ (8)         — MessageBubble (🔒 на E2E-сообщениях), AudioPlayer, ...
 │   ├── navigation/, styles/, utils/
 ├── web/src/             — pages (7), services, context
@@ -100,7 +106,9 @@ medchat-v2/
 │                          generate_keypair / seal_for_recipients / open_sealed,
 │                          CoreError; ratchet.rs — Double Ratchet (KDF_RK/KDF_CK
 │                          HMAC-SHA256, AES-256-GCM на message keys, 6aff983;
-│                          skip-store внеочередных сообщений, d033eeb — 10 тестов);
+│                          skip-store внеочередных
+│                          сообщений, d033eeb; wire-формат RatchetMessage
+│                          (a43102d) — 13 тестов);
 │                          cargo test в CI (джоба core-tests)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
@@ -160,7 +168,7 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
 - `GET /api/eprescriptions/:id/printable` — печатная форма HTML; специальности врача
   приходят из `doctor.specialtyDetails` (include через алиас, 65ec99c).
 
-### E2E-контракт (сквозное шифрование сообщений, d11762c → 596c4a3)
+### E2E-контракт (сквозное шифрование сообщений и файлов, d11762c → ed9a661)
 **Модель доверия**: сервер — реестр публичных ключей и транспорт; plaintext содержимого
 E2E-сообщений серверу недоступен (хранится только шифротекст). Метаданные (участники,
 время, размеры конвертов) сервер видит.
@@ -200,6 +208,21 @@ E2E-сообщений серверу недоступен (хранится т�
     нерасшифровываемое → «🔒 Зашифрованное сообщение»;
   - чат-лист: пустой preview + наличие lastMessageId = зашифрованное сообщение (🔒);
   - MessageBubble рисует 🔒 на каждом сообщении с metadata.e2e.
+- **Файлы и голосовые внутри E2E (гибридное шифрование, 42e5a1d → ed9a661)**:
+  payload шифруется на устройстве случайным 32-байтным ключом (nacl.secretbox);
+  на сервер/MinIO уходит только wire = nonce(24) || ciphertext (файл payload.bin,
+  application/octet-stream — исходные имя и MIME-тип серверу неизвестны).
+  Ключ файла едет ВНУТРИ того же конверта x25519-box: payload бокса — JSON
+  { mc: 2, t: <имя>, k: <ключ b64>, m: <MIME> } вместо текста (одно
+  envelope-правило сохранено, серверных изменений НЕ требуется —
+  validateE2EEnvelope не трогает содержимое боксов). Просмотр:
+  e2eCryptoService.fetchAndDecryptFile скачивает wire с Bearer-заголовком
+  (эндпоинт /api/files/:id/download аутентифицированный!), расшифровывает
+  на устройстве и кладёт plaintext в кэш (file:// URI, кэш на сообщение);
+  голосовые воспроизводятся из локального расшифрованного URI, документы
+  открываются через expo-sharing; legacy-файлы (без ключа) качаются
+  downloadAsync с Authorization. Fallback тот же, что у текста: нет ключей
+  у участника → plaintext-загрузка (доступность важнее).
 - **Rust-ядро** (medchat-v2/core, крейт medchat-core): те же примитивы на crypto_box 0.9
   (SalsaBox = X25519 + XSalsa20-Poly1305) — generate_keypair / seal_for_recipients /
   open_sealed, CoreError; бинарно совместимая раскладка боксов с tweetnacl. Этап 2
@@ -214,11 +237,13 @@ E2E-сообщений серверу недоступен (хранится т�
   на конвертах x25519-box) — интеграция после биндингов.
 - **Админы** (clinic_admin/system_admin) **не являются участниками E2E-переписки** и
   прочитать содержимое E2E-сообщений не могут — осознанное свойство end-to-end модели.
-- **Остаточные ограничения** (честно): файлы/голосовые пока вне E2E-конвертов;
-  метаданные видимы серверу; Double Ratchet (forward secrecy) пока НЕ интегрирован
-  в клиенты — прототип с skip-store готов в medchat-core (этап 7 ROADMAP_NATIVE.md);
-  AsyncStorage остаётся fallback-хранилищем приватного ключа только
-  на платформах без secure storage (expo web).
+- **Остаточные ограничения** (честно): файлы/голосовые шифруются только при
+  полном покрытии ключами (нет ключа у участника → plaintext-fallback,
+  LEGAL.md §2); метаданные (в т.ч. размер wire-файла) видимы серверу;
+  Double Ratchet (forward secrecy) пока НЕ интегрирован в клиенты — прототип
+  с skip-store и wire-форматом RatchetMessage готов в medchat-core (этап 7
+  ROADMAP_NATIVE.md); AsyncStorage остаётся fallback-хранилищем приватного
+  ключа только на платформах без secure storage (expo web).
 
 ### Файлы, приёмы, рецепты
 - `POST /api/files/upload` — multipart поле `file`, `chatId` optional (Joi uuid)
@@ -292,7 +317,8 @@ E2E-сообщений серверу недоступен (хранится т�
    публичных ключей (UserKey) + конверты x25519-box (раздел 5, «E2E-контракт»).
    Приватные ключи не покидают устройство; plaintext E2E-сообщений в БД отсутствует.
    Честные остаточные ограничения: plaintext-fallback при отсутствии ключей у участника,
-   метаданные видимы серверу, файлы вне E2E-контура (см. LEGAL.md §2). Приватные ключи
+   метаданные видимы серверу, файлы вне E2E-контура только в fallback-режиме (с 42e5a1d → ed9a661
+   шифруются гибридно, см. LEGAL.md §2). Приватные ключи
    переведены из AsyncStorage в Keychain/Keystore (expo-secure-store, 3ab5cf6) с
    прозрачной миграцией; AsyncStorage — только fallback на платформах без secure storage.
 6. **AuthContext (mobile)** — тонкий pass-through на authService + стабы
@@ -415,6 +441,20 @@ too_many_skipped_rejected — итог 10 тестов.
 a508fda (устаревший), из-за чего «детерминированное падение проверки [12]» было
 артефактом устаревшего лога. Всегда сверяй метку времени в заголовке ci-logs/*.log
 с коммитом прогона, прежде чем доверять логу.
+**Rust-ядро: wire-формат RatchetMessage** (a43102d): to_wire()/from_wire() для
+передачи зашифрованных ratchet-сообщений между платформами (header 40 байт
+dh_pub(32)+pn(4)+n(4) LE || nonce 12 || ciphertext), BadHeader на границах,
+HEADER_SIZE стал pub — подготовка к napi-rs/UniFFI-биндингам; 3 новых теста
+(итого 13).
+**Мобильный клиент: E2E файлов/голосовых** (42e5a1d → 631b324 → ed9a661):
+sendFile шифрует payload на устройстве (secretbox случайным ключом; wire =
+nonce || ciphertext грузится как payload.bin/octet-stream), ключ файла едет
+внутри конверта сообщения (JSON { mc:2, t, k, m } — имя, ключ, исходный MIME).
+Расшифровка при просмотре: fetchAndDecryptFile (Bearer обязателен — эндпоинт
+/api/files/:id/download аутентифицированный) → plaintext в кэш → локальный
+file:// URI для плеера/expo-sharing; кэш расшифрованных файлов на сообщение;
+legacy-файлы (без ключа) качаются downloadAsync с Authorization — плеер сам
+заголовок прикрепить не мог. Fallback-логика идентична тексту.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -458,7 +498,10 @@ node stop.js [--docker]                     # остановить процес�
   ci-smoke.log в репо оставался УСТАРЕВШИМ (от прогона до a508fda), из-за чего падение
   проверки [12] казалось детерминированным — артефакт устаревшего лога; фикс ad575d3.
   (2) ratchet.rs не компилировался (E0034/E0308) — починено 7576e65; d033eeb добавил
-  skip-store (10 тестов), f1faf96 — диагностический extra в smoke [12]. Логи падений бот ci-reporter
+  skip-store (10 тестов), f1faf96 — диагностический extra в smoke [12]. После ad575d3 серия зелёная:
+  ad575d3, 9fdae90 (доки), a43102d (wire-формат ratchet, 13 тестов),
+  42e5a1d (E2E файлов; 631b324/ed9a661 меняют только mobile — в CI
+  не тестируется). Логи падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log) — при
   красном прогоне читать оттуда.
 
@@ -468,7 +511,10 @@ node stop.js [--docker]                     # остановить процес�
 2. ~~E2E-шифрование~~ — **реализовано** (d11762c → 596c4a3): X25519 + NaCl box, реестр
    ключей UserKey, конверты в Message.metadata, graceful fallback. Остаточное (в порядке
    приоритета): интеграция Double Ratchet (прототип в ядре готов — ratchet.rs, 6aff983;
-   нужно: wire-формат заголовков и биндинги; skip-store сделан d033eeb); E2E для файлов/голосовых; идентификация
+   wire-формат заголовков готов (a43102d), нужны биндинги napi-rs/UniFFI;
+   skip-store сделан d033eeb); ~~E2E для файлов/голосовых~~ — сделано
+   (42e5a1d → ed9a661: гибридное шифрование, ключ файла в конверте,
+   расшифровка при просмотре); идентификация
    пользователей 149-ФЗ ст. 10.1. ~~Secure storage приватных ключей~~ —
    сделано (3ab5cf6: expo-secure-store / Keychain / Keystore, миграция из AsyncStorage).
 3. ~~Фейл-фаст валидация JWT_SECRET при старте сервера~~ — сделано (65ec99c).
