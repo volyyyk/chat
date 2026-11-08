@@ -58,6 +58,8 @@ const appointmentRoutes = require('./routes/appointments');
 const eprescriptionRoutes = require('./routes/eprescriptions');
 const reminderRoutes = require('./routes/reminders');
 const webhookRoutes = require('./routes/webhooks');
+// E2E encryption: public key registry (private keys never leave devices)
+const keyRoutes = require('./routes/keys');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -293,6 +295,7 @@ app.use('/api/reviews', authMiddleware.authenticate(), reviewRoutes);
 app.use('/api/appointments', authMiddleware.authenticate(), appointmentRoutes);
 app.use('/api/eprescriptions', authMiddleware.authenticate(), eprescriptionRoutes);
 app.use('/api/reminders', authMiddleware.authenticate(), reminderRoutes);
+app.use('/api/keys', authMiddleware.authenticate(), keyRoutes);
 app.use('/api/webhooks', webhookRoutes);
 
 // 404 handler
