@@ -12,8 +12,10 @@
 // сессии: encrypt -> save (secure storage) -> restore -> продолжение
 // диалога. Secure storage (этап 5): секреты Double Ratchet — ТОЛЬКО
 // системные хранилища (Windows Credential Manager / libsecret = GNOME
-// Keyring) через крейт keyring 3 (см. Cargo.toml). UI — заглушка-пробы,
-// не клиент.
+// Keyring) через крейт keyring 3 (см. Cargo.toml). UI — рабочий клиент (ui/index.html): подключение к серверу
+// (адрес + GET /health), логин, чаты, чтение и отправка сообщений — REST;
+// пробы ядра — панель «Ядро» в сайдбаре. E2E-конверты отображаются
+// замком (расшифровка на устройстве — этап 7, интеграция ratchet).
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 

@@ -68,7 +68,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
-| desktop | Tauri 2 (Rust + системный webview): каркас этапа 5; ядро medchat-core напрямую path-депом (Rust→Rust, без FFI); secure storage keyring 3 (Credential Manager / libsecret) |
+| desktop | Tauri 2 (Rust + системный webview): рабочий клиент этапа 5 (подключение/логин/чаты/сообщения REST); ядро medchat-core напрямую path-депом (Rust→Rust, без FFI); secure storage keyring 3 (Credential Manager / libsecret) |
 | core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs); uniffi-биндинги Swift/Kotlin (feature uniffi-bind); serde-сериализация RatchetState (feature serde) + биндинги save/restore наружу (napi/UniFFI; персистентность сессий для клиентов) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
@@ -139,7 +139,7 @@ medchat-v2/
 │                        ratchet_storage_probe (secure storage — keyring 3:
 │                        Credential Manager/libsecret) поверх medchat-core
 │                        path-депом features serde),
-│                        ui/index.html (статическая обвязка для системного webview)
+│                        ui/index.html (рабочий клиент: экран подключения с проверкой /health, логин, чаты и сообщения REST, панель диагностики ядра)
 ├── core/                — Rust-ядро medchat-core (Cargo.toml, src/lib.rs, src/ratchet.rs):
 │                          SalsaBox (X25519 + XSalsa20-Poly1305, crypto_box 0.9),
 │                          generate_keypair / seal_for_recipients / open_sealed,
@@ -731,7 +731,7 @@ generate_keypair() в тесте (как в harness ratchet_roundtrip_fuzz,
 обёрток, не только fuzz-целей. Честное ограничение:
 компиляция сгенерированного кода в Xcode/Gradle — этапы 3/4 (на ubuntu их
 нет); джоба гейтит сборку, тесты обёрток и генерацию.
-**Desktop: каркас этапа 5 (Tauri 2)** (этот коммит): medchat-v2/desktop — src-tauri (tauri 2, wry = системный webview) + статическая обвязка ui/index.html (app.withGlobalTauri — invoke без npm-сборки фронтенда). Крипто-ядро подключено напрямую path-депом (Rust → Rust, без FFI: desktop — единственный клиент без биндингов napi/UniFFI; default-features = false, napi-bind не нужен). Tauri-команды-пробы: core_probe (roundtrip конверта x25519-box) и ratchet_probe (Double Ratchet: init_initiator/init_responder на согласованной паре generate_keypair — урок #104/#105/#111; encrypt → to_wire → from_wire → decrypt). Джоба CI desktop-check: apt libwebkit2gtk-4.1-dev (-sys-крейты wry/tao проверяют системные библиотеки pkg-config'ом уже на cargo check) + cargo check --all-targets. Честные ограничения: сборка установщиков (.deb/AppImage/exe, подписи, matrix windows/ubuntu) — следующий шаг этапа 5; UI — заглушка-пробы, не клиент; TLS-pinning и секреты в Credential Manager/libsecret — по мере роста каркаса.
+**Desktop: каркас этапа 5 (Tauri 2)** (этот коммит): medchat-v2/desktop — src-tauri (tauri 2, wry = системный webview) + статическая обвязка ui/index.html (app.withGlobalTauri — invoke без npm-сборки фронтенда). Крипто-ядро подключено напрямую path-депом (Rust → Rust, без FFI: desktop — единственный клиент без биндингов napi/UniFFI; default-features = false, napi-bind не нужен). Tauri-команды-пробы: core_probe (roundtrip конверта x25519-box) и ratchet_probe (Double Ratchet: init_initiator/init_responder на согласованной паре generate_keypair — урок #104/#105/#111; encrypt → to_wire → from_wire → decrypt). Джоба CI desktop-check: apt libwebkit2gtk-4.1-dev (-sys-крейты wry/tao проверяют системные библиотеки pkg-config'ом уже на cargo check) + cargo check --all-targets. Честные ограничения: сборка установщиков (.deb/AppImage/exe, подписи, matrix windows/ubuntu) — следующий шаг этапа 5; UI — заглушка-пробы, не клиент (заменена рабочим клиентом — см. запись ниже); TLS-pinning и секреты в Credential Manager/libsecret — по мере роста каркаса.
 Прогон #113 (run 42481634795) — единственная красная джоба (desktop-check): generate_context! паниковал
 «failed to open icon icons/icon.png» — при отсутствии поля bundle.icon tauri-utils применяет ДЕФОЛТНЫЙ
 список иконок, и кодген открывает их с диска даже при bundle.active=false (иконка идёт в default_window_icon).
@@ -801,6 +801,8 @@ gin_trgm_ops требует расширение pg_trgm — sync() с таки�
 ускоряется сам — контроллер не менялся, только комментарий. Честные ограничения:
 E2E-сообщения (content='') не ищутся — plaintext у сервера отсутствует (свойство E2E,
 не баг); similarity-ранжирование и Tantivy — «затем» по ROADMAP §1.
+
+**Desktop: рабочий UI-клиент (этот коммит)**: ui/index.html заменяет заглушку-пробы полноценным клиентом без сборки фронтенда (vanilla JS + fetch, app.withGlobalTauri): экран подключения (адрес API-сервера, проверка GET /health, localStorage), экран логина (POST /api/auth/login; accessToken в localStorage, refresh НЕ хранится — честно: при протухании access пользователь входит заново), главный экран (GET /api/chats?limit=50, GET /api/chats/:id/messages?limit=50, POST /api/chats/:id/messages с clientType=desktop; 402 → статус «недостаточно средств»; E2E-конверты отображаются 🔒 с пометкой «расшифровка на устройстве — этап 7»; 401 в api() → сброс токена и возврат на логин). Пробы ядра сохранены панелью «Ядро» в сайдбаре (core_probe/ratchet_probe/ratchet_storage_probe через window.__TAURI__.core.invoke). CORS: сервер отвечает origin=* (дефолт CORS_ORIGIN), отдельные tauri-плагины (http) не нужны. Честно: E2E-расшифровка и Double Ratchet в desktop — этап 7 (ratchet_save/load + secure_store в main.rs готовы).
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без

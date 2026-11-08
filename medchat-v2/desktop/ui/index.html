@@ -1,40 +1,482 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MedChat Desktop</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; color: #1a1a2e; }
-    h1 { font-size: 1.4rem; }
-    button { padding: 0.5rem 1rem; margin: 0.25rem 0.25rem 0.25rem 0; cursor: pointer; }
-    pre { background: #f4f4f8; padding: 0.75rem; border-radius: 6px; min-height: 1.5rem; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MedChat Desktop</title>
+<style>
+  :root {
+    --bg: #f3f5f9;
+    --panel: #ffffff;
+    --ink: #16213a;
+    --muted: #667085;
+    --accent: #2563eb;
+    --accent-ink: #ffffff;
+    --line: #e2e6ee;
+    --ok: #12805c;
+    --err: #b42318;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: system-ui, "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .screen { display: none; }
+  .screen.active { display: flex; }
+  #connect.active, #login.active {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+  }
+  .card {
+    width: 380px;
+    max-width: calc(100vw - 48px);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px;
+    box-shadow: 0 8px 28px rgba(22, 33, 58, 0.08);
+  }
+  .card h1 { margin: 0 0 6px; font-size: 22px; }
+  .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  label { display: block; margin: 14px 0 6px; font-size: 13px; font-weight: 600; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  button {
+    margin-top: 14px;
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-ink);
+    background: var(--accent);
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.05); }
+  button.ghost {
+    color: var(--accent);
+    background: transparent;
+    border: 1px solid var(--line);
+  }
+  .status { min-height: 20px; margin: 10px 0 0; font-size: 13px; }
+  .status.ok { color: var(--ok); }
+  .status.error { color: var(--err); }
+  #main.active { flex-direction: column; height: 100vh; }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { font-weight: 700; font-size: 16px; }
+  #me { color: var(--muted); font-size: 13px; }
+  .spacer { flex: 1; }
+  header button { width: auto; margin: 0; padding: 8px 14px; font-weight: 500; }
+  .layout { display: flex; flex: 1; min-height: 0; }
+  aside {
+    width: 300px;
+    min-width: 240px;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+  }
+  #chat-list { flex: 1; overflow-y: auto; }
+  .side-title {
+    padding: 10px 14px 6px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .chat-item { padding: 10px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .chat-item:hover { background: #f7f9fc; }
+  .chat-item.selected { background: #eaf1fe; }
+  .chat-item .t { font-weight: 600; font-size: 14px; }
+  .chat-item .s { color: var(--muted); font-size: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .core-panel { border-top: 1px solid var(--line); padding: 10px 14px; }
+  .core-panel button { margin: 4px 0 0; padding: 6px 10px; font-size: 12px; width: 100%; }
+  .out {
+    margin: 8px 0 0;
+    padding: 8px;
+    font-size: 12px;
+    background: #101828;
+    color: #d1fadf;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  #chat-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .chat-header { padding: 12px 16px; font-weight: 700; border-bottom: 1px solid var(--line); background: var(--panel); }
+  #msg-list { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 30px 10px; }
+  .msg { max-width: 70%; padding: 8px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+  .msg.mine { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border: 0; }
+  .msg .b { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .msg .m { font-size: 11px; margin-top: 4px; opacity: 0.75; }
+  #msg-form { display: flex; gap: 8px; padding: 12px 16px; background: var(--panel); border-top: 1px solid var(--line); }
+  #msg-input { flex: 1; margin: 0; }
+  #msg-form button { width: auto; margin: 0; }
+  #send-status { margin: 0; padding: 4px 16px 8px; }
+</style>
 </head>
 <body>
-  <h1>MedChat Desktop (этап 5)</h1>
-  <p>Tauri 2, крипто-ядро medchat-core — напрямую path-депом (Rust → Rust, без FFI).</p>
-  <p id="status">Готовность проекта MedChat v2 — ~90 %. Этап 5: каркас + сборка
-     установщиков в CI (matrix Ubuntu → .deb + AppImage, Windows → NSIS .exe);
-     секреты Double Ratchet — в Credential Manager/libsecret; подписи и
-     автоапдейт — далее.</p>
-  <button id="probe-core">Проверить конверт x25519-box</button>
-  <button id="probe-ratchet">Проверить Double Ratchet</button>
-  <button id="probe-storage">Проверить secure storage</button>
-  <pre id="out">нажмите кнопку…</pre>
-  <script>
-    const out = document.getElementById('out');
-    async function run(cmd) {
-      out.textContent = '…выполняется';
-      try {
-        out.textContent = await window.__TAURI__.core.invoke(cmd);
-      } catch (e) {
-        out.textContent = 'ошибка: ' + e;
-      }
+
+<div id="connect" class="screen active">
+  <div class="card">
+    <h1>MedChat Desktop</h1>
+    <p class="muted">Укажите адрес API-сервера MedChat. Соединение проверяется автоматически перед входом.</p>
+    <label for="server-url">Адрес сервера</label>
+    <input id="server-url" type="text" placeholder="http://localhost:3000" autocomplete="off" />
+    <button id="btn-check">Проверить и продолжить</button>
+    <p id="connect-status" class="status"></p>
+  </div>
+</div>
+
+<div id="login" class="screen">
+  <div class="card">
+    <h1>Вход</h1>
+    <p id="login-server" class="muted"></p>
+    <label for="email">Email</label>
+    <input id="email" type="email" placeholder="patient1@medchat.test" autocomplete="off" />
+    <label for="password">Пароль</label>
+    <input id="password" type="password" autocomplete="off" />
+    <button id="btn-login">Войти</button>
+    <button id="btn-change-server" class="ghost">Сменить сервер</button>
+    <p id="login-status" class="status"></p>
+  </div>
+</div>
+
+<div id="main" class="screen">
+  <header>
+    <span class="brand">MedChat</span>
+    <span id="me"></span>
+    <span class="spacer"></span>
+    <button id="btn-refresh">Обновить</button>
+    <button id="btn-logout" class="ghost">Выйти</button>
+  </header>
+  <div class="layout">
+    <aside>
+      <div class="side-title">Чаты</div>
+      <div id="chat-list"></div>
+      <div class="core-panel">
+        <div class="side-title">Ядро (Rust, локально)</div>
+        <button id="probe-core" class="ghost">Конверт x25519-box</button>
+        <button id="probe-ratchet" class="ghost">Double Ratchet</button>
+        <button id="probe-storage" class="ghost">Secure storage</button>
+        <pre id="out" class="out"></pre>
+      </div>
+    </aside>
+    <section id="chat-panel">
+      <div id="chat-title" class="chat-header">Выберите чат</div>
+      <div id="msg-list"><div class="empty">Выберите чат слева, чтобы открыть переписку.</div></div>
+      <form id="msg-form">
+        <input id="msg-input" type="text" placeholder="Сообщение" autocomplete="off" />
+        <button type="submit">Отправить</button>
+      </form>
+      <p id="send-status" class="status"></p>
+    </section>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+var state = {
+  server: localStorage.getItem("medchat.server") || "",
+  token: localStorage.getItem("medchat.token") || "",
+  email: localStorage.getItem("medchat.email") || "",
+  user: null,
+  chats: [],
+  chatId: null
+};
+
+function $(id) { return document.getElementById(id); }
+
+function show(name) {
+  ["connect", "login", "main"].forEach(function (n) {
+    $(n).classList.toggle("active", n === name);
+  });
+}
+
+function setStatus(id, text, isError) {
+  var el = $(id);
+  el.textContent = text || "";
+  el.className = "status" + (text ? (isError ? " error" : " ok") : "");
+}
+
+function trimValue(v) { return String(v || "").trim(); }
+
+function userLabel(u) {
+  if (!u) return "";
+  var name = (trimValue(u.firstName) + " " + trimValue(u.lastName)).trim();
+  return (name || u.email) + (u.role ? " · " + u.role : "");
+}
+
+// Единая обёртка над REST API сервера. accessToken хранится в localStorage;
+// refreshToken сознательно НЕ хранится: при протухании access (30 минут)
+// пользователь просто входит заново. 401 от любой точки API сбрасывает
+// токен и возвращает на экран входа.
+async function api(path, opts) {
+  opts = opts || {};
+  var headers = { "Content-Type": "application/json" };
+  if (state.token) headers.Authorization = "Bearer " + state.token;
+  var res = await fetch(state.server + path, {
+    method: opts.method || "GET",
+    headers: headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  var data = null;
+  try { data = await res.json(); } catch (e) { /* тело может быть пустым */ }
+  if (!res.ok) {
+    if (res.status === 401 && state.token) {
+      state.token = "";
+      localStorage.removeItem("medchat.token");
+      show("login");
+      setStatus("login-status", "Сессия истекла, войдите заново", true);
     }
-    document.getElementById('probe-core').addEventListener('click', () => run('core_probe'));
-    document.getElementById('probe-ratchet').addEventListener('click', () => run('ratchet_probe'));
-    document.getElementById('probe-storage').addEventListener('click', () => run('ratchet_storage_probe'));
-  </script>
+    throw new Error(data && data.message ? data.message : "HTTP " + res.status);
+  }
+  return data;
+}
+
+async function connectNext() {
+  var v = trimValue($("server-url").value).replace(/\/+$/, "");
+  if (!v) { setStatus("connect-status", "Введите адрес сервера", true); return; }
+  setStatus("connect-status", "Проверяем соединение...");
+  try {
+    var res = await fetch(v + "/health");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    state.server = v;
+    localStorage.setItem("medchat.server", v);
+    setStatus("connect-status", "");
+    $("login-server").textContent = "Сервер: " + v;
+    show("login");
+  } catch (e) {
+    setStatus("connect-status", "Сервер недоступен: " + e.message, true);
+  }
+}
+
+async function doLogin() {
+  var email = trimValue($("email").value);
+  var password = $("password").value;
+  if (!email || !password) { setStatus("login-status", "Введите email и пароль", true); return; }
+  setStatus("login-status", "Входим...");
+  try {
+    var r = await api("/api/auth/login", { method: "POST", body: { email: email, password: password } });
+    state.token = r.accessToken;
+    state.user = r.user;
+    state.email = email;
+    localStorage.setItem("medchat.token", r.accessToken);
+    localStorage.setItem("medchat.email", email);
+    $("password").value = "";
+    setStatus("login-status", "");
+    await enterMain();
+  } catch (e) {
+    setStatus("login-status", "Ошибка входа: " + e.message, true);
+  }
+}
+
+async function enterMain() {
+  $("me").textContent = userLabel(state.user);
+  show("main");
+  try {
+    await loadChats();
+  } catch (e) {
+    setStatus("send-status", "Чаты не загрузились: " + e.message, true);
+  }
+}
+
+async function loadChats() {
+  var r = await api("/api/chats?limit=50");
+  state.chats = (r && r.data) || [];
+  renderChats();
+}
+
+function renderChats() {
+  var box = $("chat-list");
+  box.textContent = "";
+  if (!state.chats.length) {
+    var empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "Чатов нет";
+    box.appendChild(empty);
+    return;
+  }
+  state.chats.forEach(function (c) {
+    var item = document.createElement("div");
+    item.className = "chat-item" + (c.id === state.chatId ? " selected" : "");
+    var t = document.createElement("div");
+    t.className = "t";
+    t.textContent = c.title || c.chatId || "Чат";
+    var s = document.createElement("div");
+    s.className = "s";
+    s.textContent = trimValue(c.lastMessageText) || "нет сообщений";
+    var when = c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleDateString() : "";
+    if (when) s.textContent = s.textContent + " · " + when;
+    item.appendChild(t);
+    item.appendChild(s);
+    item.addEventListener("click", function () { selectChat(c.id); });
+    box.appendChild(item);
+  });
+}
+
+async function selectChat(id) {
+  state.chatId = id;
+  renderChats();
+  setStatus("send-status", "");
+  try {
+    var r = await api("/api/chats/" + id + "/messages?limit=50");
+    renderMessages((r && r.data) || []);
+    var chat = state.chats.filter(function (c) { return c.id === id; })[0];
+    $("chat-title").textContent = (chat && (chat.title || chat.chatId)) || "Чат";
+  } catch (e) {
+    $("msg-list").textContent = "";
+    var d = document.createElement("div");
+    d.className = "empty";
+    d.textContent = "Ошибка загрузки: " + e.message;
+    $("msg-list").appendChild(d);
+  }
+}
+
+function renderMessages(list) {
+  var box = $("msg-list");
+  box.textContent = "";
+  if (!list.length) {
+    var empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "Сообщений пока нет";
+    box.appendChild(empty);
+    return;
+  }
+  list.forEach(function (m) {
+    var mine = state.user && m.senderId === state.user.id;
+    var e2e = m.isEncrypted || (m.metadata && m.metadata.e2e);
+    var row = document.createElement("div");
+    row.className = "msg" + (mine ? " mine" : "");
+    var b = document.createElement("div");
+    b.className = "b";
+    b.textContent = e2e
+      ? "🔒 Зашифрованное сообщение (E2E). Расшифровка на устройстве — этап 7."
+      : (m.content || "");
+    var meta = document.createElement("div");
+    meta.className = "m";
+    var who = mine ? "Я" : (m.sender ? (trimValue(m.sender.firstName) || "Собеседник") : "Собеседник");
+    var when = m.createdAt ? new Date(m.createdAt).toLocaleTimeString() : "";
+    meta.textContent = who + (when ? " · " + when : "");
+    row.appendChild(b);
+    row.appendChild(meta);
+    box.appendChild(row);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+async function sendMessage() {
+  var input = $("msg-input");
+  var text = trimValue(input.value);
+  if (!text || !state.chatId) return;
+  setStatus("send-status", "Отправляем...");
+  try {
+    await api("/api/chats/" + state.chatId + "/messages", {
+      method: "POST",
+      body: { content: text, type: "text", clientType: "desktop" }
+    });
+    input.value = "";
+    setStatus("send-status", "");
+    await selectChat(state.chatId);
+    await loadChats();
+  } catch (e) {
+    setStatus("send-status", "Не отправлено: " + e.message, true);
+  }
+}
+
+async function refreshAll() {
+  setStatus("send-status", "");
+  try {
+    await loadChats();
+    if (state.chatId) await selectChat(state.chatId);
+  } catch (e) {
+    setStatus("send-status", "Обновление не удалось: " + e.message, true);
+  }
+}
+
+function logout() {
+  state.token = "";
+  state.user = null;
+  state.chats = [];
+  state.chatId = null;
+  localStorage.removeItem("medchat.token");
+  $("login-server").textContent = state.server ? ("Сервер: " + state.server) : "";
+  show("login");
+}
+
+// Пробы крипто-ядра medchat-core (Rust, через tauri-команды main.rs).
+// Это диагностика в контексте приложения, не часть клиентских сценариев.
+function probe(command, label) {
+  return async function () {
+    var out = $("out");
+    out.textContent = label + ": выполняем...";
+    try {
+      if (!(window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke)) {
+        throw new Error("Tauri API недоступна (запустите как приложение)");
+      }
+      var r = await window.__TAURI__.core.invoke(command);
+      out.textContent = label + ": " + r;
+    } catch (e) {
+      out.textContent = label + ": ошибка: " + (e && e.message ? e.message : String(e));
+    }
+  };
+}
+
+async function init() {
+  $("server-url").value = state.server;
+  $("login-server").textContent = state.server ? ("Сервер: " + state.server) : "";
+  $("email").value = state.email;
+
+  $("btn-check").addEventListener("click", connectNext);
+  $("server-url").addEventListener("keydown", function (e) { if (e.key === "Enter") connectNext(); });
+  $("btn-login").addEventListener("click", doLogin);
+  $("password").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
+  $("email").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
+  $("btn-change-server").addEventListener("click", function () { show("connect"); });
+  $("btn-logout").addEventListener("click", logout);
+  $("btn-refresh").addEventListener("click", refreshAll);
+  $("msg-form").addEventListener("submit", function (e) { e.preventDefault(); sendMessage(); });
+  $("probe-core").addEventListener("click", probe("core_probe", "Конверт x25519-box"));
+  $("probe-ratchet").addEventListener("click", probe("ratchet_probe", "Double Ratchet"));
+  $("probe-storage").addEventListener("click", probe("ratchet_storage_probe", "Secure storage"));
+
+  if (state.server && state.token) {
+    try {
+      state.user = await api("/api/auth/me");
+      await enterMain();
+      return;
+    } catch (e) {
+      if (!state.token) return; // 401 уже вернул экран входа
+    }
+  }
+  if (state.server) show("login");
+  else show("connect");
+}
+
+init();
+</script>
 </body>
 </html>
