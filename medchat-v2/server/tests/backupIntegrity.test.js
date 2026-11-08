@@ -15,7 +15,7 @@ jest.mock('../src/models', () => ({
   Backup: { findByPk: jest.fn(), create: jest.fn(), findAll: jest.fn(), count: jest.fn() },
   sequelize: { query: jest.fn() },
 }));
-jest.mock('../utils/logger', () => ({
+jest.mock('../src/utils/logger', () => ({
   error: jest.fn(),
   warn: jest.fn(),
   info: jest.fn(),
