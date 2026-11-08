@@ -739,6 +739,11 @@ jobs:
       # 10 за 15 мин защищает от брутфорса и здесь не нужен
       RATE_LIMIT_AUTH_MAX: 100000
       RATE_LIMIT_WINDOW_MS: 60000
+      # базовый rateLimiter (дефолт 300/окно) тоже считает /api/auth/login —
+      # двойной учёт с authRateLimiter; без подъёма k6-профиль упирается
+      # в 300 логинов за прогон (run 42509394124: 300 ok / 543 429, порог
+      # http_req_failed сорван). Прод-дефолт 300/15 мин не тронут.
+      RATE_LIMIT_MAX_REQUESTS: 100000
     defaults:
       run:
         working-directory: medchat-v2/server
