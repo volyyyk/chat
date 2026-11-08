@@ -69,6 +69,15 @@ const requestLogger = require('./middleware/requestLogger');
 const app = express();
 const httpServer = createServer(app);
 
+// SECURITY: behave correctly behind a reverse proxy (nginx, Traefik, cloud LB).
+// Without this, req.ip resolves to the proxy address, so per-IP rate limits
+// lump every client into one bucket (one abuser blocks the whole user base,
+// and the limiter stops protecting anything). In production set
+// TRUST_PROXY=1 (or a proxy count / subnet list) together with your proxy.
+if (process.env.TRUST_PROXY) {
+  app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : process.env.TRUST_PROXY);
+}
+
 // Initialize Socket.IO
 const io = new Server(httpServer, {
   cors: {
@@ -215,6 +224,16 @@ app.use(cors({
   maxAge: 86400, // 24 hours
 }));
 
+// SECURITY: in production an unrestricted CORS policy is an open door for
+// credential abuse from arbitrary origins. Do not block startup (operators
+// may have a valid reason), but make the misconfiguration loud.
+if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
+  logger.warn(
+    'CORS_ORIGIN is not set and NODE_ENV=production: ALL origins are allowed. ' +
+    'Set CORS_ORIGIN=https://app.example.com,https://admin.example.com to restrict access.'
+  );
+}
+
 // Rate limiting (global + stricter limiter for auth endpoints)
 app.use(rateLimiter);
 
@@ -254,7 +273,7 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
-// NOTE: authMiddleware.authenticate is a FACTORY: it must be CALLED - otherwise
+// NOTE: authMiddleware.authenticate is a FACTORY: it must be CALLed - otherwise
 // Express mounts the factory itself as middleware. The factory returns the
 // inner middleware but never calls next(), so every request would hang forever
 // (this exact bug made the smoke test fail with "fetch failed" at GET /api/chats).
