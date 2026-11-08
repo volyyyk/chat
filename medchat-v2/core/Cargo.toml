@@ -1,0 +1,18 @@
+# medchat-core — криптографическое ядро MedChat (этап 2 ROADMAP_NATIVE.md)
+#
+# X25519 + XSalsa20-Poly1305 (NaCl box) — тот же алгоритм, что в мобильном
+# клиенте (tweetnacl), чтобы конверты E2E читались всеми клиентами платформы.
+[package]
+name = "medchat-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "MedChat crypto core: X25519 + NaCl box envelope primitives (E2E-compatible with tweetnacl clients)"
+rust-version = "1.65"
+
+[dependencies]
+crypto_box = "0.9"
+
+[profile.release]
+lto = true
+codegen-units = 1
