@@ -949,13 +949,25 @@ DESKTOP_RELEASE.md). Риски первого прогона: конвенци�
     (android-smoke, run 42519176935)**: gen_kotlin генерирует для варианта
     ошибки class InvalidArgument(val message: String) : Exception() —
     свойство message скрывает Throwable.message, и kotlinc падает
-    (conflicting declarations / needs an override modifier), каскадом
-    гася и все ссылки на MedCryptoError в smoke-файле (unresolved
-    reference). Поле переименовано в detail (uniffi_iface.rs); Swift не
+    (conflicting declarations / needs an override modifier).
+    Unresolved MedCryptoError в smoke-файле тогда казался каскадом —
+    ошибочно: см. следующую запись. Поле переименовано в detail (uniffi_iface.rs); Swift не
     задет: у NSError нет message, лейбл в обвязке сменился, но ни один
     smoke не биндит поле. Урок: имена полей ошибок uniffi проверять на
     конфликты с базовыми классами целевых языков (Kotlin Throwable,
     Swift NSError) — codegen-тест ловит это только на компиляции обвязки.
+
+**uniffi gen_kotlin: суффикс Error переименовывается в Exception
+    (android-smoke, run 42519636579)**: KotlinCodeOracle.class_name
+    применяет convert_error_suffix — enum MedCryptoError (Rust) в
+    Kotlin-обвязке называется MedCryptoException; Swift имя НЕ
+    меняет (асимметрия между языками). Smoke-файл ссылался на
+    MedCryptoError — kotlinc: unresolved reference (это и была
+    «каскадная» причина из предыдущей записи, на деле отдельная).
+    Урок: имена в smoke под СГЕНЕРИРОВАННУЮ обвязку сверять с
+    шаблонами генератора (gen_kotlin/mod.rs, gen_swift), а не
+    угадывать по Rust-имени; диагноз «каскад» — тоже гипотеза,
+    требующая проверки.
 
 ## 9. Лаунчер («запуск по кнопке»)
 

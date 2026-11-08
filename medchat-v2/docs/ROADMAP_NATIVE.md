@@ -205,6 +205,11 @@ Play Console и подписи — на машине оператора (сек�
     Kotlin-обвязке конфликтует с Throwable.message (kotlinc:
     conflicting declarations) — поле переименовано в detail (Swift не
     задет, у NSError нет message).
+    Прогон 42519636579: конфликт поля исчез, но вскрылось правило
+    gen_kotlin (convert_error_suffix): ошибки с суффиксом Error
+    генерируются как Exception — класс в Kotlin-обвязке называется
+    MedCryptoException (Swift имя не меняет), smoke-файл поправлен
+    синхронно.
 
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
 **Tauri 2** (Rust + системный webview): один UI на обе платформы.
