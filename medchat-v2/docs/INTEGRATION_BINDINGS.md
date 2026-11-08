@@ -164,4 +164,4 @@ JNA против host-cdylib); полная сборка приложения (X
   (аккаунт оператора).
 - Этап 7: склейка ratchet с клиентским UI — одна реализация ядра,
   у клиентов только transport + storage (см. §1 про секреты буфера); raw X25519-DH для shared secret
-  экспортирован из ядра (x25519Dh, KAT RFC 7748 §6.1 во всех smoke-зеркалах).
+  экспортирован из ядра (x25519Dh, KAT RFC 7748 §6.1 во всех smoke-зеркалах). Desktop-склейка сделана (ratchet-команды main.rs, per-chat тумблер UI, payload {"t":"r1","k":keyId,"w":wire} внутри plaintext конверта, honest-fallback на обычный E2E); iOS/Android — далее.

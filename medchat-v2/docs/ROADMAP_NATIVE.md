@@ -342,6 +342,16 @@ raw X25519-DH экспортирован из ядра во все три пов
 lib / x25519Dh napi + UniFFI; клампинг RFC 7748) — shared secret из
 identity-ключей реестра UserKey для init_initiator/init_responder,
 KAT-вектор §6.1 сверяют Rust-тесты и все smoke-зеркала.
+Склейка ratchet-сессий в desktop-клиенте сделана (ratchet_encrypt/
+ratchet_decrypt в main.rs: сессия — с устройством собеседника, ss =
+x25519_dh(identity-ключи реестра, X3DH-lite без prekeys), начальная
+роль детерминирована сравнением keyId (меньший — инициатор) — обе
+стороны сходятся к ролям без рукопожатия; ленивая инициализация —
+отправка создаёт сессию инициатора, первый входящий — отвечающего;
+состояние — bincode в secure storage medchat.ratchet, аккаунт
+ratchet.<chatId>.<remoteKeyId>; UI: per-chat тумблер, plaintext конверта —
+payload {"t":"r1","k":keyId,"w":wire}, honest-fallback на обычный E2E
+при любой ошибке — чат не ломается). iOS/Android/RN — остаток этапа 7.
 Реализация в Rust-ядре: X25519 + Double Ratchet, серверный key-registry.
 Верификация fingerprint-кодов: РЕАЛИЗОВАНА в мобильном клиенте
 (347bc9d + ec1a0de: safety number — 60 цифр из SHA-512 по набору ключей чата,

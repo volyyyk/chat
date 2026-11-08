@@ -68,7 +68,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
-| desktop | Tauri 2 (Rust + системный webview): рабочий клиент этапа 5 (подключение/логин/чаты/сообщения REST); ядро medchat-core напрямую path-депом (Rust→Rust, без FFI); secure storage keyring 3 (Credential Manager / libsecret) |
+| desktop | Tauri 2 (Rust + системный webview): рабочий клиент (этапы 5–7: подключение/логин/чаты/сообщения REST, E2E-конверты, Double Ratchet поверх конверта); ядро medchat-core напрямую path-депом (Rust→Rust, без FFI); secure storage keyring 3 (Credential Manager / libsecret) |
 | ios/android | каркасы нативных клиентов (этапы 3/4): SwiftUI-источники ios/ (экраны, ApiService, KeychainStore, CryptoService, RatchetService; runtime-smoke MedchatCoreSmoke.swift + typecheck — джоба ios-smoke); Kotlin-каркас android/ — MedchatCoreSmoke.kt (runtime-smoke через kotlinc + JNA) и каркас источников этапа 4 ч.2: ApiService, SecureStore (Android Keystore), CryptoService, RatchetService, README_ANDROID.md (.so для jniLibs — cargo-ndk, артефакт medchat-core-android; typecheck против android.jar — джоба android-smoke) |
 | core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs); uniffi-биндинги Swift/Kotlin (feature uniffi-bind); serde-сериализация RatchetState (feature serde) + биндинги save/restore наружу (napi/UniFFI; персистентность сессий для клиентов) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
@@ -1199,6 +1199,18 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     три поверхности (x25519_dh / napi x25519Dh / UniFFI): shared secret из
     identity-ключей реестра UserKey, клампинг по RFC 7748; KAT-вектор §6.1
     сверяют Rust-тесты, napi-smoke.js, swift-smoke и kotlin-smoke.
+    Склейка Double Ratchet в desktop-клиенте сделана (ratchet_encrypt/
+    ratchet_decrypt в main.rs: сессия с устройством собеседника, ss =
+    x25519_dh(identity-ключи реестра UserKey — X3DH-lite без prekeys),
+    начальная роль детерминирована сравнением keyId (лексикографически
+    меньший — инициатор, без рукопожатия), ленивая инициализация,
+    состояние — bincode в secure storage, аккаунт
+    ratchet.<chatId>.<remoteKeyId>; UI: per-chat тумблер, plaintext
+    конверта — payload {"t":"r1","k":keyId,"w":wire}, honest-fallback
+    на обычный E2E при любой ошибке, входящие расшифровываются лениво,
+    при неудаче — честная плашка; чат никогда не ломается). Остаток
+    этапа 7: зеркальная склейка iOS (RatchetService + ChatView),
+    RN-плашка ratchet-payload, Android — после ч.3.
     Этап 3 начат (ч.1 — инструментальная цепочка): джоба CI ios-smoke (macos-latest):
     runtime-smoke Swift-обвязки (ios/MedchatCoreSmoke.swift — зеркало napi-smoke.js
     на host-cdylib), кросс-компиляция iOS device/sim (staticlib), артефакт

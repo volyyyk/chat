@@ -134,6 +134,7 @@
   #msg-form { display: flex; gap: 8px; padding: 12px 16px; background: var(--panel); border-top: 1px solid var(--line); }
   #msg-input { flex: 1; margin: 0; }
   #msg-form button { width: auto; margin: 0; }
+  #ratchet-toggle { flex: 0 0 auto; padding: 6px 10px; font-size: 12px; font-weight: 500; }
   #send-status { margin: 0; padding: 4px 16px 8px; }
 </style>
 </head>
@@ -188,6 +189,7 @@
       <div id="chat-title" class="chat-header">Выберите чат</div>
       <div id="msg-list"><div class="empty">Выберите чат слева, чтобы открыть переписку.</div></div>
       <form id="msg-form">
+        <button id="ratchet-toggle" class="ghost" type="button" title="Double Ratchet поверх E2E-конверта">Ratchet: выкл</button>
         <input id="msg-input" type="text" placeholder="Сообщение" autocomplete="off" />
         <button type="submit">Отправить</button>
       </form>
@@ -437,6 +439,105 @@ async function buildEnvelope(text) {
   }
 }
 
+// ----- Double Ratchet поверх E2E-конверта (этап 7, склейка) -----
+
+// Per-chat opt-in (localStorage — клиентское предпочтение, не секрет):
+// ratchet-сессия идёт с устройством собеседника поверх E2E-конверта.
+function ratchetEnabled(id) {
+  return !!(id && localStorage.getItem("medchat.ratchet." + id) === "1");
+}
+
+function renderRatchetToggle() {
+  $("ratchet-toggle").textContent = "Ratchet: " + (ratchetEnabled(state.chatId) ? "вкл" : "выкл");
+  $("ratchet-toggle").title = state.chatE2e
+    ? "Double Ratchet поверх E2E-конверта"
+    : "Недоступно без E2E (нужны активные ключи всех участников)";
+}
+
+function toggleRatchet() {
+  if (!state.chatId) return;
+  var key = "medchat.ratchet." + state.chatId;
+  if (localStorage.getItem(key) === "1") localStorage.removeItem(key);
+  else localStorage.setItem(key, "1");
+  renderRatchetToggle();
+  selectChat(state.chatId);
+}
+
+// Свежий активный ключ собеседника из реестра чата: ratchet-сессия —
+// с одним его устройством; другие его устройства увидят честную плашку
+// «не расшифровано» (сессии у них нет).
+function peerKey() {
+  var peer = null;
+  state.chatKeys.forEach(function (k) {
+    if (String(k.userId) !== String(state.user.id)) peer = k;
+  });
+  return peer;
+}
+
+// Ratchet-payload: plaintext -> wire (ядро, ленивая инициализация сессии,
+// роль детерминирована keyId) -> {"t":"r1","k":<keyId отправителя>,"w":wire}
+// внутри plaintext E2E-конверта. Любая ошибка (в т.ч. NotInitialized у
+// отвечающего до первого входящего) не ломает чат: обычный E2E-конверт.
+async function ratchetPayload(text) {
+  var tauri = window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke;
+  var pk = peerKey();
+  if (!tauri || !state.e2e) {
+    return { payload: text, note: "Ratchet: нет Tauri или ключа устройства — обычный E2E" };
+  }
+  if (!pk) {
+    return { payload: text, note: "Ratchet: у собеседника нет активного ключа — обычный E2E" };
+  }
+  try {
+    var w = await tauri("ratchet_encrypt", {
+      userId: state.user.id,
+      chatId: state.chatId,
+      myKeyId: state.e2e.keyId,
+      remoteKeyId: pk.keyId,
+      remotePublicB64: pk.publicKey,
+      plaintext: text
+    });
+    return { payload: JSON.stringify({ t: "r1", k: state.e2e.keyId, w: w }), note: "" };
+  } catch (e) {
+    var msg = e && e.message ? e.message : String(e);
+    return { payload: text, note: "Ratchet не готов (" + msg + ") — сообщение уходит в обычном E2E" };
+  }
+}
+
+// Входящий plaintext конверта: payload {"t":"r1","k":keyId,"w":wire} —
+// ratchet-сообщение (расшифровка ядром, ленивая инициализация отвечающей
+// сессии по identity-ключу отправителя из реестра чата), иначе — обычный
+// текст. Чат никогда не ломается: ошибки — честная плашка.
+async function ratchetUnwrap(plain) {
+  var parsed = null;
+  try { parsed = JSON.parse(plain); } catch (e) { /* обычный текст */ }
+  if (!parsed || parsed.t !== "r1" || !parsed.k || !parsed.w) {
+    return { text: plain, e2e: true };
+  }
+  var tauri = window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke;
+  if (!tauri || !state.e2e) {
+    return { text: "🔒 Ratchet-сообщение (расшифровка недоступна в этом окружении).", e2e: true };
+  }
+  var remote = null;
+  state.chatKeys.forEach(function (k) { if (k.keyId === parsed.k) remote = k; });
+  if (!remote || !remote.publicKey) {
+    return { text: "🔒 Ratchet-сообщение: ключ отправителя не найден в реестре чата.", e2e: true };
+  }
+  try {
+    var pt = await tauri("ratchet_decrypt", {
+      userId: state.user.id,
+      chatId: state.chatId,
+      myKeyId: state.e2e.keyId,
+      remoteKeyId: parsed.k,
+      remotePublicB64: remote.publicKey,
+      wireB64: parsed.w
+    });
+    return { text: pt, e2e: true, ratchet: true };
+  } catch (e) {
+    var msg = e && e.message ? e.message : String(e);
+    return { text: "🔒 Ratchet-сообщение не расшифровано: " + msg, e2e: true };
+  }
+}
+
 async function selectChat(id) {
   state.chatId = id;
   renderChats();
@@ -447,7 +548,8 @@ async function selectChat(id) {
     await loadChatKeys(id);
     await renderMessages(messages);
     var chat = state.chats.filter(function (c) { return c.id === id; })[0];
-    $("chat-title").textContent = ((chat && (chat.title || chat.chatId)) || "Чат") + (state.chatE2e ? " · 🔒 E2E" : "");
+    $("chat-title").textContent = ((chat && (chat.title || chat.chatId)) || "Чат") + (state.chatE2e ? " · 🔒 E2E" : "") + (state.chatE2e && ratchetEnabled(id) ? " · Ratchet" : "");
+    renderRatchetToggle();
     if (state.chatE2e) {
       setStatus("send-status", "🔒 E2E: сообщения этого чата шифруются на устройстве", false);
     } else if (state.e2eEnabled) {
@@ -484,7 +586,7 @@ async function renderMessages(list) {
     meta.className = "m";
     var who = mine ? "Я" : (m.sender ? (trimValue(m.sender.firstName) || "Собеседник") : "Собеседник");
     var when = m.createdAt ? new Date(m.createdAt).toLocaleTimeString() : "";
-    meta.textContent = who + (when ? " · " + when : "") + (texts[i].e2e ? " · 🔒" : "");
+    meta.textContent = who + (when ? " · " + when : "") + (texts[i].e2e ? " · 🔒" : "") + (texts[i].ratchet ? " · ratchet" : "");
     row.appendChild(b);
     row.appendChild(meta);
     box.appendChild(row);
@@ -508,7 +610,7 @@ async function messageText(m) {
   }
   try {
     var plain = await tauri("e2e_open", { userId: state.user.id, epk: env.epk, nonce: env.nonce, boxes: [myBox] });
-    return { text: plain, e2e: true };
+    return await ratchetUnwrap(plain);
   } catch (e) {
     return { text: "🔒 Не расшифровано: " + (e && e.message ? e.message : String(e)), e2e: true };
   }
@@ -521,8 +623,15 @@ async function sendMessage() {
   setStatus("send-status", "Отправляем...");
   try {
     var body = { content: text, type: "text", clientType: "desktop" };
+    var ratchetNote = "";
     if (state.chatE2e) {
-      var env = await buildEnvelope(text);
+      var payload = text;
+      if (ratchetEnabled(state.chatId)) {
+        var rr = await ratchetPayload(text);
+        payload = rr.payload;
+        ratchetNote = rr.note || "";
+      }
+      var env = await buildEnvelope(payload);
       if (env) body = { content: "", type: "text", clientType: "desktop", envelope: env };
     }
     await api("/api/chats/" + state.chatId + "/messages", {
@@ -530,9 +639,9 @@ async function sendMessage() {
       body: body
     });
     input.value = "";
-    setStatus("send-status", "");
     await selectChat(state.chatId);
     await loadChats();
+    if (ratchetNote) setStatus("send-status", ratchetNote, true);
   } catch (e) {
     setStatus("send-status", "Не отправлено: " + e.message, true);
   }
@@ -590,6 +699,7 @@ async function init() {
   $("btn-logout").addEventListener("click", logout);
   $("btn-refresh").addEventListener("click", refreshAll);
   $("msg-form").addEventListener("submit", function (e) { e.preventDefault(); sendMessage(); });
+  $("ratchet-toggle").addEventListener("click", toggleRatchet);
   $("probe-core").addEventListener("click", probe("core_probe", "Конверт x25519-box"));
   $("probe-ratchet").addEventListener("click", probe("ratchet_probe", "Double Ratchet"));
   $("probe-storage").addEventListener("click", probe("ratchet_storage_probe", "Secure storage"));

@@ -19,6 +19,11 @@
 // medchat.e2e), публичный ключ регистрируется на сервере (POST /api/keys),
 // шифрование/расшифровка конвертов x25519-box (e2e_seal/e2e_open) —
 // байт-в-байт совместимы с мобильным клиентом (tweetnacl).
+// Double Ratchet поверх конверта (этап 7, склейка с UI): ratchet_encrypt/
+// ratchet_decrypt — ленивая сессия с устройством собеседника (ss из
+// identity-ключей реестра UserKey, роль детерминирована сравнением keyId),
+// wire едет внутри plaintext конверта как {"t":"r1","k":keyId,"w":wire},
+// состояние сессии — bincode в secure storage (medchat.ratchet).
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -379,6 +384,145 @@ fn e2e_open(
     }
 }
 
+// ----- Double Ratchet поверх конверта (этап 7, склейка с UI) -----
+
+/// Пара identity-ключей устройства из secure storage (сервис medchat.e2e):
+/// вход и для shared secret ratchet-сессии, и для начальной роли отвечающей
+/// стороны (init_responder принимает пару целиком).
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn e2e_keypair_of(user_id: &str) -> Result<medchat_core::KeyPair, String> {
+    let account = format!("e2e.{user_id}");
+    let blob = e2e_store::load(&account)?;
+    let record = serde_json::from_slice::<E2eKeyRecord>(&blob)
+        .map_err(|e| format!("key record parse: {e}"))?;
+    let public: [u8; 32] = b64_decode(&record.public_key)?
+        .try_into()
+        .map_err(|_| "public key must be 32 bytes".to_string())?;
+    let secret: [u8; 32] = b64_decode(&record.secret_key)?
+        .try_into()
+        .map_err(|_| "secret key must be 32 bytes".to_string())?;
+    Ok(medchat_core::KeyPair {
+        public_key: public,
+        secret_key: secret,
+    })
+}
+
+/// Сессия Double Ratchet с устройством собеседника. Shared secret —
+/// X3DH-lite без prekeys: ss = x25519_dh(мой secret, их public) из
+/// identity-ключей реестра UserKey (симметричен, обе стороны считают
+/// одинаково). Начальная роль детерминирована сравнением keyId
+/// (лексикографически меньший — инициатор): обе стороны сходятся к одной
+/// паре ролей без рукопожатия; отвечающий до первого полученного
+/// сообщения честно не может писать (encrypt упадёт NotInitialized).
+/// Ошибка чтения трактуется как «сессии нет» (как в e2e_get_or_create_key):
+/// автосоздание ниже детерминировано, а save при реальной поломке keyring
+/// честно упадёт с той же причиной.
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn ensure_ratchet_session(
+    account: &str,
+    my_key_id: &str,
+    remote_key_id: &str,
+    my: &medchat_core::KeyPair,
+    their_public: &[u8; 32],
+) -> Result<medchat_core::RatchetState, String> {
+    if let Ok(blob) = secure_store::load(account) {
+        return bincode::deserialize(&blob).map_err(|e| format!("session parse: {e}"));
+    }
+    let ss = medchat_core::x25519_dh(&my.secret_key, their_public);
+    Ok(if my_key_id < remote_key_id {
+        medchat_core::RatchetState::init_initiator(&ss, their_public)
+    } else {
+        medchat_core::RatchetState::init_responder(&ss, my.clone())
+    })
+}
+
+/// Зашифровать plaintext ratchet-сессией чата: wire (header||nonce||ct)
+/// возвращается base64 — UI кладёт его в plaintext E2E-конверта как
+/// {"t":"r1","k":<мой keyId>,"w":<wire>}. Ленивая инициализация сессии
+/// (роль по keyId), состояние сохраняется после каждого сообщения —
+/// счётчики и skip-store переживают перезапуск приложения.
+#[tauri::command]
+fn ratchet_encrypt(
+    user_id: String,
+    chat_id: String,
+    my_key_id: String,
+    remote_key_id: String,
+    remote_public_b64: String,
+    plaintext: String,
+) -> Result<String, String> {
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    {
+        let my = e2e_keypair_of(&user_id)?;
+        let their_public: [u8; 32] = b64_decode(&remote_public_b64)?
+            .try_into()
+            .map_err(|_| "remote public key must be 32 bytes".to_string())?;
+        let account = format!("ratchet.{chat_id}.{remote_key_id}");
+        let mut state = ensure_ratchet_session(
+            &account,
+            &my_key_id,
+            &remote_key_id,
+            &my,
+            &their_public,
+        )?;
+        let msg = state
+            .encrypt(plaintext.as_bytes())
+            .map_err(|e| format!("ratchet encrypt: {e}"))?;
+        let blob = bincode::serialize(&state).map_err(|e| format!("serialize: {e}"))?;
+        secure_store::save(&account, &blob)?;
+        Ok(b64_encode(&msg.to_wire()))
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        let _ = (user_id, chat_id, my_key_id, remote_key_id, remote_public_b64, plaintext);
+        Err("secure storage недоступен на этой платформе".into())
+    }
+}
+
+/// Расшифровать ratchet-wire от собеседника (payload {"t":"r1","k":keyId}):
+/// сессия лениво инициализируется при первом входящем (ss симметричен —
+/// считаем по identity-ключу отправителя из реестра), skip-store расшифрует
+/// внеочередные, replay отклоняется, состояние сохраняется. Ошибки уходят
+/// наружу строкой — UI показывает честную плашку, чат не ломается.
+#[tauri::command]
+fn ratchet_decrypt(
+    user_id: String,
+    chat_id: String,
+    my_key_id: String,
+    remote_key_id: String,
+    remote_public_b64: String,
+    wire_b64: String,
+) -> Result<String, String> {
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    {
+        let my = e2e_keypair_of(&user_id)?;
+        let their_public: [u8; 32] = b64_decode(&remote_public_b64)?
+            .try_into()
+            .map_err(|_| "remote public key must be 32 bytes".to_string())?;
+        let account = format!("ratchet.{chat_id}.{remote_key_id}");
+        let mut state = ensure_ratchet_session(
+            &account,
+            &my_key_id,
+            &remote_key_id,
+            &my,
+            &their_public,
+        )?;
+        let wire = b64_decode(&wire_b64)?;
+        let parsed = medchat_core::RatchetMessage::from_wire(&wire)
+            .map_err(|e| format!("wire: {e}"))?;
+        let plain = state
+            .decrypt(&parsed)
+            .map_err(|e| format!("ratchet decrypt: {e}"))?;
+        let blob = bincode::serialize(&state).map_err(|e| format!("serialize: {e}"))?;
+        secure_store::save(&account, &blob)?;
+        String::from_utf8(plain).map_err(|_| "ratchet plaintext не является UTF-8".to_string())
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        let _ = (user_id, chat_id, my_key_id, remote_key_id, remote_public_b64, wire_b64);
+        Err("secure storage недоступен на этой платформе".into())
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -390,7 +534,9 @@ fn main() {
             ratchet_storage_probe,
             e2e_get_or_create_key,
             e2e_seal,
-            e2e_open
+            e2e_open,
+            ratchet_encrypt,
+            ratchet_decrypt
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
