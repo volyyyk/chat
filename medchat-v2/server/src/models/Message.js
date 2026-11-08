@@ -217,6 +217,12 @@ module.exports = (sequelize, DataTypes) => {
         {
           fields: ['is_free'],
         },
+        {
+          // Composite index for the most frequent query pattern:
+          // message pagination inside a chat (WHERE chat_id = ? ORDER BY created_at DESC).
+          // Avoids a filesort on large chat histories.
+          fields: ['chat_id', 'created_at'],
+        },
       ],
     }
   );

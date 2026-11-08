@@ -20,6 +20,18 @@ const { Server } = require('socket.io');
 // Logger (also sets global.logger)
 const logger = require('./utils/logger');
 
+// SECURITY: fail fast when the JWT secret is missing or trivially short.
+// Booting without it used to produce cryptic "invalid signature" 401s on the
+// first request; now the operator gets an actionable message at startup.
+// (.env.example ships a placeholder; CI and the launcher always set a secret.)
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 8) {
+  logger.error(
+    'FATAL: JWT_SECRET is missing or shorter than 8 characters. ' +
+    'Set a strong secret in server/.env (see .env.example) and restart.'
+  );
+  process.exit(1);
+}
+
 // Ensure log directory exists before any file transports are added
 if (process.env.LOG_TO_FILE === 'true') {
   fs.mkdirSync(path.join(process.cwd(), 'logs'), { recursive: true });

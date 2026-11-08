@@ -66,9 +66,9 @@ class UserController {
       const user = await models.User.findOne({
         where: { id: userId },
         include: [
-          { model: models.Doctor, attributes: { exclude: ['userId'] } },
-          { model: models.Patient, attributes: { exclude: ['userId'] } },
-          { model: models.Clinic, attributes: ['id', 'name', 'code'] },
+          { model: models.Doctor, as: 'doctorProfile', attributes: { exclude: ['userId'] } },
+          { model: models.Patient, as: 'patientProfile', attributes: { exclude: ['userId'] } },
+          { model: models.Clinic, as: 'clinic', attributes: ['id', 'name', 'code'] },
         ],
       });
 
@@ -105,6 +105,7 @@ class UserController {
         phone,
         timezone,
         language,
+        currentPassword,
       } = req.body;
 
       const user = await models.User.findOne({ where: { id: userId } });
@@ -113,8 +114,28 @@ class UserController {
         throw new AppError('User not found', 404, 'NOT_FOUND');
       }
 
+      // SECURITY: changing identity fields (email/username) requires proving
+      // ownership of the account with the current password. Without this an
+      // attacker with a stolen access token could silently take over the
+      // login credentials.
+      const wantsEmailChange = email && email !== user.email;
+      const wantsUsernameChange = username && username !== user.username;
+      if (wantsEmailChange || wantsUsernameChange) {
+        if (!currentPassword) {
+          throw new AppError(
+            'Current password is required to change email or username',
+            403,
+            'FORBIDDEN'
+          );
+        }
+        const passwordValid = await AuthService.verifyPassword(currentPassword, user.passwordHash);
+        if (!passwordValid) {
+          throw new AppError('Current password is incorrect', 401, 'UNAUTHORIZED');
+        }
+      }
+
       // Check if username is already taken
-      if (username && username !== user.username) {
+      if (wantsUsernameChange) {
         const existingUser = await models.User.findOne({ where: { username } });
         if (existingUser) {
           throw new AppError('Username already taken', 400, 'VALIDATION_ERROR');
@@ -122,7 +143,7 @@ class UserController {
       }
 
       // Check if email is already taken
-      if (email && email !== user.email) {
+      if (wantsEmailChange) {
         const existingUser = await models.User.findOne({ where: { email } });
         if (existingUser) {
           throw new AppError('Email already taken', 400, 'VALIDATION_ERROR');
@@ -130,8 +151,8 @@ class UserController {
       }
 
       await user.update({
-        username: username || user.username,
-        email: email || user.email,
+        username: username !== undefined ? username : user.username,
+        email: email !== undefined ? email : user.email,
         firstName: firstName !== undefined ? firstName : user.firstName,
         lastName: lastName !== undefined ? lastName : user.lastName,
         phone: phone !== undefined ? phone : user.phone,
@@ -241,8 +262,8 @@ class UserController {
       const user = await models.User.findOne({
         where: { id: userId },
         include: [
-          { model: models.Doctor },
-          { model: models.Patient },
+          { model: models.Doctor, as: 'doctorProfile' },
+          { model: models.Patient, as: 'patientProfile' },
         ],
       });
 
@@ -259,8 +280,11 @@ class UserController {
         });
       }
 
+      const doctorProfile = user.doctorProfile;
+      const patientProfile = user.patientProfile;
+
       // Update doctor profile
-      if (user.Doctor) {
+      if (doctorProfile) {
         const doctorUpdate = {};
 
         if (dateOfBirth) doctorUpdate.dateOfBirth = dateOfBirth;
@@ -278,15 +302,15 @@ class UserController {
         if (availableSlots) doctorUpdate.availableSlots = availableSlots;
 
         if (Object.keys(doctorUpdate).length > 0) {
-          await user.Doctor.update(doctorUpdate);
+          await doctorProfile.update(doctorUpdate);
         }
 
         // Update specialties
         if (specialtyIds) {
-          await models.DoctorSpecialty.destroy({ where: { doctorId: user.Doctor.id } });
+          await models.DoctorSpecialty.destroy({ where: { doctorId: doctorProfile.id } });
           for (const specialtyId of specialtyIds) {
             await models.DoctorSpecialty.create({
-              doctorId: user.Doctor.id,
+              doctorId: doctorProfile.id,
               specialtyId,
             });
           }
@@ -294,7 +318,7 @@ class UserController {
       }
 
       // Update patient profile
-      if (user.Patient) {
+      if (patientProfile) {
         const patientUpdate = {};
 
         if (dateOfBirth) patientUpdate.dateOfBirth = dateOfBirth;
@@ -312,7 +336,7 @@ class UserController {
         if (emergencyContact) patientUpdate.emergencyContact = emergencyContact;
 
         if (Object.keys(patientUpdate).length > 0) {
-          await user.Patient.update(patientUpdate);
+          await patientProfile.update(patientUpdate);
         }
       }
 
@@ -320,8 +344,8 @@ class UserController {
       const updatedUser = await models.User.findOne({
         where: { id: userId },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
-          { model: models.Patient },
+          { model: models.Doctor, as: 'doctorProfile', include: [{ model: models.Specialty, as: 'specialtyDetails' }] },
+          { model: models.Patient, as: 'patientProfile' },
         ],
       });
 
@@ -423,11 +447,13 @@ class UserController {
     try {
       const userId = req.user.id;
 
-      if (!req.files || req.files.length === 0) {
+      // multer's single-file middleware sets req.file; array middleware
+      // sets req.files. Accept either so the route works with both.
+      const file = req.file || (req.files && req.files[0]);
+
+      if (!file) {
         throw new AppError('No avatar file provided', 400, 'VALIDATION_ERROR');
       }
-
-      const file = req.files[0];
 
       // Validate file type
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -467,6 +493,13 @@ class UserController {
       // Update user
       const user = await models.User.findOne({ where: { id: userId } });
       await user.update({ avatar: avatarUrl });
+
+      // Remove the temp file uploaded by multer
+      try {
+        fs.unlinkSync(file.path);
+      } catch (e) {
+        // non-fatal
+      }
 
       res.json({
         success: true,
@@ -546,9 +579,9 @@ class UserController {
       const { count, rows } = await models.User.findAndCountAll({
         where,
         include: [
-          { model: models.Doctor, attributes: ['id', 'fullName', 'specialtyIds'] },
-          { model: models.Patient, attributes: ['id', 'fullName'] },
-          { model: models.Clinic, attributes: ['id', 'name'] },
+          { model: models.Doctor, as: 'doctorProfile', attributes: ['id', 'isOnline', 'averageRating', 'experienceYears', 'consultationPrice'] },
+          { model: models.Patient, as: 'patientProfile', attributes: ['id'] },
+          { model: models.Clinic, as: 'clinic', attributes: ['id', 'name'] },
         ],
         order: [['createdAt', 'DESC']],
         offset,
@@ -589,9 +622,9 @@ class UserController {
       const user = await models.User.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, include: [models.Specialty] },
-          { model: models.Patient },
-          { model: models.Clinic, attributes: ['id', 'name', 'code'] },
+          { model: models.Doctor, as: 'doctorProfile', include: [{ model: models.Specialty, as: 'specialtyDetails' }] },
+          { model: models.Patient, as: 'patientProfile' },
+          { model: models.Clinic, as: 'clinic', attributes: ['id', 'name', 'code'] },
         ],
         attributes: { exclude: ['passwordHash', 'refreshToken'] },
       });
@@ -627,6 +660,7 @@ class UserController {
       delete updateData.passwordHash;
       delete updateData.role;
       delete updateData.status;
+      delete updateData.currentPassword;
 
       const user = await models.User.findOne({ where: { id } });
 
@@ -692,7 +726,8 @@ class UserController {
       const { id } = req.params;
       const { status, reason } = req.body;
 
-      const validStatuses = ['active', 'inactive', 'pending', 'blocked', 'deleted'];
+      // Must match the User.status ENUM ('banned', not 'blocked')
+      const validStatuses = ['active', 'inactive', 'pending', 'banned', 'deleted'];
 
       if (!validStatuses.includes(status)) {
         throw new AppError('Invalid status', 400, 'VALIDATION_ERROR');
@@ -712,7 +747,7 @@ class UserController {
       });
 
       // Invalidate sessions if blocking or deleting
-      if (status === 'blocked' || status === 'deleted') {
+      if (status === 'banned' || status === 'deleted') {
         await models.Session.destroy({ where: { userId: id } });
         await models.RefreshToken.destroy({ where: { userId: id } });
       }
@@ -740,7 +775,8 @@ class UserController {
       const { id } = req.params;
       const { role } = req.body;
 
-      const validRoles = ['admin', 'clinic_admin', 'doctor', 'patient'];
+      // Must match the User.role ENUM ('system_admin', not 'admin')
+      const validRoles = ['system_admin', 'clinic_admin', 'doctor', 'patient'];
 
       if (!validRoles.includes(role)) {
         throw new AppError('Invalid role', 400, 'VALIDATION_ERROR');
@@ -804,7 +840,6 @@ class UserController {
         where: {
           ...where,
           status: 'active',
-          deleted: false,
         },
       });
 

@@ -506,7 +506,22 @@ class EPrescriptionController {
       const eprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          {
+            model: models.Doctor,
+            as: 'doctor',
+            include: [
+              { model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] },
+              // Doctor specialties are associated through DoctorSpecialty
+              // with the alias 'specialtyDetails'. The printable form
+              // needs them, otherwise the specialty line shows 'N/A'.
+              {
+                model: models.Specialty,
+                as: 'specialtyDetails',
+                attributes: ['id', 'name'],
+                through: { attributes: [] },
+              },
+            ],
+          },
           { model: models.Patient, as: 'patient' },
           { model: models.Appointment, as: 'appointment' },
         ],
@@ -935,11 +950,11 @@ endstream
 endobj
 xref
 0 5
-0000000000 65535 f 
-0000000010 00000 n 
-0000000058 00000 n 
-0000000106 00000 n 
-0000000154 00000 n 
+0000000000 65535 f
+0000000010 00000 n
+0000000058 00000 n
+0000000106 00000 n
+0000000154 00000 n
 trailer
 << /Size 5 /Root 1 0 R >>
 startxref
@@ -1004,7 +1019,7 @@ startxref
 
     <h2>Врач:</h2>
     <p><strong>ФИО:</strong> ${(eprescription.doctor && eprescription.doctor.user && (eprescription.doctor.user.fullName || [eprescription.doctor.user.lastName, eprescription.doctor.user.firstName].filter(Boolean).join(' '))) || 'N/A'}</p>
-    <p><strong>Специальность:</strong> ${eprescription.doctor?.Specialties?.map(s => s.name).join(', ') || 'N/A'}</p>
+    <p><strong>Специальность:</strong> ${(eprescription.doctor && eprescription.doctor.specialtyDetails && eprescription.doctor.specialtyDetails.map(s => s.name).join(', ')) || 'N/A'}</p>
 
     <h2>Диагноз:</h2>
     <p>${eprescription.diagnosis || 'Не указан'}</p>

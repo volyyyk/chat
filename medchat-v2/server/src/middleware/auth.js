@@ -74,7 +74,10 @@ function authenticate() {
         });
       }
 
-      // Attach user to request
+      // Attach user to request.
+      // SECURITY: privateKey must NEVER be attached here — it is the user's
+      // personal decryption key stored in the DB. Old code leaked it into
+      // req.user (and thus into any error log that dumped the request user).
       req.user = {
         id: user.id,
         email: user.email,
@@ -87,7 +90,6 @@ function authenticate() {
         fullName: user.fullName,
         avatar: user.avatar,
         publicKey: user.publicKey,
-        privateKey: user.privateKey,
       };
 
       // Update last activity (throttled: at most once per 60 seconds,

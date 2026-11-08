@@ -7,6 +7,7 @@ const router = express.Router();
 const UserController = require('../controllers/userController');
 const { validate } = require('../middleware/validation');
 const { authenticate, authorize } = require('../middleware/auth');
+const { uploadMiddleware } = require('../middleware/upload');
 const {
   updateUserSchema,
   changePasswordSchema,
@@ -190,17 +191,13 @@ router.get('/me/preferences', UserController.getPreferences);
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
- *       content:
- *         application/json:
+ *         content:
+ *           application/json:
  *           schema:
  *             $ref: '#/components/schemas/UpdatePreferencesRequest'
  *     responses:
  *       200:
  *         description: Preferences updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/UserPreferences'
  */
 router.put('/me/preferences', validate(updatePreferencesSchema), UserController.updatePreferences);
 
@@ -233,7 +230,10 @@ router.put('/me/preferences', validate(updatePreferencesSchema), UserController.
  *                 avatarUrl:
  *                   type: string
  */
-router.post('/me/avatar', UserController.uploadAvatar);
+// NOTE: multipart parsing is REQUIRED for the controller to see the file.
+// Without the multer middleware every avatar upload returned 400
+// "No avatar file provided".
+router.post('/me/avatar', uploadMiddleware('avatar'), UserController.uploadAvatar);
 
 /**
  * @swagger
@@ -250,7 +250,10 @@ router.post('/me/avatar', UserController.uploadAvatar);
 router.delete('/me/avatar', UserController.deleteAvatar);
 
 // Admin routes
-router.use(authorize(['admin', 'clinic_admin']));
+// NOTE: the admin role in this system is 'system_admin' (clinic admins get
+// their own clinic-scoped access). The old check allowed the non-existent
+// 'admin' role and effectively locked system admins out of these endpoints.
+router.use(authorize(['system_admin', 'clinic_admin']));
 
 /**
  * @swagger
@@ -265,7 +268,7 @@ router.use(authorize(['admin', 'clinic_admin']));
  *         name: role
  *         schema:
  *           type: string
- *           enum: [admin, clinic_admin, doctor, patient]
+ *           enum: [system_admin, clinic_admin, doctor, patient]
  *       - in: query
  *         name: clinicId
  *         schema:
@@ -275,7 +278,7 @@ router.use(authorize(['admin', 'clinic_admin']));
  *         name: status
  *         schema:
  *           type: string
- *           enum: [active, inactive, pending, blocked, deleted]
+ *           enum: [active, inactive, pending, banned, deleted]
  *       - in: query
  *         name: search
  *         schema:
@@ -306,6 +309,45 @@ router.use(authorize(['admin', 'clinic_admin']));
  *                   $ref: '#/components/schemas/Pagination'
  */
 router.get('/', validate(searchUsersSchema, 'query'), UserController.list);
+
+// NOTE: `/statistics` MUST be registered before `/:id`, otherwise
+// GET /api/users/statistics matches the `/:id` route with
+// id === "statistics" and never reaches the statistics controller.
+/**
+ * @swagger
+ * /api/users/statistics:
+ *   get:
+ *     summary: Get user statistics (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: clinicId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [system_admin, clinic_admin, doctor, patient]
+ *     responses:
+ *       200:
+ *         description: User statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 total:
+ *                   type: number
+ *                 byRole:
+ *                   type: object
+ *                 byStatus:
+ *                   type: object
+ */
+router.get('/statistics', UserController.getStatistics);
 
 /**
  * @swagger
@@ -356,10 +398,6 @@ router.get('/:id', UserController.getById);
  *     responses:
  *       200:
  *         description: User updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/User'
  */
 router.put('/:id', validate(updateUserSchema), UserController.update);
 
@@ -408,7 +446,7 @@ router.delete('/:id', UserController.delete);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [active, inactive, pending, blocked, deleted]
+ *                 enum: [active, inactive, pending, banned, deleted]
  *               reason:
  *                 type: string
  *     responses:
@@ -445,7 +483,7 @@ router.put('/:id/status', UserController.updateStatus);
  *             properties:
  *               role:
  *                 type: string
- *                 enum: [admin, clinic_admin, doctor, patient]
+ *                 enum: [system_admin, clinic_admin, doctor, patient]
  *     responses:
  *       200:
  *         description: Role updated successfully
@@ -455,41 +493,5 @@ router.put('/:id/status', UserController.updateStatus);
  *               $ref: '#/components/schemas/User'
  */
 router.put('/:id/role', UserController.updateRole);
-
-/**
- * @swagger
- * /api/users/statistics:
- *   get:
- *     summary: Get user statistics (admin only)
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: clinicId
- *         schema:
- *           type: string
- *           format: uuid
- *       - in: query
- *         name: role
- *         schema:
- *           type: string
- *           enum: [admin, clinic_admin, doctor, patient]
- *     responses:
- *       200:
- *         description: User statistics
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 total:
- *                   type: number
- *                 byRole:
- *                   type: object
- *                 byStatus:
- *                   type: object
- */
-router.get('/statistics', UserController.getStatistics);
 
 module.exports = router;
