@@ -187,8 +187,13 @@ napi-rs-плагин для крипто/checksum/сжатия; при рост�
 дереве Double Ratchet; KAT FIPS 180-4 «abc»/пустая строка в юнит-тестах),
 napi-обёртки sha256Checksum/sha256Verify (src/node.rs) едут в том же
 .node-артефакте napi-build; parity с node:crypto сверяет napi-smoke.js.
-Серверная интеграция (обёртка с fallback на node:crypto) и сжатие бэкапов —
-следующие шаги; k6-нагрузочный по DoD — после интеграции.
+Серверная интеграция сделана: server/src/utils/checksum.js — нативный
+.node-аддон (MEDCHAT_CORE_NODE, иначе артефакт napi-build рядом с core) с
+честным fallback на node:crypto (backend = native|fallback); jest-тест
+checksum.test.js — KAT FIPS 180-4 + parity, нативный путь в CI гейтит
+napi-build (napi-smoke), server-tests гоняют fallback. Сжатие бэкапов,
+подключение к бизнес-точкам (чексуммы бэкапов/файлов) и k6-нагрузочный
+(DoD) — следующие шаги.
 **DoD:** нагрузочный тест (k6) x10 текущей нагрузки без деградации p95;
 CI остаётся зелёным на каждом шаге.
 
