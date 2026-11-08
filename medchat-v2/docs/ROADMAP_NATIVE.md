@@ -57,8 +57,12 @@ cargo-fuzz без падений 24 ч; бенчмарк ≥ x10 к Node на к
 core/tests/nacl_box_vector.hex — Rust-ядро (SalsaBox, crypto_box 0.9,
 core/tests/interop_vectors.rs, джоба CI core-tests) и tweetnacl, библиотека
 мобильного клиента (server/tests/coreInterop.test.js, джоба server-tests).
-Осталось: векторы AES-GCM/bcrypt-путей (после napi-rs-биндингов), cargo-fuzz,
-бенчмарки.
+napi-rs-биндинги для Node реализованы (754f677 → 2bb38f2: src/node.rs —
+конвертные примитивы + класс JsRatchetState для Double Ratchet; состояние
+не сериализуется — персистентность на вызывающей стороне; .node-артефакт
+через napi-cli, CI проверяет компиляцию биндингов и юнит-тесты).
+Осталось: векторы AES-GCM/bcrypt-путей, cargo-fuzz, бенчмарки, сборка
+.node-артефакта в CI.
 
 ### Этап 3. Нативный iOS (Swift/SwiftUI)
 SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudio), рецепты, приёмы;
@@ -96,7 +100,9 @@ to_wire/from_wire — a43102d). Skip-store реализован (d033eeb):
 внеочередные сообщения расшифровываются через буфер одноразовых message keys
 (MAX_SKIP=2000/MAX_SKIPPED_KEYS=500, превышение → OutOfOrder), replay отклоняется.
 Ограничения честно: в клиенты не интегрирован — wire-формат заголовков готов
-(a43102d: header 40 || nonce 12 || ciphertext), ждёт биндинги napi-rs/UniFFI.
+(a43102d: header 40 || nonce 12 || ciphertext); napi-биндинги JsRatchetState
+для Node готовы (2bb38f2, src/node.rs), UniFFI для Swift/Kotlin и интеграция
+в клиенты — далее.
 Реализация в Rust-ядре: X25519 + Double Ratchet, серверный key-registry.
 Верификация fingerprint-кодов: РЕАЛИЗОВАНА в мобильном клиенте
 (347bc9d + ec1a0de: safety number — 60 цифр из SHA-512 по набору ключей чата,

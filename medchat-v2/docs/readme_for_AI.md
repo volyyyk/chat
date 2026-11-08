@@ -20,7 +20,9 @@
 биндингов (a43102d). Кросс-платформенные контракт-векторы Этапа 2 (1ce9516):
 канонический вектор NaCl box проверяется в Rust-ядре и tweetnacl на общей
 фикстуре (см. §8, §10). Верификация fingerprint-кодов E2E (safety number)
-реализована в мобильном клиенте (347bc9d + ec1a0de).
+реализована в мобильном клиенте (347bc9d + ec1a0de). napi-rs-биндинги
+ядра для Node.js (754f677: конвертные примитивы; 2bb38f2: класс JsRatchetState
+для Double Ratchet).
 
 ---
 
@@ -48,7 +50,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
-| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM |
+| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
 ## 3. Структура проекта
@@ -116,6 +118,8 @@ medchat-v2/
 │                          (a43102d) — 13 тестов);
 │                          tests/interop_vectors.rs — контрактный вектор NaCl
 │                          box на фикстуре nacl_box_vector.hex (1ce9516);
+│                          node.rs — napi-rs-биндинги для Node (754f677 →
+│                          2bb38f2: конвертные примитивы + JsRatchetState);
 │                          cargo test в CI (джоба core-tests)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
@@ -245,8 +249,16 @@ E2E-сообщений серверу недоступен (хранится т�
   open_sealed, CoreError; бинарно совместимая раскладка боксов с tweetnacl —
   подтверждена контракт-тестом на каноническом векторе NaCl box (1ce9516:
   core/tests/interop_vectors.rs + server/tests/coreInterop.test.js, общая
-  фикстура nacl_box_vector.hex, обе стороны в CI). Этап 2
-  ROADMAP_NATIVE; биндинги (napi-rs / UniFFI) — следующие шаги.
+  фикстура nacl_box_vector.hex, обе стороны в CI). Этап 2 ROADMAP_NATIVE.
+  **napi-rs-биндинги для Node** (754f677 → 2bb38f2, src/node.rs):
+  generateKeypair/sealForRecipients/openSealed/keySize/nonceSize + класс
+  JsRatchetState (фабрики initInitiator/initResponder, encrypt/decrypt/
+  decryptWire, ratchetMessageToWire/FromWire, ratchetHeaderSize(40),
+  ratchetNonceSize(12)). CoreError → napi::Error, битые длины → InvalidArg.
+  Состояние ratchet наружу НЕ сериализуется — персистентность на вызывающей
+  стороне (secure storage). .node-артефакт собирается napi-cli; в CI
+  биндинги проверяются компиляцией и юнит-тестами (cargo test). UniFFI для
+  Swift/Kotlin — следующий шаг.
 - **Double Ratchet** (этап 7, прототип): medchat-core/src/ratchet.rs — KDF_RK/KDF_CK на
   HMAC-SHA256 (x25519-dalek 2.0.1 для raw DH, явная feature static_secrets), каждое
   сообщение AES-256-GCM на одноразовом message key, DH-шаг при смене ratchet-ключа
@@ -489,6 +501,15 @@ chatFingerprint в e2eCryptoService (SHA-512 nacl.hash по отсортиров
 (иконка verified-user → Alert с кодом и инструкцией сверки; только для чатов
 с E2E-ключами). Закрывает «верификацию fingerprint-кодов» этапа 7 в части
 мобильного клиента.
+**Rust-ядро: napi-rs-биндинги Node** (754f677 → 2bb38f2): src/node.rs —
+тонкие обёртки (Buffer ↔ Vec<u8>, CoreError → napi::Error, длины аргументов →
+InvalidArg) над generate_keypair/seal_for_recipients/open_sealed + класс
+JsRatchetState (фабрики вместо constructor: две схемы инициализации;
+encrypt/decrypt/decryptWire — wire a43102d) и wire-хелперы ratchetMessage
+To/FromWire. Cargo.toml: crate-type cdylib+rlib, napi 2 (compat-mode, без
+tokio), napi-derive 2, build.rs с napi_build::setup(). 3+3 юнит-теста
+обёрток (итого 20 тестов крейта). Ограничение честно: сборка .node-артефакта
+(napi-cli) в CI не настроена — core-tests проверяет компиляцию и тесты.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -525,7 +546,8 @@ node stop.js [--docker]                     # остановить процес�
   ci-logs/ci-rust.log. С 6aff983 включает ratchet.rs (Double Ratchet; с d033eeb — 10 кейсов, включая skip-store);
   с 1ce9516 — контрактный тест tests/interop_vectors.rs: SalsaBox обязан
   воспроизвести канонический вектор NaCl box байт-в-байт (общая фикстура с
-  jest-стороной в server-tests).
+  jest-стороной в server-tests); с 754f677 компилирует и napi-биндинги
+  (src/node.rs; 2bb38f2 — 20 тестов крейта суммарно).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -571,7 +593,9 @@ node stop.js [--docker]                     # остановить процес�
     (1ce9516: NaCl box верифицирован на Rust-ядре и tweetnacl — DoD Этапа 2). **Double Ratchet: прототип готов**
     (6aff983 + d033eeb: ratchet.rs с skip-store, 10 тестов, forward secrecy + break-in
     recovery + внеочередная доставка; в клиенты не интегрирован). Дальше:
-    napi-rs-биндинги для Node, UniFFI для Swift/Kotlin, интеграция ratchet.
+    ~~napi-rs-биндинги для Node~~ — сделано (754f677 → 2bb38f2: src/node.rs,
+конверты + JsRatchetState; .node-сборка через napi-cli). Дальше: UniFFI для
+Swift/Kotlin, интеграция ratchet в клиенты, сборка .node-артефакта в CI.
 
 ---
 
