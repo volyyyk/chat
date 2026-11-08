@@ -3,8 +3,10 @@
 > Этот документ написан для ИИ-ассистентов, которые будут продолжать работу над проектом.
 > Здесь: структура, контракты, бизнес-логика, а главное — честный разбор,
 > что реализовано «по-настоящему», а где временные заплатки и осознанные компромиссы.
-> Обновлён после security-аудита (коммит 1fafeb9) и серии фиксов
-> 65ec99c → 5a8eceb (user-API, печатная форма рецептов, чистка мёртвого шифрования мобилки).
+> Обновлён после security-аудита (коммит 1fafeb9), серии фиксов
+> 65ec99c → 5a8eceb (user-API, печатная форма рецептов, чистка мёртвого шифрования мобилки)
+> и серии E2E-коммитов d11762c → 596c4a3 (сквозное шифрование содержимого сообщений —
+> см. раздел 5, «E2E-контракт»).
 
 ---
 
@@ -13,6 +15,8 @@
 MedChat v2 — телемедицинская платформа «клиника — врачи — пациенты»:
 
 - **Чаты** пациент ↔ врач: текст, голосовые (expo-av, m4a), файлы; Socket.IO real-time.
+- **E2E-шифрование содержимого текстовых сообщений** (X25519 + NaCl box, шифрование
+  на устройстве, сервер хранит только шифротекст — раздел 5).
 - **Платные сообщения**: первое сообщение в чате бесплатно; 30 дней после completed-приёма
   бесплатно; далее 50 ₽ за сообщение. Оплата с **тестового баланса** — реальных платёжных
   шлюзов НЕТ, и это осознанное требование владельца (см. п. 8).
@@ -26,7 +30,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | Часть | Технологии |
 |---|---|
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
-| mobile | React Native / Expo 48 (все роли, основной сценарий — пациент) |
+| mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E) |
 | web | React (порт 3002, клиника/админ) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
@@ -36,25 +40,28 @@ MedChat v2 — телемедицинская платформа «клиник�
 medchat-v2/
 ├── server/src/
 │   ├── config/        — database.js, redis.js, minio.js
-│   ├── controllers/   — 16: auth, user, chat, message, file, payment, transaction,
+│   ├── controllers/   — 17: auth, user, chat, message, file, payment, transaction,
 │   │                    appointment, eprescription, clinic, doctor, patient,
-│   │                    notification, backup, webhook, admin, specialty
+│   │                    notification, backup, webhook, admin, specialty, keys
 │   ├── middleware/    — auth (JWT+RBAC, БЕЗ privateKey), validation (Joi),
 │   │                    upload (multer, uploadMiddleware(field)), errorHandler (AppError),
 │   │                    rateLimit, sanitize, audit
-│   ├── models/        — 34 модели Sequelize (User, Doctor, Patient, Clinic, Chat,
+│   ├── models/        — 35 моделей Sequelize (User, Doctor, Patient, Clinic, Chat,
 │   │                    Message (+композитный индекс chat_id,created_at), File,
 │   │                    Transaction, Balance, BalanceReserve, Appointment, EPrescription,
-│   │                    ChatParticipant, RefreshToken, ...)
-│   ├── routes/        — 17 файлов (auth, chats, messages, files, payments,
-│   │                    transactions, appointments, eprescriptions, users, clinics, ...)
+│   │                    ChatParticipant, RefreshToken, UserKey (реестр публичных
+│   │                    ключей E2E), ...)
+│   ├── routes/        — 18 файлов (auth, chats, messages, files, payments,
+│   │                    transactions, appointments, eprescriptions, users, clinics,
+│   │                    keys, ...)
 │   ├── seeds/         — testData.js (npm run seed:test): аккаунты, балансы, приёмы
 │   ├── services/      — authService, paymentService, balanceService, cryptoService,
 │   │                    notificationService, backupService
 │   ├── utils/         — logger (winston), chatAccess (canAccessChat)
-│   ├── validators/    — 15 Joi-схем (auth, chat, message, file, payment, transaction,
+│   ├── validators/    — 16 Joi-схем (auth, chat, message, file, payment, transaction,
 │   │                    user (updateUserSchema/changePasswordSchema/updateProfileSchema/
-│   │                    updatePreferencesSchema/searchUsersSchema + legacy), ...)
+│   │                    updatePreferencesSchema/searchUsersSchema + legacy),
+│   │                    key (registerKeySchema), ...)
 │   └── index.js       — Express bootstrap + Socket.IO (joinChat/typing/newMessage);
 │                        fail-fast при JWT_SECRET < 8 символов
 ├── server/tests/
@@ -65,18 +72,19 @@ medchat-v2/
 │   ├── config/config.js        — API_URL http://localhost:3000 (БЕЗ /api/v1)
 │   ├── context/ (3)            — AuthContext (pass-through), ThemeContext,
 │   │                            NotificationContext (ChatContext УДАЛЁН, см. п. 8.5)
-│   ├── hooks/ (4)              — useChat (server-first чат), useAuth, ...
+│   ├── hooks/ (4)              — useChat (server-first чат + интеграция E2E), useAuth, ...
 │   ├── screens/ (19)           — Login, Register, ChatList, Chat, Payment,
 │   │                            Appointments, EPrescriptions, Profile, ...
-│   ├── services/ (8)           — authService, chatService (socket+REST), api, file,
+│   ├── services/ (9)           — authService, chatService (socket+REST), api, file,
 │   │                            payment, database (экспортирует database + initDatabase),
-│   │                            notification, backup (encryptionService УДАЛЁН, п. 8.5)
+│   │                            notification, backup, e2eCryptoService (X25519 E2E:
+│   │                            base64/UTF-8 pure JS, keypair, конверты, расшифровка)
 │   ├── components/ (8)         — MessageBubble, AudioPlayer, ...
 │   ├── navigation/, styles/, utils/
 ├── web/src/             — pages (7), services, context
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
-│                          PRIVACY_POLICY, SECURITY_AUDIT + этот файл
+│                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE + этот файл
 ├── docker/, docker-compose.yml
 └── .github/workflows/ci.yml
 ```
@@ -121,15 +129,55 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
 ### Чаты и сообщения
 - `GET /api/chats`, `POST /api/chats`, `GET /api/chats/:id/messages?page&limit` (default 50,
   ответ `{data: [хронология], pagination}`)
-- `POST /api/chats/:id/messages` `{content, type, attachments?, paymentTransactionId?}`
+- `POST /api/chats/:id/messages` `{content, type, attachments?, paymentTransactionId?, envelope?}`
   - с `paymentTransactionId`: проверка Transaction (status=completed, type=message_payment,
     **одноразовость** — повтор → 409);
+  - с `envelope`: E2E-путь (см. «E2E-контракт» ниже) — content обязан быть пуст;
   - без: `PaymentService.resolveMessageFree`; если не free — **авто-списание** с тестового
     баланса (50 ₽), при нехватке средств → 402 PAYMENT_REQUIRED.
 - ENUM типов сообщений: `text, image, video, audio, file, system, payment, prescription,
   appointment, reminder`; attachments — массив UUID файлов (привязка через File.update).
 - `GET /api/eprescriptions/:id/printable` — печатная форма HTML; специальности врача
   приходят из `doctor.specialtyDetails` (include через алиас, 65ec99c).
+
+### E2E-контракт (сквозное шифрование сообщений, d11762c → 596c4a3)
+**Модель доверия**: сервер — реестр публичных ключей и транспорт; plaintext содержимого
+E2E-сообщений серверу недоступен (хранится только шифротекст). Метаданные (участники,
+время, размеры конвертов) сервер видит.
+
+- **Ключи**: каждое устройство генерирует X25519 keypair (tweetnacl). **Приватный ключ
+  никогда не покидает устройство** (AsyncStorage base64; для прода —
+  expo-secure-store / Keychain / Keystore, задокументировано как остаточное ограничение
+  в LEGAL.md §2). Публичный регистрируется на сервере.
+- **Модель UserKey** (user_keys): userId, keyId, publicKey (base64), deviceName, is_active;
+  unique(user_id, key_id); models/index.js подхватывает автоматически (readdirSync).
+- **API ключей** (routes/keys.js, Joi registerKeySchema, все под authenticate()):
+  - `POST /api/keys` `{keyId, publicKey, deviceName?}` — upsert (регистрация/ротация);
+  - `GET /api/keys` — свои ключи;
+  - `DELETE /api/keys/:keyId` — деактивация (is_active=false, не удаление — история);
+  - `GET /api/chats/:id/keys` — активные ключи ВСЕХ участников чата (доступ через
+    canAccessChat; в ответе userId + keyId + publicKey).
+- **Конверт** (envelope): `{ v:1, alg:'x25519-box', epk: <эфемерный pubkey b64>,
+  nonce: <24 байта b64>, boxes: { [userId]: <шифротекст b64> } }` — по боксу на каждого
+  участника + бокс отправителя (чтобы свои другие устройства могли прочитать).
+- **Серверная валидация** (validateE2EEnvelope в chatController): структура конверта,
+  ≤10 boxes, ≤32 КБ/бокс, ≤256 КБ конверт, бокс отправителя обязателен, content обязан
+  быть пуст. При валидном конверте: `Message.metadata.e2e = конверт`, `content=''`,
+  `isEncrypted=true`, `lastMessageText=''` — **plaintext в БД отсутствует**.
+- **Без envelope** — старый plaintext-путь (обратная совместимость; smoke-тесты не ломаются).
+- **Мобильный клиент** (services/e2eCryptoService.js + hooks/useChat.js):
+  - при монтировании useChat регистрирует свой публичный ключ (идемпотентно, best-effort);
+  - отправка: участник-проверки (мой id в ChatParticipant, у ВСЕХ участников есть ключи,
+    включая мой) → encryptForRecipients; иначе graceful fallback на plaintext —
+    **чат никогда не ломается**;
+  - входящие: расшифровка конвертов в REST-истории и Socket.IO newMessage;
+    нерасшифровываемое → «🔒 Зашифрованное сообщение»;
+  - чат-лист: пустой preview + наличие lastMessageId = зашифрованное сообщение (🔒).
+- **Админы** (clinic_admin/system_admin) **не являются участниками E2E-переписки** и
+  прочитать содержимое E2E-сообщений не могут — осознанное свойство end-to-end модели.
+- **Остаточные ограничения** (честно): файлы/голосовые пока вне E2E-конвертов;
+  метаданные видимы серверу; приватные ключи в AsyncStorage до перехода на secure store;
+  нет Double Ratchet (forward secrecy) — этап 7 ROADMAP_NATIVE.md.
 
 ### Файлы, приёмы, рецепты
 - `POST /api/files/upload` — multipart поле `file`, `chatId` optional (Joi uuid)
@@ -153,11 +201,13 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
   сервер сам джойнит комнаты `chat:<id>` / `chat:uuid:<id>` **с проверкой canAccessChat**.
 - `typing {chatId, isTyping}` → broadcast `userTyping {userId, isTyping, chatId}` (только
   если сокет в комнате).
-- Сервер эмитит: `newMessage` (полный JSON сообщения с sender/receiver/files includes),
+- Сервер эмитит: `newMessage` (полный JSON сообщения с sender/receiver/files includes;
+  для E2E-сообщений — с конвертом в metadata.e2e, клиент расшифровывает локально),
   `chatUpdated`, `messageRead`.
 - Мобильный `useChat.js` — **server-first**: сокет + REST-fallback, дедупликация newMessage,
   re-join на реконнект ('connect'), оптимистичная отправка (tmp-* id, замена по ответу,
-  402 → человекочитаемая ошибка).
+  402 → человекочитаемая ошибка); E2E: расшифровка входящих, восстановление локального
+  текста своих сообщений.
 - Обработчика `sendMessage` на сервере НЕТ: отправка — только REST POST
   `/api/chats/:id/messages`, сокет — только чтение (newMessage/typing/messageRead).
 
@@ -194,12 +244,15 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
 4. **Вебхуки** (webhookController.js) — ЗАГЛУШКИ: только console.log, статусы транзакций
    НЕ меняют, проверка подписи закомментирована. Реальные шлюзы отключены по требованию
    владельца (`getPaymentMethods`: yoomoney/tinkoff/card → `isAvailable: false`).
-5. **Мобильное E2E-шифрование — РЕШЕНО удалением** (5a8eceb + b7962cd + d11d285):
-   `services/encryptionService.js` и `context/ChatContext.js` удалены. Честное состояние:
-   E2E-шифрование НЕ реализовано (не было ни обмена ключами, ни рабочего кода —
-   в decryptMessage читалась переменная до инициализации). Защита: TLS на транспорте +
-   серверный cryptoService для storage. Если появится задача E2E — проектировать
-   заново (X25519 key exchange + server key registry), а не воскрешать удалённое.
+5. **E2E-шифрование**: старый «мобильный encryptionService» был мёртвым сломанным кодом
+   (decryptMessage читал переменную до инициализации) — удалён целиком (5a8eceb +
+   b7962cd + d11d285) вместе с ChatContext. **Вместо воскрешения старого кода E2E
+   спроектировано заново** (d11762c → 596c4a3): X25519 key exchange + серверный реестр
+   публичных ключей (UserKey) + конверты x25519-box (раздел 5, «E2E-контракт»).
+   Приватные ключи не покидают устройство; plaintext E2E-сообщений в БД отсутствует.
+   Честные остаточные ограничения: AsyncStorage вместо secure store (прод — Keychain/
+   Keystore), plaintext-fallback при отсутствии ключей у участника, метаданные видимы
+   серверу, файлы вне E2E-контура (см. LEGAL.md §2).
 6. **AuthContext (mobile)** — тонкий pass-through на authService + стабы
    verifyClinicCode/checkDoctorVerification (UI ждёт эти методы, реальной серверной
    проверки кода клиники в мобильном флоу нет — она есть на сервере при register doctor).
@@ -231,6 +284,10 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
     экспорта есть. Помни при добавлении новых сервисов: проверяй ИМЯ экспорта против импортов.
 17. **Fake loading в App.js удалён** (d11d285): искусственная задержка 2 с «simulate loading»
     замедляла каждый старт без пользы.
+18. **E2E добавлен БЕЗ Joi-схемы на POST /api/chats/:id/messages** (тело исторически без
+    Joi) — конверт валидируется инлайн в chatController (validateE2EEnvelope): структура,
+    лимиты размеров, обязательность бокса отправителя, пустой content. Если появится
+    Joi-схема на этот роут — не потерять поле envelope.
 
 ### История критических багфиксов (эта серия коммитов, ноябрь 2026)
 **Сервер** (ранние фиксы): req.file vs req.files (все загрузки падали 400); file.buffer пуст при
@@ -246,6 +303,10 @@ system_admin/banned; аватар без multer (всегда 400); GET /users/s
 /:id; privateKey в req.user; печатная форма рецептов — doctor.Specialties (несуществующее
 поле) → специальность всегда N/A, заменили на specialtyDetails; композитный индекс
 messages(chat_id, created_at) против filesort пагинации.
+**Сервер** (d11762c → 596c4a3, E2E): модель UserKey + validators/key.js + controllers/keysController.js
++ routes/keys.js; routes/chats.js GET /:id/keys; index.js подключение /api/keys;
+chatController — validateE2EEnvelope + E2E-ветка sendMessage (metadata.e2e, content='',
+isEncrypted=true, lastMessageText='').
 **Мобильный клиент**: /api/v1 в базовом URL; data.token vs accessToken; paymentProcess без
 type; двойное списание при отправке после оплаты; локальное шифрование в useChat ломало чат
 (переписан на server-first); EPrescription без patientId; register без status active;
@@ -257,6 +318,11 @@ Platform без импорта (заменили на настоящий Refresh
 + шрифты не грузились; ChatProvider грузил историю ВСЕХ чатов N+1 и шифровал сообщения
 через несуществующий privateKey; encryptionService — мёртвый сломанный код (удалён);
 искусственная задержка старта 2 с (удалена).
+**Мобильный клиент** (3d5bfd1 + 596c4a3, E2E): services/e2eCryptoService.js (pure JS base64/
+UTF-8 — в RN нет гарантированных btoa/atob; tweetnacl уже в deps); useChat.js — регистрация
+ключа при монтировании, buildE2EEnvelope с participant-проверками, шифрование при отправке,
+расшифровка входящих (REST + сокет), замочек в чат-листе, локальное восстановление текста
+своих сообщений (сервер его не хранит).
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -284,14 +350,18 @@ node stop.js [--docker]                     # остановить процес�
   `npm run test:smoke` (сервер на :3990, сам поднимается).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
-- CI зелёный для 65ec99c (run #31, оба джоба). Логи падений бот ci-reporter коммитит
-  в `ci-logs/` (ci-smoke.log / ci-jest.log) — при красном прогоне читать оттуда.
+- CI зелёный: 3ef9ff0/#30, 65ec99c/#31, серия E2E-коммитов d11762c → 9588c90 (runs #38–#41
+  success). Мобильные коммиты серии (3d5bfd1, 596c4a3) серверные джобы не затрагивают.
+  Логи падений бот ci-reporter коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log) — при
+  красном прогоне читать оттуда.
 
 ## 11. Что осталось сделать (roadmap)
 
 1. ~~Добить CI до зелёного~~ — зелёный с 3ef9ff0/#30 и 65ec99c/#31; держать зелёным.
-2. ~~E2E-шифрование: включить или удалить encryptionService~~ — удалено (5a8eceb);
-   если понадобится настоящее E2E — проектировать key-exchange заново.
+2. ~~E2E-шифрование~~ — **реализовано** (d11762c → 596c4a3): X25519 + NaCl box, реестр
+   ключей UserKey, конверты в Message.metadata, graceful fallback. Остаточное (в порядке
+   приоритета): приватные ключи → expo-secure-store/Keychain/Keystore; Double Ratchet
+   (forward secrecy); E2E для файлов/голосовых; идентификация пользователей 149-ФЗ ст. 10.1.
 3. ~~Фейл-фаст валидация JWT_SECRET при старте сервера~~ — сделано (65ec99c).
 4. ~~Вырезать privateKey из req.user~~ — сделано (65ec99c).
 5. Подписи вебхуков (когда/если появятся реальные шлюзы).
@@ -299,6 +369,8 @@ node stop.js [--docker]                     # остановить процес�
 7. UI-полировка мобилки, локализация, тёмная тема.
 8. Пагинация/виртуализация длинных чатов в мобильном клиенте.
 9. Webhook-заглушки (п. 8.4) — при подключении реальных шлюзов.
+10. Нативные клиенты и Rust-ядро — см. ROADMAP_NATIVE.md (iOS/Android native, Tauri
+    desktop Windows/Linux, крипто-ядро на Rust/C).
 
 ---
 
