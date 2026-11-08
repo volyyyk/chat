@@ -82,7 +82,7 @@ function boxSealOpen1() {
   if (opened === null) throw new Error('nacl.box.open вернул null');
 }
 boxSealOpen1();
-measure('tweetnacl box seal+open / 1 recipient / 31B', boxSealOpen1);
+measure('tweetnacl box seal+open / 1 recipient / 30B', boxSealOpen1);
 
 // seal+open, 3 получателя: групповой чат (3 бокса под одной эфемерной парой).
 function boxSealOpen3() {
@@ -94,7 +94,7 @@ function boxSealOpen3() {
   if (opened === null) throw new Error('nacl.box.open вернул null');
 }
 boxSealOpen3();
-measure('tweetnacl box seal+open / 3 recipients / 31B', boxSealOpen3);
+measure('tweetnacl box seal+open / 3 recipients / 30B', boxSealOpen3);
 
 // seal, 1 получатель: путь отправителя без расшифровки.
 function boxSeal1() {
@@ -102,7 +102,7 @@ function boxSeal1() {
   nacl.box(MSG, nonce, bob.publicKey, eph.secretKey);
 }
 boxSeal1();
-measure('tweetnacl box seal / 1 recipient / 31B', boxSeal1);
+measure('tweetnacl box seal / 1 recipient / 30B', boxSeal1);
 
 // ---------- Node crypto AES-256-GCM (message-key-шаг Double Ratchet) -----------
 const gcmKey = crypto.randomBytes(32);
@@ -118,7 +118,7 @@ function aesGcmRoundtrip() {
   if (!pt.equals(MSG)) throw new Error('AES-GCM roundtrip не совпал с plaintext');
 }
 aesGcmRoundtrip();
-measure('node crypto AES-256-GCM encrypt+decrypt / 31B', aesGcmRoundtrip);
+measure('node crypto AES-256-GCM encrypt+decrypt / 30B', aesGcmRoundtrip);
 
 // ---------- нативный bcrypt (cost 5 KAT + production cost 12) -------------------
 const KAT_HASH5 = '$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW';

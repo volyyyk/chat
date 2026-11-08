@@ -586,7 +586,7 @@ authService хэширует пароли с cost 12) на той же фикс�
 **Бенчмарки крипто-пути** (d2db23e + f79de00): DoD Этапа 2 «бенчмарк
 ≥ x10 к Node». Rust-сторона: benches/crypto.rs (criterion 0.5 — dev-зависимость,
 target [[bench]] harness=false, в обычные прогоны ядра не входит): конверты
-x25519-box (seal+open 1/3 получателя, seal; payload 31 байт), Double Ratchet
+x25519-box (seal+open 1/3 получателя, seal; payload 30 байт), Double Ratchet
 (encrypt+decrypt и полный wire-цикл), bcrypt_verify (cost 5 KAT «U*U» +
 production cost 12, sample_size 10). Node-зеркало: server/bench/coreBench.js
 (npm run bench:core) — tweetnacl-box мобильного клиента (эфемерная пара +
@@ -598,7 +598,13 @@ production cost 12, sample_size 10). Node-зеркало: server/bench/coreBench
 «≥ x10» читается из лога, тайминги не гейтятся автоматикой (машины
 шатательны). Честно: AES-GCM в Node — нативный OpenSSL, ratchet в Node нет —
 поэтому эталон сравнения — конвертный x25519-box-путь (JS tweetnacl), по нему
-и ожидается ≥ x10.
+и ожидается ≥ x10. Первый прогон (run 42474787549, ci-logs/ci-bench.log):
+Rust быстрее конвертного пути в 11.6–15.2 раза (seal+open/1: 116.8 µs
+против 1.53 мс; seal+open/3: 218.4 µs против 2.53 мс; seal: 66.5 µs против
+1.01 мс) — DoD «≥ x10» закрыт по эталонному пути. Double Ratchet
+encrypt+decrypt: 1.92 µs (в Node реализации нет — сравнивать не с чем).
+bcrypt: обе стороны нативные, Rust-крейт чуть медленнее (cost 5: 1.86 против
+1.64 мс; cost 12: 233 против 206 мс) — DoD на bcrypt-путь не заявлялся.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -672,7 +678,9 @@ node stop.js [--docker]                     # остановить процес�
   джобах, серия закрыта. Далее eed2ddb/e2e42c3/edc65e2 (доки), 8776f7c добавил
   векторные тесты bcrypt в server-tests и core-tests (см. выше). Серия бенчмарков:
   d2db23e (criterion, benches/crypto.rs) и f79de00 (Node-зеркало + джоба
-  core-bench, лог публикуется при любом исходе). Логи падений бот ci-reporter
+  core-bench, лог публикуется при любом исходе; первый прогон 42474787549 — DoD
+  «≥ x10» закрыт: конвертный x25519-box-путь 11.6–15.2x в пользу Rust). Логи
+  падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log; ci-bench.log пишется при любом исходе) — при
   красном прогоне читать оттуда.
 
@@ -708,7 +716,8 @@ node stop.js [--docker]                     # остановить процес�
     JsRatchetState, feature napi-bind — CI зелёный). Дальше: UniFFI для
     Swift/Kotlin, интеграция ratchet в клиенты, cargo-fuzz, ~~бенчмарки (DoD ≥ x10
     к Node)~~ — сделано (d2db23e + f79de00: criterion + Node-зеркало + джоба
-    core-bench; числа — ci-logs/ci-bench.log), сборка .node-артефакта в CI (+ Node-интеграция юнит-тестов обёрток).
+    core-bench; первый прогон 42474787549: конвертный путь 11.6–15.2x — DoD закрыт),
+    сборка .node-артефакта в CI (+ Node-интеграция юнит-тестов обёрток).
 
 ---
 
