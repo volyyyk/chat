@@ -37,6 +37,9 @@ async function makeBackup(filename, options = {}) {
   let payload = Buffer.from(JSON.stringify({ version: '1.0', dataTypes: [] }), 'utf8');
   if (compressed) payload = gzipCompress(payload);
   let encrypted = BackupService.encrypt(payload, key, iv);
+  // чексумма фиксируется ДО порчи: metadata.checksum описывает эталонный
+  // шифротекст, а битый файл обязан разойтись с ним (сценарий этапа 6)
+  const checksum = withChecksum ? sha256Hex(encrypted) : null;
   if (corrupt) {
     encrypted = Buffer.from(encrypted);
     encrypted[encrypted.length - 1] ^= 0xff;
@@ -49,7 +52,7 @@ async function makeBackup(filename, options = {}) {
     iv: iv.toString('hex'),
   };
   if (compressed) metadata.compressed = true;
-  if (withChecksum) metadata.checksum = sha256Hex(encrypted);
+  if (withChecksum) metadata.checksum = checksum;
   return {
     id: 'backup-integrity-test',
     userId: 'user-1',
