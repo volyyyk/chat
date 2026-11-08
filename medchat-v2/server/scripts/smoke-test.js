@@ -641,6 +641,73 @@ async function main() {
   );
 
   // ------------------------------------------------------------------
+  console.log('\n[13] Поиск по сообщениям (pg_trgm + GIN, /api/messages/search)');
+
+  const docSearch = await request(
+    'GET',
+    '/api/messages/search?query=' + encodeURIComponent('анализ'),
+    { token: doctor.accessToken }
+  );
+  const docSearchRows = (docSearch.json && docSearch.json.data) || [];
+  log(
+    docSearch.status === 200 &&
+      docSearchRows.some((m) => String(m.content || '').toLowerCase().includes('анализ')),
+    'врач находит seed-сообщение «…по результатам анализов» глобальным поиском',
+    { status: docSearch.status, rows: docSearchRows.length }
+  );
+
+  const shortQuery = await request(
+    'GET',
+    '/api/messages/search?query=' + encodeURIComponent('а'),
+    { token: doctor.accessToken }
+  );
+  log(shortQuery.status === 400, 'query короче 2 символов отклоняется (400)', shortQuery.status);
+
+  const junkSearch = await request(
+    'GET',
+    '/api/messages/search?query=' + encodeURIComponent('QQQQZZZZ'),
+    { token: doctor.accessToken }
+  );
+  const junkRows = (junkSearch.json && junkSearch.json.data) || [];
+  log(
+    junkSearch.status === 200 && junkRows.length === 0,
+    'мусорный запрос возвращает пустой результат',
+    { status: junkSearch.status, rows: junkRows.length }
+  );
+
+  const scopedSearch = await request(
+    'GET',
+    '/api/messages/search?chatId=' + chat1.id + '&query=' + encodeURIComponent('лекарство'),
+    { token: patient1.accessToken }
+  );
+  const scopedRows = (scopedSearch.json && scopedSearch.json.data) || [];
+  log(
+    scopedSearch.status === 200 &&
+      scopedRows.some((m) => String(m.content || '').includes('лекарство')),
+    'поиск с chatId: пациент 1 находит «лекарство» в своём чате',
+    { status: scopedSearch.status, rows: scopedRows.length }
+  );
+
+  const foreignSearch = await request(
+    'GET',
+    '/api/messages/search?chatId=' + chat1.id + '&query=' + encodeURIComponent('лекарство'),
+    { token: patient2.accessToken }
+  );
+  log(foreignSearch.status === 403, 'поиск в чужом чате отклоняется (403)', foreignSearch.status);
+
+  const p1Global = await request(
+    'GET',
+    '/api/messages/search?query=' + encodeURIComponent('результатам анализов'),
+    { token: patient1.accessToken }
+  );
+  const p1GlobalRows = (p1Global.json && p1Global.json.data) || [];
+  log(
+    p1Global.status === 200 && p1GlobalRows.length === 0,
+    'глобальный поиск изолирован: пациент 1 НЕ видит сообщения чата пациента 2',
+    { status: p1Global.status, rows: p1GlobalRows.length }
+  );
+
+  // ------------------------------------------------------------------
   console.log('\n==============================================');
   console.log('Проверок: ' + checks + ', ошибок: ' + failures);
   console.log('==============================================');

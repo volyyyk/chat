@@ -23,7 +23,7 @@
 | Double Ratchet (forward secrecy) | прототип в medchat-core (src/ratchet.rs, 6aff983 + skip-store d033eeb + wire-формат a43102d) | **Rust** в ядре + napi-rs/UniFFI биндинги | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
 | Хэширование чексумм файлов, сжатие бэкапов | Node streams | **Rust** (napi-rs) | CPU-bound, разгружает event-loop сервера |
 | Realtime gateway (fan-out тысяч соединений) | Node Socket.IO | Этап A: Node + Redis pub/sub; Этап B: **Rust** (tokio) при >10k соединений | Node справляется до тысяч; переписывать раньше времени — риск без выгоды |
-| Поиск по сообщениям | Postgres LIKE | Сначала pg_trgm + GIN; затем **Rust** (Tantivy) при полнотексте | Дешёвая оптимизация раньше тяжёлой |
+| Поиск по сообщениям | Postgres ILIKE + GIN pg_trgm (seed: messages_content_trgm_idx) | **Rust** (Tantivy) при полнотексте | «Сначала pg_trgm + GIN» — сделано; дешёвая оптимизация раньше тяжёлой |
 | iOS-клиент | Expo (JS) | **Swift + SwiftUI** + Rust-ядро (UniFFI) | Требования App Store, производительность, Keychain для ключей, нативные push (APNs) |
 | Android-клиент | Expo (JS) | **Kotlin + Jetpack Compose** + Rust-ядро (JNI) | Play Store, Android Keystore, FCM-фоновая доставка |
 | Windows-клиент (exe) | — | **Tauri 2 (Rust)**, общий UI с Linux | ~10–15 МБ вместо Electron-сотен, system webview, подпись Authenticode |

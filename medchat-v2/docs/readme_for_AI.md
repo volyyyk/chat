@@ -184,6 +184,7 @@ medchat-v2/
 
 Приёмы: completed −5 дней и −40 дней от текущей даты (проверка окна бесплатных сообщений).
 Smoke-тест: `npm run test:smoke` — поднимает сервер на :3990 и гоняет сценарий всех ролей.
+Сид также создаёт поисковый GIN-индекс pg_trgm по messages.content (см. §5, поиск по сообщениям).
 
 ## 5. Контракт API (ключевое)
 
@@ -221,6 +222,13 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
   - с `envelope`: E2E-путь (см. «E2E-контракт» ниже) — content обязан быть пуст;
   - без: `PaymentService.resolveMessageFree`; если не free — **авто-списание** с тестового
     баланса (50 ₽), при нехватке средств → 402 PAYMENT_REQUIRED.
+- `GET /api/messages/search?chatId?&query&page&limit` — поиск по содержимому сообщений
+  (query ≥ 2 симв, иначе 400 VALIDATION_ERROR): Op.iLike по content, ответ `{data, pagination}`;
+  при chatId — canAccessChat (чужой → 403), иначе getAccessibleChatIds (только доступные чаты).
+  Ускорение: GIN-индекс `messages_content_trgm_idx` (pg_trgm, gin_trgm_ops), создаётся
+  seed-скриптом (raw SQL, non-fatal) — ILIKE идёт по индексу вместо seq scan.
+  Честно: E2E-сообщения (content='') не ищутся — plaintext у сервера отсутствует;
+  ранжирование/Tantivy — «затем» по ROADMAP §1.
 - ENUM типов сообщений: `text, image, video, audio, file, system, payment, prescription,
   appointment, reminder`; attachments — массив UUID файлов (привязка через File.update).
 - `GET /api/eprescriptions/:id/printable` — печатная форма HTML; специальности врача
@@ -721,6 +729,15 @@ generate_keypair() в тесте (как в harness ratchet_roundtrip_fuzz,
 приемлемо). Двоичные иконки (PNG/ICO/ICNS) в репо не коммитятся (push_files — только текст): для
 установщиков этапа 5 иконки нужно будет положить в репо иным каналом.
 **Сервер: идентификация пользователей 149-ФЗ ст. 10.1** (этот коммит): эндпоинты POST /api/auth/phone/request-code и /phone/verify (оба под authenticate): одноразовый 6-значный код (crypto.randomInt), хранится в VerificationToken (type=phone, формат hex:код, срок 10 минут), повторный запрос инвалидирует предыдущие коды (update usedAt), успешная сверка ставит user.phoneVerified=true, смена номера сбрасывает phoneVerified; Joi-схемы phoneRequestSchema/phoneVerifySchema; интеграционные тесты (успешный флоу, неверный/истёкший код, 400 без номера, 401 без токена, 400 на невалидное тело). Честно: SMS-доставка — заглушка (logger.info), реальный SMS-гейт/Госуслуги — оператору перед продом; NODE_ENV != production возвращает devCode в ответе.
+**Поиск по сообщениям: pg_trgm + GIN** (этот коммит): роут /api/messages/search существовал и
+был корректен, но каждый запрос — seq scan по всей messages. Индекс
+messages_content_trgm_idx (gin, gin_trgm_ops) создаётся raw-SQL в seed-скрипте
+(CREATE EXTENSION/INDEX IF NOT EXISTS, non-fatal warn), а НЕ в модели Message:
+gin_trgm_ops требует расширение pg_trgm — sync() с таким индексом падал бы в
+окружениях без него (не-postgres диалекты gin не знают). ILIKE по GIN-trgm-индексу
+ускоряется сам — контроллер не менялся, только комментарий. Честные ограничения:
+E2E-сообщения (content='') не ищутся — plaintext у сервера отсутствует (свойство E2E,
+не баг); similarity-ранжирование и Tantivy — «затем» по ROADMAP §1.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -757,6 +774,11 @@ node stop.js [--docker]                     # остановить процес�
 - **e2e-smoke**: services Postgres (db medchat_test) + Redis; `npm run seed:test` +
   `npm run test:smoke` (сервер на :3990, сам поднимается). С 623d777 включает секцию [12] E2E:
   +13 проверок реестра ключей и конвертов (ротация, 403 на чужие ключи, plaintext-защита).
+  С этого коммита — секция [13] «Поиск по сообщениям»: 6 проверок: глобальный поиск
+  врача находит seed-сообщение «…анализов»; 400 на query < 2; пустой результат на
+  мусорный запрос; скоуп по chatId («лекарство» в своём чате); 403 на поиск в чужом
+  чате; глобальный поиск изолирован по доступным чатам. Сид (seed:test) создаёт
+  pg_trgm + GIN-индекс по content (non-fatal warn при отсутствии прав).
 - **core-tests**: Rust-ядро medchat-v2/core — stable-тулчейн, кэш (Swatinem/rust-cache),
   два шага (с e411a54): `cargo check --tests` (компиляция ядра + napi-биндингов
   src/node.rs и их #[cfg(test)]-кода; type-check без линковки — napi_*-символы

@@ -256,7 +256,10 @@ class MessageController {
   }
 
   /**
-   * Search messages
+   * Search messages: Op.iLike '%query%' по content. Ускоряется GIN-индексом
+   * pg_trgm (messages_content_trgm_idx, gin_trgm_ops; создаётся seed-скриптом,
+   * см. src/seeds/testData.js). Честно: E2E-сообщения (content='') не ищутся -
+   * plaintext у сервера отсутствует.
    */
   static async search(req, res, next) {
     try {

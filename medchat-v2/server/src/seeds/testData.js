@@ -141,10 +141,34 @@ async function seedMessage(chat, sender, receiver, content, opts = {}) {
   }
 }
 
+// pg_trgm GIN-индекс для поиска по сообщениям (ROADMAP §1: «Сначала pg_trgm + GIN»).
+// /api/messages/search делает Op.iLike '%query%' по content - GIN с gin_trgm_ops
+// позволяет Postgres использовать индекс вместо seq scan по всей таблице.
+// В модели Message его сознательно НЕ описываем: gin_trgm_ops требует расширение
+// pg_trgm, и sync() с таким индексом падал бы в окружениях без него
+// (не-postgres диалекты gin не знают). Non-fatal: без прав на расширение
+// поиск остаётся корректным, просто без ускорения.
+async function ensureSearchIndex() {
+  try {
+    await models.sequelize.query('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+    await models.sequelize.query(
+      'CREATE INDEX IF NOT EXISTS messages_content_trgm_idx ON messages USING gin (content gin_trgm_ops)'
+    );
+    console.log('pg_trgm + GIN-индекс messages_content_trgm_idx: готово');
+  } catch (e) {
+    console.warn(
+      'Поисковый GIN-индекс не создан (поиск работает, но без ускорения): ' + e.message
+    );
+  }
+}
+
 async function main() {
   console.log('Seeding MedChat test data...');
 
   await models.sequelize.sync();
+
+  // 0. Search acceleration: pg_trgm + GIN on messages.content
+  await ensureSearchIndex();
 
   // 1. Clinic
   let clinic = await models.Clinic.findOne({ where: { code: CLINIC_CODE } });

@@ -226,6 +226,11 @@ module.exports = (sequelize, DataTypes) => {
           // Avoids a filesort on large chat histories.
           fields: ['chat_id', 'created_at'],
         },
+        // NOTE: the substring-search index (GIN gin_trgm_ops on content for
+        // /api/messages/search) deliberately does NOT live here: it requires
+        // the pg_trgm extension, and sync() with such an index would crash in
+        // environments without it. The seed script creates it via raw SQL -
+        // see src/seeds/testData.js (ensureSearchIndex).
       ],
     }
   );
