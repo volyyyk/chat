@@ -856,7 +856,14 @@ jobs:
           echo "[ci-android] installing cargo-ndk"
           cargo install --locked cargo-ndk
           echo "[ci-android] cross-compiling 3 ABI (api 21)"
-          ANDROID_NDK_HOME=/opt/android-ndk-r27c cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -p 21 build --release --no-default-features --features uniffi-bind,serde
+          # NB (run 42520309135): в cargo-ndk 4.x флаг платформы —
+          # -P/--platform (заглавная P; default_value 21). Строчная -p
+          # НЕ принадлежит cargo-ndk и уезжает в cargo-аргументы, где
+          # трактуется как --package 21 — паника «unknown package: 21».
+          # ANDROID_NDK_ROOT выравниваем с нашей зафиксированной NDK,
+          # иначе cargo-ndk предупреждает о несовпадении с
+          # предустановленной NDK раннера (warning, но шумно).
+          ANDROID_NDK_HOME=/opt/android-ndk-r27c ANDROID_NDK_ROOT=/opt/android-ndk-r27c cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 21 build --release --no-default-features --features uniffi-bind,serde
           ls -la target/aarch64-linux-android/release/libmedchat_core.so
           ls -la target/armv7-linux-androideabi/release/libmedchat_core.so
           ls -la target/x86_64-linux-android/release/libmedchat_core.so

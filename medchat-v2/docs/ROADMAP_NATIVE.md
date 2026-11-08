@@ -213,6 +213,13 @@ Play Console и подписи — на машине оператора (сек�
     Прогон 42520064455: компиляция kotlinc зелёная, JNA-рантайм упал
     на kotlin-stdlib вне класспаса (NoClassDefFoundError Function0) —
     stdlib добавлена в -cp java (find в /opt/kotlinc с диагностикой).
+    Прогон 42520309135: kotlin-smoke ЗЕЛЁНЫЙ целиком (все 32 проверки —
+    stdlib-фикс сработал); кросс-компиляция упала на смене синтаксиса
+    cargo-ndk 4.x: платформа — это --platform (заглавная -P; в 3.x была
+    строчная -p), строчная -p уезжает в cargo-аргументы и трактуется
+    как --package 21 → паника unknown package: 21. Флаг заменён на
+    --platform 21, ANDROID_NDK_ROOT выровнен с зафиксированной NDK r27c
+    (иначе warning о несовпадении с предустановленной NDK раннера).
 
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
 **Tauri 2** (Rust + системный webview): один UI на обе платформы.
