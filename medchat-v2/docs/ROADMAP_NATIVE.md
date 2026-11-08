@@ -196,7 +196,16 @@ napi-build (napi-smoke), server-tests гоняют fallback. ~~Сжатие бэ
 utils/compress.js с fallback на node:zlib; backupService сжимает ДО
 шифрования, restore разжимает ПОСЛЕ, флаг metadata.compressed для
 старых бэкапов; тесты compress.test.js + сжатый кейс backupIntegrity).
-k6-нагрузочный (DoD этапа 6) — последний незакрытый пункт. Бизнес-точка подключена: чексуммы целостности
+~~k6-нагрузочный (DoD)~~ — сделано (сценарий server/load/k6-smoke.js:
+/health (лёгкий путь, вне rate limit) + /api/auth/login (тяжёлый:
+bcrypt cost 12 + JWT), ramping 2→10 VUs ~60 с, гейт http_req_failed<1%
+и p95<2500 мс; джоба CI k6-load поднимает Postgres + Redis + seed,
+сервер на раннере в фоне, лог ci-logs/ci-k6.log публикуется всегда —
+деградация p95 читается из репозитория от прогона к прогону;
+RATE_LIMIT_AUTH_MAX/RATE_LIMIT_WINDOW_MS повышены только в env
+CI-стенда, прод-дефолты rateLimiter.js не тронуты; «x10 текущей»
+калибруется оператором на реальном стенде — CI гейтит профиль).
+Этап 6 закрыт по всем позициям DoD. Бизнес-точка подключена: чексуммы целостности
 бэкапов (createBackup фиксирует metadata.checksum SHA-256 шифротекста,
 restoreBackup и verifyBackupPassword сверяют до расшифровки, битый файл
 → 422 INTEGRITY_ERROR; тест backupIntegrity.test.js на моках моделей без

@@ -685,3 +685,128 @@ jobs:
           git fetch origin main
           git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
           git push origin HEAD:main || echo "push failed (non-fatal)"
+
+  # Этап 6 ROADMAP_NATIVE (DoD «нагрузочный тест без деградации p95»):
+  # k6-профиль против настоящего сервера (Postgres + Redis + seed),
+  # поднятого на том же раннере. Сценарий server/load/k6-smoke.js:
+  # /health (лёгкий путь, вне rate limit) + /api/auth/login (тяжёлый:
+  # bcrypt cost 12 + JWT). Профиль фиксированный (ramping 2 -> 10 VUs,
+  # ~60 с) и одинаковый от коммита к коммиту: деградация p95 видна по
+  # логу. Лог публикуется ВСЕГДА (как ci-bench.log), а не только при
+  # падении. RATE_LIMIT_* повышены ТОЛЬКО в env этого стенда, чтобы
+  # поток логинов не упирался в брутфорс-лимит; прод-дефолты
+  # middleware/rateLimiter.js не тронуты.
+  k6-load:
+    name: k6 load smoke (этап 6 DoD, fixed profile)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: medchat
+          POSTGRES_PASSWORD: medchat
+          # с NODE_ENV=test сервер добавляет "_test" к DB_NAME
+          POSTGRES_DB: medchat_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: medchat
+      DB_PASSWORD: medchat
+      DB_NAME: medchat
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_SECRET: ci-k6-load-secret
+      JWT_EXPIRES_IN: 30m
+      JWT_REFRESH_EXPIRES_IN: 30d
+      # только для нагрузочного стенда: логины идут потоком, прод-лимит
+      # 10 за 15 мин защищает от брутфорса и здесь не нужен
+      RATE_LIMIT_AUTH_MAX: 100000
+      RATE_LIMIT_WINDOW_MS: 60000
+    defaults:
+      run:
+        working-directory: medchat-v2/server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            nc -z localhost 5432 && echo "Postgres is up" && exit 0
+            sleep 2
+          done
+          echo "Postgres did not become ready" && exit 1
+
+      - name: Seed test data
+        run: npm run seed:test
+
+      - name: Start server in background
+        run: |
+          nohup node src/index.js > k6-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/health > /dev/null && echo "server up" && exit 0
+            sleep 2
+          done
+          echo "server did not become ready"
+          tail -n 50 k6-server.log
+          exit 1
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 load smoke
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; k6 run load/k6-smoke.js; } 2>&1 | tee ../../ci-k6.log
+
+      - name: Print server log on failure
+        if: failure()
+        run: |
+          echo "k6 failed. Server output:"
+          tail -n 100 k6-server.log
+
+      - name: Publish k6 log to the repo
+        if: always()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-k6.log ]; then
+            cp ci-k6.log ci-logs/ci-k6.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no k6 log to publish"
+            exit 0
+          fi
+          git commit -m "load(ci): k6 log from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
