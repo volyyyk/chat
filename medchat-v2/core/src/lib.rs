@@ -14,7 +14,9 @@
 //! Double Ratchet (forward secrecy) — модуль ratchet (этап 7 ROADMAP_NATIVE,
 //! прототип: skip-store внеочередных сообщений реализован; wire-формат
 //! RatchetMessage определён — to_wire/from_wire: header || nonce || ciphertext).
-//! Дальнейшие шаги: napi-rs-биндинги для Node-сервера, UniFFI-биндинги для Swift/Kotlin,
+//! Node.js-биндинги (napi-rs) — модуль node (src/node.rs): generateKeypair,
+//! sealForRecipients, openSealed, keySize/nonceSize. Дальнейшие шаги:
+//! UniFFI-биндинги для Swift/Kotlin, интеграция Double Ratchet в клиенты,
 //! опционально ГОСТ СКЗИ для сертифицированного контура.
 
 use crypto_box::aead::{Aead, AeadCore, OsRng};
@@ -22,6 +24,9 @@ use crypto_box::{Nonce, PublicKey, SalsaBox, SecretKey};
 
 pub mod ratchet;
 pub use ratchet::{RatchetMessage, RatchetState};
+
+// Node.js-биндинги (napi-rs, этап 2 ROADMAP_NATIVE.md).
+pub mod node;
 
 /// Размер приватного/публичного ключа X25519.
 pub const KEY_SIZE: usize = 32;
