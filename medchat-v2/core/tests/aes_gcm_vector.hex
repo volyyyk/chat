@@ -1,0 +1,37 @@
+# Кросс-платформенная фикстура: AES-256-GCM known-answer векторы.
+# Источник: тестовые данные BoringSSL crypto/cipher_extra/test/
+# aes_256_gcm_tests.txt (blob ecb7e9ae; значения NIST CAVP-формата,
+# сами значения — криптографические факты). Формат: key = hex;
+# пустое значение = пустой ввод/вывод.
+#
+# Проверяется двумя реализациями на одной фикстуре:
+# - Rust medchat-core: core/tests/aes_gcm_vector.rs (джоба CI core-tests;
+#   крейт aes-gcm 0.10 — тот же AEAD, что шифрует сообщения Double Ratchet);
+# - Node.js crypto AES-256-GCM: server/tests/coreAesGcm.test.js (джоба
+#   server-tests; та же реализация, что cryptoService сервера).
+#
+# Раскладка AEAD-сообщения Double Ratchet: ct || tag(16).
+
+# Вектор 1: пустой plaintext, пустой AAD — вывод только тег.
+v1_key = e5ac4a32c67e425ac4b143c83c6f161312a97d88d634afdf9f4da5bd35223f01
+v1_nonce = 5bf11a0951f0bfc7ea5c9e58
+v1_pt =
+v1_aad =
+v1_ct =
+v1_tag = d7cba289d6d19a5af45dc13857016bac
+
+# Вектор 2: 5-байтный plaintext, 5-байтный AAD.
+v2_key = 73ad7bbbbc640c845a150f67d058b279849370cd2c1f3c67c4dd6c869213e13a
+v2_nonce = a330a184fc245812f4820caa
+v2_pt = f0535fe211
+v2_aad = e91428be04
+v2_ct = e9b8a896da
+v2_tag = 9115ed79f26a030c14947b3e454db9e7
+
+# Вектор 3: 37-байтный plaintext, 35-байтный AAD.
+v3_key = 8d6ed9a6d410989e3bd37874edb5a89f9ab355fa395967dcbbfa216ec9ce3f45
+v3_nonce = 55debbb289b9439eb47834ab
+v3_pt = 52939c7416220822a77435a46687f134cebc70a2f1a4c33d37
+v3_aad = 7790af913d84a04c1b72d4484ea2e09fdaa802d8b1733b8470
+v3_ct = d7bddae8929ed6bbc9ac077e2415d9fbafae4a0432f8f7eb6b
+v3_tag = e6383b16ed9c32521dcaeef3a7b9b67f
