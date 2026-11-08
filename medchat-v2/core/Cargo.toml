@@ -8,7 +8,11 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "MedChat crypto core: X25519 + NaCl box envelope primitives (E2E-compatible with tweetnacl clients)"
-rust-version = "1.65"
+# MSRV поднят 1.65 → 1.77: napi-build 2.6 эмитит инструкции сборки в синтаксисе
+# `cargo::` (Rust >= 1.77); при заявленном rust-version ниже cargo отвергает
+# билд-скрипт (ошибка прогона 754f677). CI гоняет stable — фактический floor
+# определяется зависимостями (napi 2.16), 1.77 покрывает.
+rust-version = "1.77"
 
 # cdylib — .node-аддон для Node.js (napi-rs), rlib — cargo test и внутренние
 # пользователей ядра (тесты, будущие UniFFI-оболочки).
