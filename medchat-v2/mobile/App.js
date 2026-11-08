@@ -9,10 +9,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { PaperProvider, MD3LightTheme as DefaultTheme } from 'react-native-paper';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Font from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from './src/context/AuthContext';
-import { ChatProvider } from './src/context/ChatContext';
 import { NotificationProvider } from './src/context/NotificationContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { initDatabase } from './src/services/database';
@@ -50,8 +48,9 @@ export default function App() {
         // Keep splash screen visible while we load resources
         await SplashScreen.preventAutoHideAsync();
 
-        // Artificially delay for 2 seconds to simulate loading
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // NOTE: the previous artificial 2-second delay ("to simulate
+        // loading") was removed — startup now takes only as long as the
+        // real work (DB + fonts) requires.
       } catch (e) {
         console.warn(e);
       } finally {
@@ -73,17 +72,15 @@ export default function App() {
       <SafeAreaProvider>
         <PaperProvider theme={theme}>
           <AuthProvider>
-            <ChatProvider>
-              <NotificationProvider>
-                <NavigationContainer>
-                  <StatusBar
-                    style="dark"
-                    backgroundColor={theme.colors.background}
-                  />
-                  <AppNavigator />
-                </NavigationContainer>
-              </NotificationProvider>
-            </ChatProvider>
+            <NotificationProvider>
+              <NavigationContainer>
+                <StatusBar
+                  style="dark"
+                  backgroundColor={theme.colors.background}
+                />
+                <AppNavigator />
+              </NavigationContainer>
+            </NotificationProvider>
           </AuthProvider>
         </PaperProvider>
       </SafeAreaProvider>

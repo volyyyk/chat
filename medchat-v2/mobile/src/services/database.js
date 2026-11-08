@@ -4,7 +4,6 @@
  */
 
 import * as SQLite from 'expo-sqlite';
-import { encryptionService } from './encryptionService';
 
 const DB_NAME = 'medchat.db';
 
@@ -948,65 +947,24 @@ class DatabaseService {
       });
     });
   }
-
-  /**
-   * Encrypt data for backup
-   */
-  async encryptBackupData(data, password) {
-    const salt = encryptionService.arrayBufferToBase64(
-      encryptionService.generateRandomBytes(16)
-    );
-    const key = await encryptionService.deriveKeyFromPassword(password, salt);
-    
-    // Encrypt each data section
-    const encryptedData = {};
-    for (const [keyName, value] of Object.entries(data)) {
-      const jsonString = JSON.stringify(value);
-      const encrypted = encryptionService.encryptMessage(
-        jsonString,
-        encryptionService.arrayBufferToBase64(key),
-        encryptionService.arrayBufferToBase64(key)
-      );
-      encryptedData[keyName] = encrypted;
-    }
-
-    return {
-      data: encryptedData,
-      salt,
-      version: '1.0',
-      createdAt: new Date().toISOString(),
-    };
-  }
-
-  /**
-   * Decrypt backup data
-   */
-  async decryptBackupData(encryptedData, password) {
-    const key = await encryptionService.deriveKeyFromPassword(
-      password,
-      encryptedData.salt
-    );
-
-    const decryptedData = {};
-    for (const [keyName, value] of Object.entries(encryptedData.data)) {
-      try {
-        const decrypted = encryptionService.decryptMessage(
-          value,
-          encryptionService.arrayBufferToBase64(key)
-        );
-        decryptedData[keyName] = JSON.parse(decrypted);
-      } catch (err) {
-        console.error(`Error decrypting ${keyName}:`, err);
-        throw new Error('Invalid password or corrupted backup');
-      }
-    }
-
-    return decryptedData;
-  }
 }
 
 // Singleton instance
 export const databaseService = new DatabaseService();
+
+// The screens import the singleton as `database` (e.g. ChatScreen.js,
+// DoctorHomeScreen.js, PatientHomeScreen.js, SettingsScreen.js,
+// PatientSetupScreen.js, hooks/useNotifications.js). That named export
+// previously did not exist, so every `database.*` call crashed at runtime.
+export const database = databaseService;
+
+// App.js calls this at startup. Previously it imported a non-existent
+// `initDatabase` export (undefined -> TypeError), which also skipped font
+// loading in the same try-block.
+export const initDatabase = async () => {
+  await databaseService.initDatabase();
+  return databaseService;
+};
 
 // Initialize database on import
 databaseService.initDatabase().catch(console.error);
