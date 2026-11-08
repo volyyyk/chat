@@ -21,7 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { paymentService } from '../services/paymentService';
-import { fetchAndDecryptFile, bytesToBase64 } from '../services/e2eCryptoService';
+import { fetchAndDecryptFile, bytesToBase64, getChatKeys, chatFingerprint } from '../services/e2eCryptoService';
 
 // Common MIME -> extension map for staging decrypted / downloaded files in
 // the app cache; the extension decides how the OS opens the file.
@@ -93,6 +93,8 @@ const ChatScreen = ({ navigation, route }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [showDoctorInfo, setShowDoctorInfo] = useState(false);
   const [showFiles, setShowFiles] = useState(false);
+  // E2E safety number of the chat (null while loading or non-E2E chat).
+  const [chatSafetyNumber, setChatSafetyNumber] = useState(null);
 
   // Voice message state
   const [isRecording, setIsRecording] = useState(false);
@@ -115,6 +117,27 @@ const ChatScreen = ({ navigation, route }) => {
       markMessagesAsRead();
     }
   }, [chatId, loadChatInfo, loadFiles, markMessagesAsRead]);
+
+  // E2E safety number (fingerprint of the chat's active key set, этап 7
+  // ROADMAP_NATIVE): best-effort - an aid for out-of-band verification,
+  // never blocks the chat.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token || !chatId) return;
+        const keys = await getChatKeys(token, chatId);
+        const fp = chatFingerprint(keys);
+        if (!cancelled) setChatSafetyNumber(fp);
+      } catch (e) {
+        // best-effort: without the fingerprint the chat still works
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId]);
 
   // Mark messages as read when screen is focused
   useEffect(() => {
@@ -571,6 +594,20 @@ const ChatScreen = ({ navigation, route }) => {
         </View>
 
         <View style={chatStyles.chatHeaderActions}>
+          {chatSafetyNumber && (
+            <TouchableOpacity
+              style={styles.headerAction}
+              onPress={() =>
+                Alert.alert(
+                  'Код безопасности',
+                  chatSafetyNumber +
+                    '\n\nСверьте этот код с собеседником (лично или по телефону): если коды совпадают — ключи не подменены, и переписку читаете только вы.'
+                )
+              }
+            >
+              <MaterialIcons name="verified-user" size={24} color={colors.primary[600]} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.headerAction} onPress={() => setShowFiles(true)}>
             <MaterialIcons name="attach-file" size={24} color={colors.text.primary} />
           </TouchableOpacity>
@@ -580,7 +617,7 @@ const ChatScreen = ({ navigation, route }) => {
         </View>
       </TouchableOpacity>
     );
-  }, [doctorInfo, patientInfo, user, convenientTime, navigation]);
+  }, [doctorInfo, patientInfo, user, convenientTime, navigation, chatSafetyNumber]);
 
   // Render input bar
   const renderInputBar = useCallback(() => {
