@@ -166,11 +166,11 @@ PNG генерируется в build.rs (32x32 RGBA, CRC32/Adler32 на мес�
 bundle.icon: ["icons/icon.png"]: generate_context! требует существующий png
 даже при bundle.active=false, а пустой список иконок дефолтный фолбэк tauri
 не отменяет (прогоны #113–#116). Сборка установщиков
-запущена (джоба CI desktop-bundle: matrix ubuntu-latest → .deb,
+запущена (джоба CI desktop-bundle: matrix ubuntu-latest → .deb + AppImage,
 windows-latest → NSIS .exe; tauri CLI из npm, артефакты Actions; иконки
 бандлера генерирует build.rs: 32x32/128x128/128x128@2x PNG + icon.ico BMP —
 плейсхолдер-тил, настоящие иконки лягут бинарным каналом). Подписи
-(Authenticode), AppImage, автоапдейт, секреты Credential Manager/libsecret —
+(Authenticode), автоапдейт, секреты Credential Manager/libsecret —
 следующие шаги этапа.
 
 ### Этап 6. Сервер: горячие пути
