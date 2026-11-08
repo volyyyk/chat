@@ -18,7 +18,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true,
         field: 'content',
-        comment: 'Plaintext for legacy/plain messages; EMPTY for E2E (ciphertext lives in metadata.e2e)';
+        comment: 'Plaintext for legacy/plain messages; EMPTY for E2E (ciphertext lives in metadata.e2e)',
       },
       // Message type
       type: {
