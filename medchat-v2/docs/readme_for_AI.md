@@ -37,7 +37,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
-| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом |
+| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
 ## 3. Структура проекта
@@ -92,10 +92,12 @@ medchat-v2/
 │   ├── components/ (8)         — MessageBubble (🔒 на E2E-сообщениях), AudioPlayer, ...
 │   ├── navigation/, styles/, utils/
 ├── web/src/             — pages (7), services, context
-├── core/                — Rust-ядро medchat-core (Cargo.toml, src/lib.rs):
+├── core/                — Rust-ядро medchat-core (Cargo.toml, src/lib.rs, src/ratchet.rs):
 │                          SalsaBox (X25519 + XSalsa20-Poly1305, crypto_box 0.9),
 │                          generate_keypair / seal_for_recipients / open_sealed,
-│                          CoreError; cargo test в CI (джоба core-tests)
+│                          CoreError; ratchet.rs — Double Ratchet (KDF_RK/KDF_CK
+│                          HMAC-SHA256, AES-256-GCM на message keys, 6aff983);
+│                          cargo test в CI (джоба core-tests)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
 │                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE + этот файл
@@ -198,6 +200,13 @@ E2E-сообщений серверу недоступен (хранится т�
   (SalsaBox = X25519 + XSalsa20-Poly1305) — generate_keypair / seal_for_recipients /
   open_sealed, CoreError; бинарно совместимая раскладка боксов с tweetnacl. Этап 2
   ROADMAP_NATIVE; биндинги (napi-rs / UniFFI) — следующие шаги.
+- **Double Ratchet** (этап 7, прототип): medchat-core/src/ratchet.rs — KDF_RK/KDF_CK на
+  HMAC-SHA256 (x25519-dalek 2.0.1 для raw DH, явная feature static_secrets), каждое
+  сообщение AES-256-GCM на одноразовом message key, DH-шаг при смене ratchet-ключа
+  собеседника; forward secrecy + break-in recovery. Честные ограничения прототипа:
+  сообщения строго по порядку (n == nr, skip-store не реализован), в клиенты
+  НЕ интегрирован (мобильный клиент работает на конвертах x25519-box) — интеграция
+  после биндингов.
 - **Админы** (clinic_admin/system_admin) **не являются участниками E2E-переписки** и
   прочитать содержимое E2E-сообщений не могут — осознанное свойство end-to-end модели.
 - **Остаточные ограничения** (честно): файлы/голосовые пока вне E2E-конвертов;
@@ -378,6 +387,12 @@ metadata.e2e при пустом content, 400 на plaintext рядом с ко�
 честный признак конверта), легаси-дефолт Message.isEncrypted заменён на false:
 plaintext-сообщения (сид, prescription из eprescriptionController.send) больше не
 лгут, что зашифрованы. #61 зелёный (63/63).
+**Rust-ядро: Double Ratchet** (6aff983 + fb09c846): прототип этапа 7 в src/ratchet.rs —
+raw X25519 (x25519-dalek 2.0.1 с явной feature static_secrets) + KDF_RK/KDF_CK
+(HMAC-SHA256) + AES-256-GCM на одноразовых message keys; 8 тестов (двусторонний
+раундтрип с ratchet-шагами, replay старого сообщения → OutOfOrder, восстановление
+порядка, tampering, битый заголовок). Не интегрирован в клиенты; ограничения
+прототипа честно задокументированы в модуле.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -408,7 +423,7 @@ node stop.js [--docker]                     # остановить процес�
   +13 проверок реестра ключей и конвертов (ротация, 403 на чужие ключи, plaintext-защита).
 - **core-tests**: Rust-ядро medchat-v2/core — stable-тулчейн, кэш (Swatinem/rust-cache),
   `cargo test` (крейт medchat-core, этап 2 ROADMAP_NATIVE); лог падений публикуется в
-  ci-logs/ci-rust.log.
+  ci-logs/ci-rust.log. С 6aff983 включает ratchet.rs (Double Ratchet, 8 кейсов).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -424,8 +439,9 @@ node stop.js [--docker]                     # остановить процес�
 1. ~~Добить CI до зелёного~~ — зелёный с 3ef9ff0/#30 и 65ec99c/#31; держать зелёным.
 2. ~~E2E-шифрование~~ — **реализовано** (d11762c → 596c4a3): X25519 + NaCl box, реестр
    ключей UserKey, конверты в Message.metadata, graceful fallback. Остаточное (в порядке
-   приоритета): Double Ratchet (forward secrecy); E2E для файлов/голосовых;
-   идентификация пользователей 149-ФЗ ст. 10.1. ~~Secure storage приватных ключей~~ —
+   приоритета): интеграция Double Ratchet (прототип в ядре готов — ratchet.rs, 6aff983;
+   нужно: skip-store, wire-формат, биндинги); E2E для файлов/голосовых; идентификация
+   пользователей 149-ФЗ ст. 10.1. ~~Secure storage приватных ключей~~ —
    сделано (3ab5cf6: expo-secure-store / Keychain / Keystore, миграция из AsyncStorage).
 3. ~~Фейл-фаст валидация JWT_SECRET при старте сервера~~ — сделано (65ec99c).
 4. ~~Вырезать privateKey из req.user~~ — сделано (65ec99c).
@@ -436,8 +452,10 @@ node stop.js [--docker]                     # остановить процес�
 9. Webhook-заглушки (п. 8.4) — при подключении реальных шлюзов.
 10. Нативные клиенты и Rust-ядро — см. ROADMAP_NATIVE.md (iOS/Android native, Tauri
     desktop Windows/Linux, крипто-ядро на Rust/C++). **Этап 2 начат**: крейт medchat-core
-    (3a70911 → ee76670) + джоба core-tests в CI. Дальше: napi-rs-биндинги для Node,
-    UniFFI для Swift/Kotlin, Double Ratchet поверх ядра.
+    (3a70911 → ee76670) + джоба core-tests в CI. **Double Ratchet: прототип готов**
+    (6aff983: ratchet.rs, 8 тестов, forward secrecy + break-in recovery; ограничения —
+    строго по порядку, без skip-store, в клиенты не интегрирован). Дальше:
+    napi-rs-биндинги для Node, UniFFI для Swift/Kotlin, интеграция ratchet.
 
 ---
 
