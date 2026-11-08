@@ -1215,7 +1215,7 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     внутри конверта, honest-fallback на обычный E2E, входящие
     расшифровываются лениво, при неудаче — честная плашка). RN-плашка сделана (ChatScreen:
     isRatchetPayload — честный бейдж вместо JSON-мусора, RN ratchet-сессию
-    не держит). Остаток этапа 7: Android — склейка после ч.3 (Compose UI).
+    не держит). Склейка Double Ratchet в Android — остаток этапа 7.
     Этап 3 начат (ч.1 — инструментальная цепочка): джоба CI ios-smoke (macos-latest):
     runtime-smoke Swift-обвязки (ios/MedchatCoreSmoke.swift — зеркало napi-smoke.js
     на host-cdylib), кросс-компиляция iOS device/sim (staticlib), артефакт
@@ -1230,7 +1230,15 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     runtime-smoke Kotlin-обвязки (android/MedchatCoreSmoke.kt — зеркало napi-smoke.js,
     kotlinc 2.0.21 + JNA против host-cdylib), кросс-компиляция NDK r27c (cargo-ndk,
     arm64-v8a / armeabi-v7a / x86_64) — артефакт medchat-core-android (.so jniLibs);
-    каркас источников этапа 4 ч.2 сделан (ApiService / SecureStore (Android Keystore) / CryptoService / RatchetService + README_ANDROID.md; typecheck в android-smoke против android.jar, без androidx), Gradle-проект и Compose UI (ч.3) — следующие шаги; Play Console и
+    каркас источников этапа 4 ч.2 сделан (ApiService / SecureStore (Android Keystore) / CryptoService / RatchetService + README_ANDROID.md; typecheck в android-smoke против android.jar, без androidx), Gradle-проект + Compose UI (ч.3) сделаны (Kotlin 2.0.21, AGP 8.5.2,
+    Compose BOM, JNA 5.14.0 aar; сервисы переехали в
+    app/src/main/java/medchat/android — package medchat.android, import
+    uniffi.medchat_core, typecheck в android-smoke остался; новая джоба CI
+    android-build собирает unsigned debug-APK (Gradle 8.9, assembleDebug)
+    из артефактов uniffi-bindings + android-smoke; Compose-экраны
+    connect/login/chats/chat — зеркало desktop-клиента, отправка E2E при
+    полном покрытии ключами, honest-fallback, ratchet-payload — честная
+    плашка как в RN; склейка Double Ratchet в Android — остаток этапа 7); Play Console и
     подписи — оператор.
 
 ---

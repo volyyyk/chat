@@ -89,6 +89,10 @@ JNA против host-cdylib); полная сборка приложения (X
   по джобе CI android-smoke (smoke-прогон в CI идёт на JNA 5.14.0).
 - Сгенерированный MedchatCore.kt из артефакта CI + библиотека в jniLibs:
   JNA загружает libmedchat_core.so по имени.
+- С ноября 2026 (этап 4 ч.3) Gradle-проект в medchat-v2/android: пакет
+  app-источников medchat.android импортирует uniffi.medchat_core; обвязка
+  и .so раскладываются в src/main/java/uniffi и src/main/jniLibs (джоба CI
+  android-build, assembleDebug без секретов оператора).
 - С ноября 2026 компиляция и runtime-smoke гейтятся в CI (джоба
   android-smoke): kotlinc 2.0.21 компилирует обвязку вместе с
   medchat-v2/android/MedchatCoreSmoke.kt (зеркало napi-smoke.js) против
@@ -145,6 +149,8 @@ JNA против host-cdylib); полная сборка приложения (X
 - medchat-core-xcframework (device aarch64-apple-ios + simulator, со Swift-заголовками) — джоба ios-smoke (этап 3);
 - medchat-core-android (.so arm64-v8a / armeabi-v7a / x86_64 — jniLibs) —
   джоба android-smoke (этап 4);
+- medchat-android-debug-apk (unsigned debug-APK, Compose UI) — джоба
+  android-build (этап 4 ч.3);
 - ci-logs/*.log — логи падений (метка «=== run <id> job <name>» для сверки
   со свежестью). Артефакты в репо не коммитятся — забирать из Actions.
 
@@ -159,9 +165,10 @@ JNA против host-cdylib); полная сборка приложения (X
 - Этап 4 (Android): с ноября 2026 Kotlin-обвязка компилируется и
   исполняется в CI (джоба android-smoke: runtime-smoke против host-cdylib,
   кросс-компиляция .so через cargo-ndk — артефакт medchat-core-android).
-  Gradle-сборка самого приложения НЕ выполнялась — этот гайд описывает
-  механику; DoD этапа требует internal-testing в Play Console
-  (аккаунт оператора).
+  Gradle-сборка debug-APK выполняется в CI с ноября 2026 (ч.3, джоба
+  android-build: assembleDebug, unsigned; обвязка и .so — артефакты того
+  же прогона); release-подпись и internal-testing в Play Console —
+  аккаунт оператора.
 - Этап 7: склейка ratchet с клиентским UI — одна реализация ядра,
   у клиентов только transport + storage (см. §1 про секреты буфера); raw X25519-DH для shared secret
   экспортирован из ядра (x25519Dh, KAT RFC 7748 §6.1 во всех smoke-зеркалах). Desktop-склейка сделана (ratchet-команды main.rs, per-chat тумблер UI, payload {"t":"r1","k":keyId,"w":wire} внутри plaintext конверта, honest-fallback на обычный E2E); iOS — сделана (RatchetService.ensureSession: X3DH-lite ss = x25519Dh от identity-ключей UserKey, роль по keyId, аккаунт ratchet.<chatId>.<remoteKeyId> в Keychain; ChatView: тумблер + ленивая расшифровка входящих, honest-fallback); Android — далее.

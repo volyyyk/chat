@@ -1,61 +1,84 @@
-# README_ANDROID — каркас Android-клиента (MedChat v2, этап 4 ROADMAP_NATIVE)
+# README_ANDROID — Android-клиент (MedChat v2, этап 4 ROADMAP_NATIVE)
 
-> Каркас источников БЕЗ Gradle-проекта: он компилируется в CI (джоба
-> android-smoke, шаг typecheck) вместе со сгенерированной UniFFI-обвязкой
-> против android.jar. Сборку Gradle-проекта, подписание и публикацию
-> в Play Console выполняет оператор (паттерн честности DESKTOP_RELEASE.md:
-> гейтится всё, что не требует секретов оператора).
+> Этап 4 ч.3: Gradle-проект + Compose UI. Сервисы каркаса живут в
+> app/src/main/java/medchat/android и typecheck'аются в CI (джоба
+> android-smoke, kotlinc против android.jar, без androidx); джоба
+> android-build собирает unsigned debug-APK (assembleDebug) из
+> артефактов CI (uniffi-обвязка + .so). Release-подпись и Play Console
+> — оператор (паттерн честности DESKTOP_RELEASE.md: гейтится всё, что
+> не требует секретов оператора).
 
 ## Что здесь
 
-- ApiService.kt — REST-клиент сервера (HttpURLConnection + org.json,
-  без androidx): /health, /api/auth/login, /api/auth/me, /api/chats,
-  /api/chats/:id/messages, /api/chats/:id/keys, POST /api/keys. Токен
-  живёт в памяти; refreshToken сознательно не хранится: 401 сбрасывает
-  сессию (onUnauthorized → экран входа).
-- SecureStore.kt — секреты в Android Keystore (зеркало KeychainStore на
-  iOS и secure_store на desktop): мастер-ключ AES-256-GCM генерируется и
-  живёт только в AndroidKeyStore, значения хранятся шифротекстом.
-  Сервисы: medchat.app / medchat.e2e / medchat.ratchet.
-- CryptoService.kt — E2E-конверты x25519-box через ядро medchat-core:
-  keyId вида android-*, приватный ключ не покидает устройство (только
-  SecureStore), wire байт-в-байт совместим с мобильным клиентом на
+- settings.gradle.kts / build.gradle.kts / gradle.properties — Gradle
+  8.9, AGP 8.5.2, Kotlin 2.0.21 (Compose-компилятор плагином Kotlin),
+  Compose BOM 2024.09.03, JNA 5.14.0 aar, minSdk 23 (Keystore API),
+  compile/target 34. Gradle wrapper НЕ коммитится: CI ставит Gradle
+  setup-градл-экшеном, локально — gradle wrapper (см. ниже).
+- app/src/main/java/medchat/android/ApiService.kt — REST-клиент
+  (HttpURLConnection + org.json): /health, /api/auth/login,
+  /api/auth/me, /api/chats, /api/chats/:id/messages, /api/chats/:id/keys,
+  POST /api/keys. Токен — в SecureStore; refreshToken сознательно не
+  хранится: 401 сбрасывает сессию (onUnauthorized → экран входа).
+- .../SecureStore.kt — секреты в Android Keystore (AES-256-GCM под
+  мастер-ключом AndroidKeyStore; medchat.app / medchat.e2e /
+  medchat.ratchet).
+- .../CryptoService.kt — E2E-конверты x25519-box через medchat-core
+  (import uniffi.medchat_core): keyId android-*, приватный ключ только
+  в Keystore, wire байт-в-байт совместим с мобильным клиентом на
   tweetnacl (контракт-вектор 1ce9516).
-- RatchetService.kt — Double Ratchet: save/restore MedRatchetState через
-  Keystore, encrypt/decrypt wire-формата; склейка с путём отправки —
-  этап 7 (пока сообщения идут E2E-конвертами).
-- MedchatCoreSmoke.kt — runtime-smoke обвязки (отдельный шаг CI, JVM
-  через JNA против host-cdylib, 32 проверки).
+- .../RatchetService.kt — Double Ratchet: save/restore MedRatchetState
+  через Keystore, encrypt/decrypt wire; склейка с путём отправки —
+  остаток этапа 7 (UI-клиент пока ходит E2E-конвертами).
+- .../MainActivity.kt + MedchatApp.kt — Compose UI (зеркало desktop
+  ui/index.html): connect → login → chats → chat; ключ E2E
+  регистрируется при входе (POST /api/keys); отправка — конверт при
+  полном покрытии ключами участников (content пуст), honest-fallback
+  на plaintext; входящие расшифровываются лениво; ratchet-payload —
+  честная плашка (как в RN); токен/сервер/email — SecureStore.
+- MedchatCoreSmoke.kt — runtime-smoke обвязки (джоба android-smoke,
+  JVM через JNA против host-cdylib).
+- ApiService.kt / SecureStore.kt / CryptoService.kt / RatchetService.kt
+  в корне medchat-v2/android/ — стабы-перенаправления (файлы переехали
+  в app/src/main/java/medchat/android/).
 
-## Как CI проверяет каркас (джоба android-smoke)
+## Как CI проверяет (джобы android-smoke и android-build)
 
-Сгенерированная обвязка (uniffi-bindgen v0.28.3) + четыре файла каркаса
-компилируются kotlinc против android.jar (org.json + Keystore API; если
-платформа не стоит у раннера — sdkmanager доустанавливает platforms;
-android-34) и JNA. androidx/Compose не участвуют: UI-слой будет в
-Gradle-проекте оператора (ч.3 этапа 4).
+- android-smoke: обвязка + MedchatCoreSmoke.kt исполняются в JVM через
+  JNA против host-cdylib; сервисы компилируются kotlinc против
+  android.jar (androidx не участвует; пакет обвязки гейтится явно —
+  uniffi.medchat_core); кросс-компиляция .so (cargo-ndk, NDK r27c,
+  arm64-v8a / armeabi-v7a / x86_64, api 21) — артефакт
+  medchat-core-android.
+- android-build (needs uniffi-bindings + android-smoke): артефакты
+  раскладываются в src/main/java/uniffi и src/main/jniLibs, Gradle 8.9
+  собирает :app:assembleDebug — артефакт medchat-android-debug-apk
+  (unsigned; ставится через adb install).
 
-## Сборка Gradle-проекта (оператор)
+## Локальная сборка (секреты не нужны)
 
-1. Android Studio: новый проект (Kotlin, minSdk 23 — см. ниже),
-   источники medchat-v2/android/ — в main source set.
-2. .so ядра из артефакта medchat-core-android (три ABI) — в
-   src/main/jniLibs/<abi>/libmedchat_core.so (собирает джоба android-smoke,
-   шаг cargo-ndk).
-3. UniFFI-обвязка (артефакт medchat-core-uniffi-bindings, каталог kotlin)
-   — в source set рядом с каркасом (один пакет, без import).
-4. JNA для Android: зависимость net.java.dev.jna:jna (aar) — обвязка
-   зовёт ядро через неё (механика — docs/INTEGRATION_BINDINGS.md).
-5. SecureStore.configure(applicationContext) в Application.onCreate().
-6. UI (Compose) и smoke-сценарии Espresso — ч.3 этапа 4.
+1. Собрать ядро и обвязку (docs/INTEGRATION_BINDINGS.md §3.1):
+   cargo build --release --no-default-features --features uniffi-bind,serde
+   (host) + cargo-ndk для трёх ABI; uniffi-bindgen v0.28.3
+   --language kotlin (та же версия, что крейт).
+2. Раскладка: uniffi-out/kotlin/uniffi → app/src/main/java/uniffi;
+   .so → app/src/main/jniLibs/<abi>/libmedchat_core.so.
+3. gradle :app:assembleDebug (Gradle 8.9+, JDK 17; локально удобно
+   сгенерировать wrapper: gradle wrapper → ./gradlew assembleDebug).
+4. Тест: сервер npm run seed:test + npm start; эмулятор видит хост как
+   10.0.2.2 (адрес http://10.0.2.2:3000); тест-аккаунты
+   patient1@medchat.test / Test1234! (seed:test).
 
 ## Честные ограничения
 
-- Gradle-проекта и Compose-UI нет: каркас — сервисы + typecheck в CI.
-- minSdk: .so собирается с api 21, но SecureStore (KeyGenParameterSpec,
-  AES-GCM в AndroidKeyStore) требует API 23+ — minSdk Gradle-проекта 23.
+- Double Ratchet не склеян с UI-путём отправки — остаток этапа 7
+  (RatchetService готов; сообщения идут E2E-конвертами, ratchet-
+  payload от desktop/iOS показывается честной плашкой).
+- minSdk 23: .so собирается с api 21, но SecureStore (KeyGenParameterSpec,
+  AES-GCM в AndroidKeyStore) требует API 23+.
+- allowBackup=false: секреты не должны уходить в облачный бэкап.
 - Биометрическая привязка ключа (setUserAuthenticationRequired) не
-  настроена — решение оператора после UI-слоя.
-- JNA тянет рантайм; прямой JNI-порт обвязки (uniffi-kotlin без JNA) —
-  при необходимости, замена прозрачная для каркаса.
-- Подписи, Play Console, internal testing — оператор (секреты оператора).
+  настроена — решение оператора после полевых испытаний.
+- JNA тянет рантайм; прямой JNI-порт обвязки — при необходимости,
+  замена прозрачна для сервисов.
+- Подписи, Play Console, internal testing — оператор (секреты).
