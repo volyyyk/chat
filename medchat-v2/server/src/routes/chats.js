@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const ChatController = require('../controllers/chatController');
+const KeyController = require('../controllers/keysController');
 const { validate } = require('../middleware/validation');
 const { authenticate, authorize, isDoctor, isPatient } = require('../middleware/auth');
 const {
@@ -251,6 +252,10 @@ router.get('/:id/messages', ChatController.getMessages);
  * /api/chats/{id}/messages:
  *   post:
  *     summary: Send message to chat
+ *     description: >
+ *       If 'envelope' is provided the message is end-to-end encrypted on the
+ *       sender's device and 'content' must be empty; the server stores only
+ *       the ciphertext envelope (see E2E contract in docs/readme_for_AI.md).
  *     tags: [Chats]
  *     security:
  *       - bearerAuth: []
@@ -330,6 +335,55 @@ router.post('/:id/read', validate(markChatAsReadSchema), ChatController.markAsRe
  *                 $ref: '#/components/schemas/ChatParticipant'
  */
 router.get('/:id/participants', ChatController.getParticipants);
+
+/**
+ * @swagger
+ * /api/chats/{id}/keys:
+ *   get:
+ *     summary: Get E2E public keys of chat participants (active devices only)
+ *     description: >
+ *       Returns the X25519 public keys registered by the participants of this
+ *       chat so the sender can encrypt the message content directly to each
+ *       recipient. Requires chat access; private keys never leave devices.
+ *     tags: [Chats, E2E Keys]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: List of participant public keys
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       userId:
+ *                         type: string
+ *                         format: uuid
+ *                       keyId:
+ *                         type: string
+ *                       publicKey:
+ *                         type: string
+ *                       algorithm:
+ *                         type: string
+ *                       deviceName:
+ *                         type: string
+ *                       lastSeenAt:
+ *                         type: string
+ *                         format: date-time
+ */
+router.get('/:id/keys', KeyController.getChatKeys);
 
 /**
  * @swagger
