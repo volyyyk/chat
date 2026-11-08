@@ -355,10 +355,14 @@ mod tests {
 
     #[test]
     fn ratchet_wire_roundtrip_and_replay() {
+        // X25519-пара обязана быть согласована (public = x25519(secret)):
+        // фиктивные константы — баг #104/#105-класса, decrypt отвечал Aead.
+        let bob_kp = generate_keypair();
         let alice =
-            MedRatchetState::init_initiator(vec![7u8; 32], vec![0u8; 32]).unwrap();
+            MedRatchetState::init_initiator(vec![7u8; 32], bob_kp.public_key.clone())
+                .unwrap();
         let bob =
-            MedRatchetState::init_responder(vec![7u8; 32], vec![0u8; 32], vec![1u8; 32])
+            MedRatchetState::init_responder(vec![7u8; 32], bob_kp.public_key, bob_kp.secret_key)
                 .unwrap();
         let msg = alice.encrypt(b"ping".to_vec()).unwrap();
         assert_eq!(msg.header.len(), ratchet_header_size() as usize);
