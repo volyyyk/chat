@@ -693,7 +693,7 @@ uniffi-meta — path-депы того же workspace, обращений к о�
 crates.io API и sparse-индекс cargo расходятся — при «could not find
 in registry» проверять index.crates.io/<2 буквы>/<2 буквы>/<имя>
 напрямую (NoSuchKey) и держать в голове git-тег как альтернативный
-источник пина версии; (3) cargo install из git ищет ПАКЕТ по имени среди workspace-мемберов: имя пакета в реестре может отсутствовать в git-workspace, а бинарь может называться не как пакет (фикс #109: uniffi-bindgen-cli → бинарь uniffi-bindgen). Честное ограничение:
+источник пина версии; (3) cargo install из git ищет ПАКЕТ по имени среди workspace-мемберов: имя пакета в реестре может отсутствовать в git-workspace, а бинарь может называться не как пакет (фикс #109: uniffi-bindgen-cli → бинарь uniffi-bindgen). Прогон #110 (run 42479915852): установка uniffi-bindgen-cli из git прошла (159 пакетов залочено, uniffi 0.28.3 скомпилировался), но сборка cdylib упала с 8 ошибками E0277 — uniffi::Error (0.28) требует std::fmt::Display у ошибок экспортов (LowerReturn для Result: E: LowerError + Display + Debug; derive даёт LowerError, Display пишется руками) — добавлен ручной impl Display для MedCryptoError. Честное ограничение:
 компиляция сгенерированного кода в Xcode/Gradle — этапы 3/4 (на ubuntu их
 нет); джоба гейтит сборку, тесты обёрток и генерацию.
 **Сервер: идентификация пользователей 149-ФЗ ст. 10.1** (этот коммит): эндпоинты POST /api/auth/phone/request-code и /phone/verify (оба под authenticate): одноразовый 6-значный код (crypto.randomInt), хранится в VerificationToken (type=phone, формат hex:код, срок 10 минут), повторный запрос инвалидирует предыдущие коды (update usedAt), успешная сверка ставит user.phoneVerified=true, смена номера сбрасывает phoneVerified; Joi-схемы phoneRequestSchema/phoneVerifySchema; интеграционные тесты (успешный флоу, неверный/истёкший код, 400 без номера, 401 без токена, 400 на невалидное тело). Честно: SMS-доставка — заглушка (logger.info), реальный SMS-гейт/Госуслуги — оператору перед продом; NODE_ENV != production возвращает devCode в ответе.
@@ -798,7 +798,7 @@ node stop.js [--docker]                     # остановить процес�
   зелёная, все три цели проходят smoke-итерации). Джоба uniffi-bindings —
   генерация Swift/Kotlin-обвязки ядра (этап 2 закрыт; прогоны #105–#107:
   uniffi-крейтов нет в sparse-индексе crates.io — крейт и CLI переведены
-  на git-тег v0.28.3; #109 — пакет CLI в git-workspace зовётся uniffi-bindgen-cli (бинарь uniffi-bindgen), уроки в §8). Логи
+  на git-тег v0.28.3; #109 — пакет CLI в git-workspace зовётся uniffi-bindgen-cli (бинарь uniffi-bindgen), уроки в §8); #110 — uniffi::Error требует Display у ошибок экспортов (фикс: impl Display для MedCryptoError, §8). Логи
   падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log; ci-bench.log пишется при любом исходе) — при
   красном прогоне читать оттуда.
