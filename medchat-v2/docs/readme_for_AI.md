@@ -7,7 +7,9 @@
 > 65ec99c → 5a8eceb (user-API, печатная форма рецептов, чистка мёртвого шифрования мобилки),
 > серии E2E-коммитов d11762c → 596c4a3 (сквозное шифрование содержимого сообщений —
 > см. раздел 5, «E2E-контракт»), каркаса Rust-ядра medchat-core с джобой core-tests
-> в CI (3a70911 → ee76670) и перевода приватных ключей в Keychain/Keystore (3ab5cf6).
+> в CI (3a70911 → ee76670), перевода приватных ключей в Keychain/Keystore (3ab5cf6)
+> и покрытия E2E тестами (02dc969 → 7cb0832: юнит-тесты валидатора конвертов +
+> smoke-секция E2E [12]).
 
 ---
 
@@ -59,7 +61,8 @@ medchat-v2/
 │   ├── seeds/         — testData.js (npm run seed:test): аккаунты, балансы, приёмы
 │   ├── services/      — authService, paymentService, balanceService, cryptoService,
 │   │                    notificationService, backupService
-│   ├── utils/         — logger (winston), chatAccess (canAccessChat)
+│   ├── utils/         — logger (winston), chatAccess (canAccessChat),
+│   │                    e2eEnvelope (validateE2EEnvelope + лимиты конверта)
 │   ├── validators/    — 16 Joi-схем (auth, chat, message, file, payment, transaction,
 │   │                    user (updateUserSchema/changePasswordSchema/updateProfileSchema/
 │   │                    updatePreferencesSchema/searchUsersSchema + legacy),
@@ -67,7 +70,8 @@ medchat-v2/
 │   └── index.js       — Express bootstrap + Socket.IO (joinChat/typing/newMessage);
 │                        fail-fast при JWT_SECRET < 8 символов
 ├── server/tests/
-│   ├── cryptoService.test.js, errorHandler.test.js, paymentService.test.js
+│   ├── cryptoService.test.js, errorHandler.test.js, paymentService.test.js,
+│   │                    e2eEnvelope.test.js (валидация E2E-конвертов, 02dc969)
 │   ├── integration/auth.test.js
 │   └── security/      — jwtSecurity, registerSecurity, paymentsSecurity, transactionsIdor
 ├── mobile/src/
@@ -170,7 +174,8 @@ E2E-сообщений серверу недоступен (хранится т�
 - **Конверт** (envelope): `{ v:1, alg:'x25519-box', epk: <эфемерный pubkey b64>,
   nonce: <24 байта b64>, boxes: { [userId]: <шифротекст b64> } }` — по боксу на каждого
   участника + бокс отправителя (чтобы свои другие устройства могли прочитать).
-- **Серверная валидация** (validateE2EEnvelope в chatController): структура конверта,
+- **Серверная валидация** (validateE2EEnvelope, utils/e2eEnvelope.js — вынесена из
+  chatController в 02dc969, покрыта юнит-тестами tests/e2eEnvelope.test.js): структура конверта,
   ≤10 boxes, ≤32 КБ/бокс, ≤256 КБ конверт, бокс отправителя обязателен, content обязан
   быть пуст. При валидном конверте: `Message.metadata.e2e = конверт`, `content=''`,
   `isEncrypted=true`, `lastMessageText=''` — **plaintext в БД отсутствует**.
@@ -302,7 +307,8 @@ E2E-сообщений серверу недоступен (хранится т�
 17. **Fake loading в App.js удалён** (d11d285): искусственная задержка 2 с «simulate loading»
     замедляла каждый старт без пользы.
 18. **E2E добавлен БЕЗ Joi-схемы на POST /api/chats/:id/messages** (тело исторически без
-    Joi) — конверт валидируется инлайн в chatController (validateE2EEnvelope): структура,
+    Joi) — конверт валидируется через чистую функцию validateE2EEnvelope (utils/e2eEnvelope.js,
+    вынесена из контроллера в 02dc969, покрыта тестами): структура,
     лимиты размеров, обязательность бокса отправителя, пустой content. Если появится
     Joi-схема на этот роут — не потерять поле envelope.
 19. **Rust-ядро в CI**: первая версия lib.rs писалась по устаревшим примерам (seal/open,
@@ -354,6 +360,13 @@ storage недоступен (expo web); removeLocalKeyPair чистит оба 
 **Rust-ядро** (3a70911 → ee76670): крейт medchat-core (crypto_box 0.9, SalsaBox), CoreError,
 джоба core-tests в CI с публикацией ci-logs/ci-rust.log; два красных прогона починены
 (API-расхождения, см. п. 8.19).
+**E2E-покрытие тестами** (02dc969 → 7cb0832): validateE2EEnvelope вынесена из chatController
+в utils/e2eEnvelope.js (чистая функция без зависимостей) + tests/e2eEnvelope.test.js (8 кейсов:
+структура, лимиты 10 боксов/32КБ/256КБ, пустые и битые боксы); smoke-секция [12] E2E (13 проверок:
+регистрация и ротация ключей, 400 на невалидный publicKey, 403 на чужие ключи чата, конверт в
+metadata.e2e при пустом content, 400 на plaintext рядом с конвертом и на конверт без бокса
+отправителя, история без plaintext, деактивация ключа). Опечатка doctorApptsList в [8]
+(ReferenceError, красный прогон #58) починена в 7cb0832.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -377,16 +390,19 @@ node stop.js [--docker]                     # остановить процес�
 
 Три джобы на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
-  БД мокается, Postgres не нужен). При ошибке установки grep npm error выводится в annotations.
+  БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
+  валидации E2E-конвертов). При ошибке установки grep npm error выводится в annotations.
 - **e2e-smoke**: services Postgres (db medchat_test) + Redis; `npm run seed:test` +
-  `npm run test:smoke` (сервер на :3990, сам поднимается).
+  `npm run test:smoke` (сервер на :3990, сам поднимается). С 623d777 включает секцию [12] E2E:
+  +13 проверок реестра ключей и конвертов (ротация, 403 на чужие ключи, plaintext-защита).
 - **core-tests**: Rust-ядро medchat-v2/core — stable-тулчейн, кэш (Swatinem/rust-cache),
   `cargo test` (крейт medchat-core, этап 2 ROADMAP_NATIVE); лог падений публикуется в
   ci-logs/ci-rust.log.
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
-  ee76670/#52 (все три джобы, включая core-tests). Логи падений бот ci-reporter
+  ee76670/#52 (все три джобы, включая core-tests), 02dc969/#57 (E2E-конверты под юнит-тестами).
+  623d777/#58 красный (опечатка в smoke, см. историю фиксов), починен 7cb0832. Логи падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log) — при
   красном прогоне читать оттуда.
 
