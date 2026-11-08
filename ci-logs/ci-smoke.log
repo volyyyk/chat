@@ -1,4 +1,4 @@
-=== run 42463456436 job e2e-smoke Sun Nov  8 08:35:21 UTC 2026 ===
+=== run 42463596266 job e2e-smoke Sun Nov  8 08:37:39 UTC 2026 ===
 
 > medchat-server@2.0.0 test:smoke
 > node scripts/smoke-test.js
@@ -118,12 +118,12 @@ SMOKE TEST FAILED
 --- SERVER STDOUT TAIL (winston error logs go here) ---
 ✅ Redis client connected.
 ✅ Database connection has been established successfully (test).
-2026-11-08 08:35:23 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/f0259977-be4b-417b-9798-30f4a93b4aef" requestId="447babfe-685e-4a8f-89f6-495858d6f00c" userId="8f47ad04-2109-4af0-aee9-35d1ffe72356" stack=undefined
-2026-11-08 08:35:23 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/232b702a-576c-47f5-afef-11fd6ef69672" requestId="3312b33e-7864-4121-8dac-e35b8c8aa7f7" userId="d1517349-9f82-4dd8-8a2c-52a57b9aa348" stack=undefined
-2026-11-08 08:35:23 [error] [TRANSACTION_ALREADY_USED] Payment transaction has already been used code="TRANSACTION_ALREADY_USED" status=409 method="POST" url="/api/chats/f0259977-be4b-417b-9798-30f4a93b4aef/messages" requestId="42dbe8a0-7de1-45f4-9640-c720bc98a958" userId="d1517349-9f82-4dd8-8a2c-52a57b9aa348" stack=undefined
-2026-11-08 08:35:23 [error] [FORBIDDEN] Cannot access this appointment code="FORBIDDEN" status=403 method="GET" url="/api/appointments/9deb94d7-0755-43b5-99e9-1387b5a6cf46" requestId="9ac6e138-7874-4bb9-9caa-1c439f491161" userId="d1517349-9f82-4dd8-8a2c-52a57b9aa348" stack=undefined
-2026-11-08 08:35:23 [error] [FORBIDDEN] Cannot access this e-prescription code="FORBIDDEN" status=403 method="GET" url="/api/eprescriptions/3a1c4158-27e1-4925-912c-65ae87ce7d22" requestId="dda483b0-8a49-49f5-802e-40da74e2e8a8" userId="d1517349-9f82-4dd8-8a2c-52a57b9aa348" stack=undefined
-2026-11-08 08:35:24 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/232b702a-576c-47f5-afef-11fd6ef69672/keys" requestId="17ba151a-aa4f-4477-8ffe-0c6b28992a97" userId="d1517349-9f82-4dd8-8a2c-52a57b9aa348" stack=undefined
-2026-11-08 08:35:24 [error] [VALIDATION_ERROR] content must be empty for E2E messages (send ciphertext in envelope.boxes) code="VALIDATION_ERROR" status=400 method="POST" url="/api/chats/232b702a-576c-47f5-afef-11fd6ef69672/messages" requestId="6af582e0-93bf-4bb4-9bb2-34506fba22c9" userId="8f47ad04-2109-4af0-aee9-35d1ffe72356" stack=undefined
-2026-11-08 08:35:24 [error] [VALIDATION_ERROR] E2E envelope must include a box for the sender (own devices/history) code="VALIDATION_ERROR" status=400 method="POST" url="/api/chats/232b702a-576c-47f5-afef-11fd6ef69672/messages" requestId="45ec1221-6792-4008-a430-2eeeef86a4f6" userId="8f47ad04-2109-4af0-aee9-35d1ffe72356" stack=undefined
+2026-11-08 08:37:41 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/1842bde7-4e03-436e-9202-422acdb081ac" requestId="0fefe73b-b60e-4aeb-b324-a8533c8cc0a3" userId="f5fb5b06-daa0-434b-850d-fc758deacc29" stack=undefined
+2026-11-08 08:37:41 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/ee1aab66-72c4-46ca-8013-610cb90c3b3d" requestId="a4d28307-8778-42d5-9b61-a39ca465d2b4" userId="80b0c1bf-8e17-4d28-b093-6cc8d342a09e" stack=undefined
+2026-11-08 08:37:41 [error] [TRANSACTION_ALREADY_USED] Payment transaction has already been used code="TRANSACTION_ALREADY_USED" status=409 method="POST" url="/api/chats/1842bde7-4e03-436e-9202-422acdb081ac/messages" requestId="0a27b505-1f84-4eb1-b3ab-d53ea8319795" userId="80b0c1bf-8e17-4d28-b093-6cc8d342a09e" stack=undefined
+2026-11-08 08:37:42 [error] [FORBIDDEN] Cannot access this appointment code="FORBIDDEN" status=403 method="GET" url="/api/appointments/319a78f0-b42e-4819-a042-08bad84b5d27" requestId="91839ba4-ec84-4f5a-84da-66538f42c2b7" userId="80b0c1bf-8e17-4d28-b093-6cc8d342a09e" stack=undefined
+2026-11-08 08:37:42 [error] [FORBIDDEN] Cannot access this e-prescription code="FORBIDDEN" status=403 method="GET" url="/api/eprescriptions/f7676df0-45e4-4cdc-80bb-8f40742ef2d0" requestId="ccba3ca0-cce1-4c27-b608-42947d1a529a" userId="80b0c1bf-8e17-4d28-b093-6cc8d342a09e" stack=undefined
+2026-11-08 08:37:42 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/ee1aab66-72c4-46ca-8013-610cb90c3b3d/keys" requestId="fd807b5f-5eab-44d8-b1ef-6b4184efc9b1" userId="80b0c1bf-8e17-4d28-b093-6cc8d342a09e" stack=undefined
+2026-11-08 08:37:42 [error] [VALIDATION_ERROR] content must be empty for E2E messages (send ciphertext in envelope.boxes) code="VALIDATION_ERROR" status=400 method="POST" url="/api/chats/ee1aab66-72c4-46ca-8013-610cb90c3b3d/messages" requestId="31c35967-11a1-498b-917f-a595fbf54fa8" userId="f5fb5b06-daa0-434b-850d-fc758deacc29" stack=undefined
+2026-11-08 08:37:42 [error] [VALIDATION_ERROR] E2E envelope must include a box for the sender (own devices/history) code="VALIDATION_ERROR" status=400 method="POST" url="/api/chats/ee1aab66-72c4-46ca-8013-610cb90c3b3d/messages" requestId="a8b5dcdb-1d66-4b3b-9920-77894df20f88" userId="f5fb5b06-daa0-434b-850d-fc758deacc29" stack=undefined
 
