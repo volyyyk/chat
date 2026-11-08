@@ -22,7 +22,10 @@
 фикстуре (см. §8, §10). Верификация fingerprint-кодов E2E (safety number)
 реализована в мобильном клиенте (347bc9d + ec1a0de). napi-rs-биндинги
 ядра для Node.js (754f677: конвертные примитивы; 2bb38f2: класс JsRatchetState
-для Double Ratchet).
+для Double Ratchet). Контракт-векторы AES-256-GCM (e7879a7: KAT-векторы
+BoringSSL на общей фикстуре — Rust и Node crypto байт-в-байт) и стабилизация
+napi-сборки в CI (30c3f5e MSRV 1.77 → a1061cd тесты Buffer без Debug →
+e411a54 feature napi-bind; e411a54 — зелёный во всех трёх джобах).
 
 ---
 
@@ -50,7 +53,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
-| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2) |
+| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
 ## 3. Структура проекта
@@ -88,23 +91,24 @@ medchat-v2/
 │   ├── cryptoService.test.js, errorHandler.test.js, paymentService.test.js,
 │   │                    e2eEnvelope.test.js (валидация E2E-конвертов, 02dc969),
 │   │                    coreInterop.test.js (контрактный вектор NaCl box на
-│   │                    общей фикстуре core/tests, 1ce9516)
+│   │                    общей фикстуре core/tests, 1ce9516), coreAesGcm.test.js
+│   │                    (контрактные векторы AES-256-GCM на фикстуре core/tests, e7879a7)
 │   ├── integration/auth.test.js
 │   └── security/      — jwtSecurity, registerSecurity, paymentsSecurity, transactionsIdor
 ├── mobile/src/
 │   ├── config/config.js        — API_URL http://localhost:3000 (БЕЗ /api/v1)
 │   ├── context/ (3)            — AuthContext (pass-through), ThemeContext,
-│   │                            NotificationContext (ChatContext УДАЛЁН, см. п. 8.5)
+│ │                            NotificationContext (ChatContext УДАЛЁН, см. п. 8.5)
 │   ├── hooks/ (4)              — useChat (server-first чат + интеграция E2E), useAuth, ...
 │   ├── screens/ (19)           — Login, Register, ChatList, Chat, Payment,
-│   │                            Appointments, EPrescriptions, Profile, ...
+│ │                            Appointments, EPrescriptions, Profile, ...
 │   ├── services/ (9)           — authService, chatService (socket+REST), api, file,
-│   │                            payment, database (экспортирует database + initDatabase),
-│   │                            notification, backup, e2eCryptoService (X25519 E2E:
-│   │                            base64/UTF-8 pure JS, keypair в expo-secure-store
-│   │                            (Keychain/Keystore) с fallback и миграцией, конверты,
-│   │                            гибридное шифрование файлов/голосовых,
-│   │                            расшифровка при просмотре)
+│ │                            payment, database (экспортирует database + initDatabase),
+│ │                            notification, backup, e2eCryptoService (X25519 E2E:
+│ │                            base64/UTF-8 pure JS, keypair в expo-secure-store
+│ │                            (Keychain/Keystore) с fallback и миграцией, конверты,
+│ │                            гибридное шифрование файлов/голосовых,
+│ │                            расшифровка при просмотре)
 │   ├── components/ (8)         — MessageBubble (🔒 на E2E-сообщениях), AudioPlayer, ...
 │   ├── navigation/, styles/, utils/
 ├── web/src/             — pages (7), services, context
@@ -118,9 +122,12 @@ medchat-v2/
 │                          (a43102d) — 13 тестов);
 │                          tests/interop_vectors.rs — контрактный вектор NaCl
 │                          box на фикстуре nacl_box_vector.hex (1ce9516);
+│                          tests/aes_gcm_vector.rs + aes_gcm_vector.hex —
+│                          KAT-векторы AES-256-GCM из BoringSSL (e7879a7);
 │                          node.rs — napi-rs-биндинги для Node (754f677 →
-│                          2bb38f2: конвертные примитивы + JsRatchetState);
-│                          cargo test в CI (джоба core-tests)
+│                          2bb38f2: конвертные примитивы + JsRatchetState; feature
+│                          napi-bind, e411a54); CI: cargo check --tests +
+│                          cargo test --no-default-features (джоба core-tests)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
 │                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE + этот файл
@@ -256,9 +263,12 @@ E2E-сообщений серверу недоступен (хранится т�
   decryptWire, ratchetMessageToWire/FromWire, ratchetHeaderSize(40),
   ratchetNonceSize(12)). CoreError → napi::Error, битые длины → InvalidArg.
   Состояние ratchet наружу НЕ сериализуется — персистентность на вызывающей
-  стороне (secure storage). .node-артефакт собирается napi-cli; в CI
-  биндинги проверяются компиляцией и юнит-тестами (cargo test). UniFFI для
-  Swift/Kotlin — следующий шаг.
+  стороне (secure storage). .node-артефакт собирается napi-cli; в CI биндинги
+  проверяются компиляцией (cargo check --tests), тесты логики ядра —
+  cargo test --no-default-features (feature napi-bind, e411a54: тестовый
+  бинарник не может линковать napi_*-символы — их даёт только процесс Node,
+  napi-rs issue #1099; юнит-тесты самих обёрток — будущая Node-интеграция
+  со сборкой .node). UniFFI для Swift/Kotlin — следующий шаг.
 - **Double Ratchet** (этап 7, прототип): medchat-core/src/ratchet.rs — KDF_RK/KDF_CK на
   HMAC-SHA256 (x25519-dalek 2.0.1 для raw DH, явная feature static_secrets), каждое
   сообщение AES-256-GCM на одноразовом message key, DH-шаг при смене ratchet-ключа
@@ -509,7 +519,39 @@ encrypt/decrypt/decryptWire — wire a43102d) и wire-хелперы ratchetMess
 To/FromWire. Cargo.toml: crate-type cdylib+rlib, napi 2 (compat-mode, без
 tokio), napi-derive 2, build.rs с napi_build::setup(). 3+3 юнит-теста
 обёрток (итого 20 тестов крейта). Ограничение честно: сборка .node-артефакта
-(napi-cli) в CI не настроена — core-tests проверяет компиляцию и тесты.
+(napi-cli) в CI не настроена — core-tests проверяет компиляцию биндингов
+(cargo check --tests) и тесты логики (cargo test --no-default-features).
+**Контракт-векторы AES-256-GCM** (e7879a7): DoD Этапа 2 «тест-векторы
+байт-в-байт» закрыт и для AEAD-пути (message keys Double Ratchet шифруются
+AES-256-GCM, серверный cryptoService — тоже): три KAT-вектора из тестов
+BoringSSL aes_256_gcm_tests.txt (public domain) на общей фикстуре
+core/tests/aes_gcm_vector.hex (формат «key = hex», пустые значения —
+«v1_pt =»; векторы: v1 — пустой pt/AAD, проверяется только tag;
+v2 — 5-байтовые pt+AAD; v3 — 37-байтовый pt с 35-байтовым AAD).
+Rust-сторона: aes-gcm 0.10 (core/tests/aes_gcm_vector.rs, парсер
+split_once('=')) обязана воспроизвести ct||tag байт-в-байт; Node-сторона:
+server/tests/coreAesGcm.test.js (crypto aes-256-gcm, authTagLength 16,
+setAAD, парсер indexOf('=')) — 4+3 test.each кейсов, включая негативные
+(битый tag/nonce). Обе стороны в CI: core-tests + server-tests.
+**Стабилизация napi-сборки в CI** (30c3f5e → a1061cd → e411a54; серия
+754f677 → bfa904f была красной, каждый фикс открывал следующий слой):
+(1) 754f677: napi-build 2.6 эмитит инструкции билд-скрипта синтаксисом
+cargo:: (Rust ≥ 1.77), а заявленный rust-version 1.65 заставлял cargo
+отвергать билд-скрипт → MSRV поднят до 1.77 (30c3f5e) с комментарием в
+Cargo.toml, чтобы не опустили обратно; (2) a1061cd: Result<Buffer,_>::
+unwrap_err() не компилируется (E0277 — у napi Buffer нет Debug) →
+.err().unwrap() в двух тестах node.rs; (3) e7879a7/a1061cd: cargo test
+падал уже на линковке — тестовый бинарник требует napi_*-символы
+(napi_create_error, napi_delete_reference, napi_reference_unref, ...),
+которые в рантайме даёт только процесс Node; libnode.so в дистрибутиве
+Node нет (napi-rs issue #1099), noop-рецепт из документации napi.rs не
+подходит (noop не создаёт фейковый JS engine, а наши обёртки целиком на
+Buffer). Решение: feature napi-bind (default) + cfg-гейт pub mod node;
+CI: cargo check --tests (type-check биндингов и их тестов — ловит
+E0277-класс без линковки) + cargo test --no-default-features (тесты
+логики). e411a54 — зелёный во всех трёх джобах. УРОК: N-API-крейт нельзя
+полноценно гонять cargo test без Node — feature-гейт планируй с самого
+начала; юнит-тесты обёрток выполнимы только в Node-интеграции с .node.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -536,18 +578,22 @@ node stop.js [--docker]                     # остановить процес�
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
   валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
   вектор NaCl crypto_box на фикстуре core/tests/nacl_box_vector.hex — tweetnacl
-  обязан совпадать с эталоном и с Rust-ядром байт-в-байт). При ошибке установки
-  grep npm error выводится в annotations.
+  обязан совпадать с эталоном и с Rust-ядром байт-в-байт; с e7879a7 —
+  tests/coreAesGcm.test.js: KAT-векторы AES-256-GCM из BoringSSL на фикстуре
+  core/tests/aes_gcm_vector.hex — Node crypto обязан совпасть с Rust байт-в-байт).
+  При ошибке установки grep npm error выводится в annotations.
 - **e2e-smoke**: services Postgres (db medchat_test) + Redis; `npm run seed:test` +
   `npm run test:smoke` (сервер на :3990, сам поднимается). С 623d777 включает секцию [12] E2E:
   +13 проверок реестра ключей и конвертов (ротация, 403 на чужие ключи, plaintext-защита).
 - **core-tests**: Rust-ядро medchat-v2/core — stable-тулчейн, кэш (Swatinem/rust-cache),
-  `cargo test` (крейт medchat-core, этап 2 ROADMAP_NATIVE); лог падений публикуется в
-  ci-logs/ci-rust.log. С 6aff983 включает ratchet.rs (Double Ratchet; с d033eeb — 10 кейсов, включая skip-store);
-  с 1ce9516 — контрактный тест tests/interop_vectors.rs: SalsaBox обязан
-  воспроизвести канонический вектор NaCl box байт-в-байт (общая фикстура с
-  jest-стороной в server-tests); с 754f677 компилирует и napi-биндинги
-  (src/node.rs; 2bb38f2 — 20 тестов крейта суммарно).
+  два шага (с e411a54): `cargo check --tests` (компиляция ядра + napi-биндингов
+  src/node.rs и их #[cfg(test)]-кода; type-check без линковки — napi_*-символы
+  тестовому бинарнику дать некому, их даёт только процесс Node, napi-rs issue
+  #1099) и `cargo test --no-default-features` (тесты логики ядра: lib + ratchet
+  (Double Ratchet, 13 кейсов с skip-store) + контрактные векторы
+  interop_vectors.rs и aes_gcm_vector.rs). Лог падений публикуется в
+  ci-logs/ci-rust.log. 6 юнит-тестов самих napi-обёрток компилируются
+  (check), выполнятся в Node-интеграции со сборкой .node (roadmap).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -563,7 +609,11 @@ node stop.js [--docker]                     # остановить процес�
   skip-store (10 тестов), f1faf96 — диагностический extra в smoke [12]. После ad575d3 серия зелёная:
   ad575d3, 9fdae90 (доки), a43102d (wire-формат ratchet, 13 тестов),
   42e5a1d (E2E файлов; 631b324/ed9a661 меняют только mobile — в CI
-  не тестируется). Логи падений бот ci-reporter
+  не тестируется). Серия napi-биндингов с 754f677 была красной по цепочке
+  причин (MSRV билд-скрипта → Debug у Buffer → линковка napi_*-символов,
+  см. историю фиксов): 754f677, 2bb38f2, bfa904f, 30c3f5e, e7879a7,
+  a1061cd — красные; e411a54 (feature napi-bind) — зелёный во всех трёх
+  джобах, серия закрыта. Логи падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log) — при
   красном прогоне читать оттуда.
 
@@ -573,7 +623,7 @@ node stop.js [--docker]                     # остановить процес�
 2. ~~E2E-шифрование~~ — **реализовано** (d11762c → 596c4a3): X25519 + NaCl box, реестр
    ключей UserKey, конверты в Message.metadata, graceful fallback. Остаточное (в порядке
    приоритета): интеграция Double Ratchet (прототип в ядре готов — ratchet.rs, 6aff983;
-   wire-формат заголовков готов (a43102d), нужны биндинги napi-rs/UniFFI;
+   wire-формат заголовков готов (a43102d), napi-биндинги JsRatchetState готовы;
    skip-store сделан d033eeb); ~~E2E для файлов/голосовых~~ — сделано
    (42e5a1d → ed9a661: гибридное шифрование, ключ файла в конверте,
    расшифровка при просмотре); ~~верификация fingerprint-кодов~~ — сделано
@@ -589,13 +639,15 @@ node stop.js [--docker]                     # остановить процес�
 9. Webhook-заглушки (п. 8.4) — при подключении реальных шлюзов.
 10. Нативные клиенты и Rust-ядро — см. ROADMAP_NATIVE.md (iOS/Android native, Tauri
     desktop Windows/Linux, крипто-ядро на Rust/C++). **Этап 2 начат**: крейт medchat-core
-    (3a70911 → ee76670) + джоба core-tests в CI. **Контракт-векторы начаты**
-    (1ce9516: NaCl box верифицирован на Rust-ядре и tweetnacl — DoD Этапа 2). **Double Ratchet: прототип готов**
-    (6aff983 + d033eeb: ratchet.rs с skip-store, 10 тестов, forward secrecy + break-in
-    recovery + внеочередная доставка; в клиенты не интегрирован). Дальше:
-    ~~napi-rs-биндинги для Node~~ — сделано (754f677 → 2bb38f2: src/node.rs,
-конверты + JsRatchetState; .node-сборка через napi-cli). Дальше: UniFFI для
-Swift/Kotlin, интеграция ratchet в клиенты, сборка .node-артефакта в CI.
+    (3a70911 → ee76670) + джоба core-tests в CI. **Контракт-векторы DoD**: NaCl box
+    (1ce9516) и AES-256-GCM (e7879a7) закрыты; остался bcrypt-путь (хэши
+    серверного bcrypt cost 12). **Double Ratchet: прототип готов**
+    (6aff983 + d033eeb: ratchet.rs с skip-store, 13 тестов, forward secrecy + break-in
+    recovery + внеочередная доставка; в клиенты не интегрирован). ~~napi-rs-биндинги
+    для Node~~ — сделано (754f677 → 2bb38f2 → e411a54: src/node.rs, конверты +
+    JsRatchetState, feature napi-bind — CI зелёный). Дальше: UniFFI для
+    Swift/Kotlin, интеграция ratchet в клиенты, cargo-fuzz, бенчмарки (DoD ≥ x10
+    к Node), сборка .node-артефакта в CI (+ Node-интеграция юнит-тестов обёрток).
 
 ---
 
