@@ -611,7 +611,20 @@ async function main() {
       e2eInHistory.content === '' &&
       typeof e2eInHistory.metadata.e2e.boxes[String(docUserId)] === 'string',
     'врач читает E2E-сообщение: только шифротекст, без plaintext',
-    Boolean(e2eInHistory)
+    e2eInHistory
+      ? {
+          status: docHistory.status,
+          msgs: docMsgs.length,
+          isEncrypted: e2eInHistory.isEncrypted,
+          contentType: typeof e2eInHistory.content,
+          content: e2eInHistory.content,
+          metadataKeys: e2eInHistory.metadata ? Object.keys(e2eInHistory.metadata) : null,
+          e2eAlg: e2eInHistory.metadata && e2eInHistory.metadata.e2e ? e2eInHistory.metadata.e2e.alg : null,
+          boxKeys: e2eInHistory.metadata && e2eInHistory.metadata.e2e && e2eInHistory.metadata.e2e.boxes ? Object.keys(e2eInHistory.metadata.e2e.boxes) : null,
+          docBox: e2eInHistory.metadata && e2eInHistory.metadata.e2e && e2eInHistory.metadata.e2e.boxes ? typeof e2eInHistory.metadata.e2e.boxes[String(docUserId)] : null,
+          docUserId: String(docUserId),
+        }
+      : { status: docHistory.status, msgs: docMsgs.length, found: false }
   );
 
   const delKey = await request('DELETE', '/api/keys/' + p1KeyId, { token: patient1.accessToken });
