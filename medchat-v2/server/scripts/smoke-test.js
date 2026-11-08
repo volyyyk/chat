@@ -603,13 +603,12 @@ async function main() {
 
   const docHistory = await request('GET', '/api/chats/' + chat1.id + '/messages?limit=50', { token: doctor.accessToken });
   const docMsgs = (docHistory.json && (docHistory.json.data || docHistory.json.messages)) || [];
-  const e2eInHistory = docMsgs.find((m) => m.isEncrypted === true);
+  const e2eInHistory = docMsgs.find((m) => m.metadata && m.metadata.e2e);
   log(
     docHistory.status === 200 &&
       Boolean(e2eInHistory) &&
+      e2eInHistory.isEncrypted === true &&
       e2eInHistory.content === '' &&
-      e2eInHistory.metadata &&
-      e2eInHistory.metadata.e2e &&
       typeof e2eInHistory.metadata.e2e.boxes[String(docUserId)] === 'string',
     'врач читает E2E-сообщение: только шифротекст, без plaintext',
     Boolean(e2eInHistory)
