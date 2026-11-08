@@ -236,6 +236,21 @@ Gradle-проект, Compose UI (ч.3), Play Console и подписи — оп�
 (секреты оператора, паттерн честности DESKTOP_RELEASE.md); wire .so —
 api 21, но Keystore (KeyGenParameterSpec) требует API 23+ — minSdk
 Gradle-проекта 23, честно зафиксировано в README_ANDROID.md.
+
+**Прогресс (ноябрь 2026, ч.3 — Gradle-проект + Compose UI):** медchat-v2/android/ —
+полноценный Gradle-проект (Gradle 8.9, AGP 8.5.2, Kotlin 2.0.21 + плагин
+compose, Compose BOM 2024.09.03, JNA 5.14.0 aar, minSdk 23): сервисы
+переехали в app/src/main/java/medchat/android (package medchat.android,
+import uniffi.medchat_core; typecheck в android-smoke остался по новым
+путям, пакет обвязки гейтится явно), Compose-экраны connect/login/chats/
+chat (MedchatApp.kt — зеркало desktop-клиента; ключ E2E регистрируется
+при входе, отправка конвертом при полном покрытии ключами, honest-fallback);
+новая джоба CI android-build (needs uniffi-bindings + android-smoke)
+раскладывает артефакты прогона (uniffi-обвязка → src/main/java/uniffi,
+.so 3 ABI → src/main/jniLibs) и собирает :app:assembleDebug — артефакт
+medchat-android-debug-apk (unsigned debug-APK без секретов оператора;
+adb install / эмулятор 10.0.2.2). Release-подпись, internal testing и
+Play Console — оператор (секреты, DESKTOP_RELEASE.md-паттерн).
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
 **Tauri 2** (Rust + системный webview): один UI на обе платформы.
 Windows: подписанный `.exe`/MSIX (Authenticode), автoupdate.
@@ -372,6 +387,18 @@ payload {"t":"r1","k":keyId,"w":wire}, honest-fallback на обычный E2E
 phone/verify — одноразовый 6-значный код в VerificationToken (тип phone,
 срок 10 минут), успех ставит user.phoneVerified=true; реальный SMS-гейт
 или Госуслуги подключает оператор перед продом (см. LEGAL.md §5).
+
+Статус (ноябрь 2026): этапы 2–7 закрыты в части, не требующей секретов
+оператора — контракт-векторы (NaCl box, AES-256-GCM, bcrypt, RFC 7748),
+бенчмарк ≥ x10 на конвертном пути, fuzz-smoke, napi + UniFFI-биндинги,
+CI-гейты всех платформ (server, e2e, core, bench, napi, fuzz, uniffi,
+ios-smoke, android-smoke, android-build, desktop-check, desktop-bundle,
+k6-load), E2E + Double Ratchet склеены во всех нативных клиентах
+(desktop, iOS, Android; RN — честная плашка reference-клиента).
+Остаток этапов 3/4/5/7 — операторские позиции: TestFlight и подписи
+Apple, Play Console и подписи Android, Authenticode/GPG-подписи и
+автоапдейт desktop, SMS-гейт для 149-ФЗ, ГОСТ СКЗИ и внешний аудит
+для УЗ-1, суточный fuzz-прогон по требованию.
 
 ## 4. Требования безопасности, общие для всех нативных клиентов
 
