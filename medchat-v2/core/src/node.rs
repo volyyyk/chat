@@ -342,6 +342,8 @@ mod tests {
     #[test]
     fn napi_bad_length_is_invalid_arg() {
         let alice = generate_keypair();
+        // Buffer не реализует Debug → Result<Buffer,_>::unwrap_err() не
+        // компилируется (E0277); берём err() → Option<NapiError>::unwrap.
         let err = open_sealed(
             Buffer::from(vec![0u8; 31]), // epk не той длины
             Buffer::from(vec![0u8; NONCE_SIZE]),
@@ -349,7 +351,8 @@ mod tests {
             alice.public_key,
             alice.secret_key,
         )
-        .unwrap_err();
+        .err()
+        .unwrap();
         assert!(err.to_string().contains("epk must be 32 bytes, got 31"));
     }
 
@@ -441,13 +444,15 @@ mod tests {
         // bob ещё не может расшифнуть (нет ratchet-ключа отправителя), но
         // валидация длины nonce отрабатывает до криптографии
         let _ = bob_ratchet; // ключ использован в ratchet_pair
+        // Buffer не реализует Debug (E0277) → err().unwrap(), не unwrap_err()
         let err = bob
             .decrypt(
                 Buffer::from(vec![0u8; 40]),
                 Buffer::from(vec![0u8; 11]), // nonce не той длины
                 Buffer::from(vec![]),
             )
-            .unwrap_err();
+            .err()
+            .unwrap();
         assert!(err.to_string().contains("nonce must be 12 bytes, got 11"));
     }
 }
