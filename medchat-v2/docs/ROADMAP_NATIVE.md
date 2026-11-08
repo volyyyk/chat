@@ -191,9 +191,12 @@ napi-обёртки sha256Checksum/sha256Verify (src/node.rs) едут в том
 .node-аддон (MEDCHAT_CORE_NODE, иначе артефакт napi-build рядом с core) с
 честным fallback на node:crypto (backend = native|fallback); jest-тест
 checksum.test.js — KAT FIPS 180-4 + parity, нативный путь в CI гейтит
-napi-build (napi-smoke), server-tests гоняют fallback. Сжатие бэкапов,
-подключение к бизнес-точкам (чексуммы бэкапов/файлов) и k6-нагрузочный
-(DoD) — следующие шаги.
+napi-build (napi-smoke), server-tests гоняют fallback. Сжатие бэкапов и k6-нагрузочный
+(DoD) — следующие шаги. Бизнес-точка подключена: чексуммы целостности
+бэкапов (createBackup фиксирует metadata.checksum SHA-256 шифротекста,
+restoreBackup и verifyBackupPassword сверяют до расшифровки, битый файл
+→ 422 INTEGRITY_ERROR; тест backupIntegrity.test.js на моках моделей без
+БД; старые бэкапы без чексуммы пропускают проверку).
 **DoD:** нагрузочный тест (k6) x10 текущей нагрузки без деградации p95;
 CI остаётся зелёным на каждом шаге.
 

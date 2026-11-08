@@ -12,6 +12,7 @@ const archiver = require('archiver');
 const extract = require('extract-zip');
 const models = require('../models');
 const { AppError } = require('../middleware/errorHandler');
+const { sha256Hex, sha256Verify } = require('../utils/checksum'); // hot-path SHA-256 (этап 6): native .node-аддон, честный fallback node:crypto
 
 // Safe logger: never crash this service if winston is not loadable
 let logger;
@@ -114,6 +115,12 @@ class BackupService {
       return { valid: false };
     }
 
+    // Integrity check (этап 6): сверяем до расшифровки; битый файл не валиден
+    if (backup.metadata.checksum && !sha256Verify(encryptedData, backup.metadata.checksum)) {
+      logger.warn(`Backup integrity check failed: ${backup.filename}`);
+      return { valid: false };
+    }
+
     const salt = Buffer.from(backup.metadata.salt, 'hex');
 
     let key;
@@ -207,6 +214,9 @@ class BackupService {
       metadata: {
         salt: salt.toString('hex'),
         iv: iv.toString('hex'),
+        // SHA-256 шифротекста (этап 6): фиксируется при создании бэкапа,
+        // сверяется в restoreBackup/verifyBackupPassword до расшифровки.
+        checksum: sha256Hex(encryptedData),
       },
     });
 
@@ -243,6 +253,15 @@ class BackupService {
       encryptedData = await readFile(backupPath);
     } catch (error) {
       throw new AppError('Backup file not found', 404, 'NOT_FOUND');
+    }
+
+    // Integrity check (этап 6): сверяем чексумму ДО расшифровки — битый или
+    // подменённый файл отклоняется сразу, без траты PBKDF2. Старые бэкапы
+    // без чексуммы пропускают проверку (обратная совместимость).
+    if (backup.metadata && backup.metadata.checksum) {
+      if (!sha256Verify(encryptedData, backup.metadata.checksum)) {
+        throw new AppError('Backup file integrity check failed', 422, 'INTEGRITY_ERROR');
+      }
     }
 
     // Get salt and iv from metadata
