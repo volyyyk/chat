@@ -1,4 +1,4 @@
-=== run 42463172978 job e2e-smoke Sun Nov  8 08:32:04 UTC 2026 ===
+=== run 42463456436 job e2e-smoke Sun Nov  8 08:35:21 UTC 2026 ===
 
 > medchat-server@2.0.0 test:smoke
 > node scripts/smoke-test.js
@@ -55,9 +55,48 @@ Base URL: http://127.0.0.1:3990
   ✓ пациент 1 записался на приём
   ✓ у пациента 1 есть приёмы (прошлый + новый)
   ✓ врач подтвердил приём
-Smoke test crashed: ReferenceError: doctorApptsList is not defined
-    at main (/home/runner/work/chat/chat/medchat-v2/server/scripts/smoke-test.js:397:96)
-    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+  ✓ врач видит приёмы пациентов
+  ✓ пациент 2 не видит чужой приём
+
+[9] Электронные рецепты (E-Prescriptions)
+  ✓ врач создал рецепт
+  ✓ medications сохранились как массив
+  ✓ врач подписал рецепт (route /:id/sign)
+  ✓ повторная подписка идемпотентна
+  ✓ пациент 1 видит свой рецепт
+  ✓ пациент 2 не видит чужой рецепт
+  ✓ GET /api/eprescriptions/statistics не перехватывается как /:id
+
+[10] Облачные бэкапы
+  ✓ бэкап создан
+  ✓ список бэкапов доступен
+  ✓ verify-password отвечает
+
+[11] Порядок роутов и статистика
+  ✓ GET /api/messages/unread-count отвечает 200 (не 404)
+  ✓ GET /api/payments/statistics отвечает 200
+  ✓ GET /api/transactions не 404
+  ✓ врач видит свои транзакции
+
+[12] E2E: реестр публичных ключей и зашифрованные конверты
+  ✓ пациент 1 зарегистрировал публичный ключ (201)
+  ✓ повторная регистрация = ротация ключа (200, rotated)
+  ✓ невалидный publicKey отклоняется (400)
+  ✓ врач зарегистрировал публичный ключ
+  ✓ GET /api/keys возвращает ключи с ротированным значением
+  ✓ ключи чата отдают активные ключи обоих участников
+  ✓ чужой пользователь не может собрать ключи чата (403)
+  ✓ E2E-сообщение принято: content пуст, конверт в metadata.e2e
+  ✓ plaintext рядом с конвертом отклоняется (400)
+  ✓ конверт без бокса отправителя отклоняется (400)
+  ✗ врач читает E2E-сообщение: только шифротекст, без plaintext :: true
+  ✓ деактивация ключа устройства (DELETE /api/keys/:keyId)
+  ✓ после деактивации в реестре чата остались только активные ключи
+
+==============================================
+Проверок: 63, ошибок: 1
+==============================================
+SMOKE TEST FAILED
 ---- server stderr (tail) ----
 ❌ Error initializing MinIO bucket: Error: connect ECONNREFUSED ::1:9000
     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
@@ -76,10 +115,15 @@ Smoke test crashed: ReferenceError: doctorApptsList is not defined
   port: 9000
 }
 
---- SERVER STDOUT TAIL (winston writes error logs to stdout!) ---
+--- SERVER STDOUT TAIL (winston error logs go here) ---
 ✅ Redis client connected.
 ✅ Database connection has been established successfully (test).
-2026-11-08 08:32:06 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/9d447a0b-7026-4757-b7c1-deb3b0b61b06" requestId="1795bf10-e66c-48eb-87eb-9dad8ae522d5" userId="1580a76a-ceec-4c9c-b02f-dfa4197162c4" stack=undefined
-2026-11-08 08:32:06 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/0241abe9-6d4a-4d53-a537-d2d234375319" requestId="490bb98d-f6e9-4384-ab7e-9ea4f9e05c93" userId="1ba797c9-860f-45bb-a8d9-97dc848ee4f4" stack=undefined
-2026-11-08 08:32:07 [error] [TRANSACTION_ALREADY_USED] Payment transaction has already been used code="TRANSACTION_ALREADY_USED" status=409 method="POST" url="/api/chats/9d447a0b-7026-4757-b7c1-deb3b0b61b06/messages" requestId="95e4d359-d9d7-4ce4-a951-646616ed4bdb" userId="1ba797c9-860f-45bb-a8d9-97dc848ee4f4" stack=undefined
+2026-11-08 08:35:23 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/f0259977-be4b-417b-9798-30f4a93b4aef" requestId="447babfe-685e-4a8f-89f6-495858d6f00c" userId="8f47ad04-2109-4af0-aee9-35d1ffe72356" stack=undefined
+2026-11-08 08:35:23 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/232b702a-576c-47f5-afef-11fd6ef69672" requestId="3312b33e-7864-4121-8dac-e35b8c8aa7f7" userId="d1517349-9f82-4dd8-8a2c-52a57b9aa348" stack=undefined
+2026-11-08 08:35:23 [error] [TRANSACTION_ALREADY_USED] Payment transaction has already been used code="TRANSACTION_ALREADY_USED" status=409 method="POST" url="/api/chats/f0259977-be4b-417b-9798-30f4a93b4aef/messages" requestId="42dbe8a0-7de1-45f4-9640-c720bc98a958" userId="d1517349-9f82-4dd8-8a2c-52a57b9aa348" stack=undefined
+2026-11-08 08:35:23 [error] [FORBIDDEN] Cannot access this appointment code="FORBIDDEN" status=403 method="GET" url="/api/appointments/9deb94d7-0755-43b5-99e9-1387b5a6cf46" requestId="9ac6e138-7874-4bb9-9caa-1c439f491161" userId="d1517349-9f82-4dd8-8a2c-52a57b9aa348" stack=undefined
+2026-11-08 08:35:23 [error] [FORBIDDEN] Cannot access this e-prescription code="FORBIDDEN" status=403 method="GET" url="/api/eprescriptions/3a1c4158-27e1-4925-912c-65ae87ce7d22" requestId="dda483b0-8a49-49f5-802e-40da74e2e8a8" userId="d1517349-9f82-4dd8-8a2c-52a57b9aa348" stack=undefined
+2026-11-08 08:35:24 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/232b702a-576c-47f5-afef-11fd6ef69672/keys" requestId="17ba151a-aa4f-4477-8ffe-0c6b28992a97" userId="d1517349-9f82-4dd8-8a2c-52a57b9aa348" stack=undefined
+2026-11-08 08:35:24 [error] [VALIDATION_ERROR] content must be empty for E2E messages (send ciphertext in envelope.boxes) code="VALIDATION_ERROR" status=400 method="POST" url="/api/chats/232b702a-576c-47f5-afef-11fd6ef69672/messages" requestId="6af582e0-93bf-4bb4-9bb2-34506fba22c9" userId="8f47ad04-2109-4af0-aee9-35d1ffe72356" stack=undefined
+2026-11-08 08:35:24 [error] [VALIDATION_ERROR] E2E envelope must include a box for the sender (own devices/history) code="VALIDATION_ERROR" status=400 method="POST" url="/api/chats/232b702a-576c-47f5-afef-11fd6ef69672/messages" requestId="45ec1221-6792-4008-a430-2eeeef86a4f6" userId="8f47ad04-2109-4af0-aee9-35d1ffe72356" stack=undefined
 
