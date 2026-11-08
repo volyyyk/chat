@@ -1215,7 +1215,14 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     внутри конверта, honest-fallback на обычный E2E, входящие
     расшифровываются лениво, при неудаче — честная плашка). RN-плашка сделана (ChatScreen:
     isRatchetPayload — честный бейдж вместо JSON-мусора, RN ratchet-сессию
-    не держит). Склейка Double Ratchet в Android — остаток этапа 7.
+    не держит). Этап 7 закрыт полностью: Double Ratchet склеен во всех нативных
+    клиентах — desktop (ratchet_encrypt/ratchet_decrypt), iOS
+    (RatchetService.ensureSession + ChatView), Android
+    (RatchetService.ensureSession: аккаунт ratchet.<chatId>.<remoteKeyId>
+    в Android Keystore; MedchatApp: тумблер per-chat + ленивая
+    расшифровка входящих, honest-fallback). RN — честная плашка
+    (reference-клиент, без склейки). Сервер не менялся: payload
+    {"t":"r1","k","w"} внутри plaintext E2E-конверта, content пуст.
     Этап 3 начат (ч.1 — инструментальная цепочка): джоба CI ios-smoke (macos-latest):
     runtime-smoke Swift-обвязки (ios/MedchatCoreSmoke.swift — зеркало napi-smoke.js
     на host-cdylib), кросс-компиляция iOS device/sim (staticlib), артефакт
@@ -1238,7 +1245,11 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     из артефактов uniffi-bindings + android-smoke; Compose-экраны
     connect/login/chats/chat — зеркало desktop-клиента, отправка E2E при
     полном покрытии ключами, honest-fallback, ratchet-payload — честная
-    плашка как в RN; склейка Double Ratchet в Android — остаток этапа 7); Play Console и
+    плашка как в RN;
+    склейка Double Ratchet в Android сделана (зеркало iOS/desktop:
+    per-remote сессии, роль по keyId, тумблер + ленивая расшифровка,
+    honest-fallback) — этап 7 закрыт: desktop, iOS, Android; RN —
+    reference-клиент с честной плашкой); Play Console и
     подписи — оператор.
 
 ---

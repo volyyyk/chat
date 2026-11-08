@@ -1,5 +1,6 @@
 package medchat.android
 
+import android.util.Base64
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,8 +29,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 
-// Compose UI Android-клиента (этап 4 ч.3) — зеркало desktop-клиента
-// (desktop/ui/index.html) и iOS (ChatView):
+// Compose UI Android-клиента (этап 4 ч.3; ratchet-склейка — этап 7) —
+// зеркало desktop-клиента (desktop/ui/index.html) и iOS (ChatView):
 //   connect → login → chats → chat.
 // Сеть — в фоновом потоке (Thread), состояние — Compose snapshot
 // (запись из фонового потока допустима). accessToken — 30 минут, refresh
@@ -39,34 +41,71 @@ import org.json.JSONObject
 // E2E: конверт x25519-box при полном покрытии ключами участников
 // (content пуст, по боксу на участника — последний активный ключ, бокс
 // отправителя обязателен), honest-fallback на plaintext; входящие
-// расшифровываются лениво, при неудаче — честная плашка. Ratchet-payload
-// {"t":"r1",...} от desktop/iOS — честная плашка (как в RN): склейка
-// Double Ratchet в Android-клиенте — остаток этапа 7 (RatchetService
-// готов, путь отправки пока не переключён).
+// расшифровываются лениво, при неудаче — честная плашка.
+// Double Ratchet (этап 7, зеркало desktop/iOS): при включённом тумблере
+// plaintext конверта — payload {"t":"r1","k":keyId,"w":wire}; сессии
+// per-remote через RatchetService (аккаунт ratchet.<chatId>.<remoteKeyId>,
+// ss = x25519Dh identity-ключей, роль по keyId); тумблер per-chat —
+// флаг «1»/«0» в SecureStore (не секрет). Любая ошибка ratchet —
+// honest-fallback на обычный E2E-конверт; входящие ratchet-payload
+// расшифровываются лениво, при неудаче — честная плашка: чат никогда
+// не ломается.
 
 private const val KEY_SERVER = "server"
 private const val KEY_TOKEN = "token"
 private const val KEY_EMAIL = "email"
 private const val KEY_USER_ID = "userId"
 
-private const val RATCHET_BADGE = "🔒 Сообщение Double Ratchet — расшифровка в клиентах с ratchet-склейкой"
+private fun ratchetFlagKey(chatId: String): String = "ratchet.on." + chatId
 
-private fun isRatchetPayload(text: String): Boolean {
-    if (!text.startsWith("{")) {
-        return false
+// Входящий plaintext конверта: обычный текст (null — показать как есть)
+// или ratchet-payload {"t":"r1","k":keyId,"w":wire}. Расшифровка ленивая,
+// сессией с отправителем (его ключ — по keyId из реестра чата); не
+// расшифровалось — честная плашка, чат не ломается (зеркало ChatView).
+private fun ratchetUnwrap(
+    chatId: String,
+    uid: String,
+    keys: List<ChatKey>,
+    plaintext: String): Pair<String, Boolean>? {
+    if (!plaintext.startsWith("{")) {
+        return null
     }
-    return try {
-        val row = JSONObject(text)
-        row.optString("t") == "r1" && row.has("k") && row.has("w")
+    val row = try {
+        JSONObject(plaintext)
     } catch (e: Exception) {
-        false
+        return null
+    }
+    if (row.optString("t") != "r1") {
+        return null
+    }
+    val senderKeyId = row.optString("k")
+    val wireB64 = row.optString("w")
+    if (senderKeyId.isEmpty() || wireB64.isEmpty()) {
+        return null
+    }
+    val wire = try {
+        Base64.decode(wireB64, Base64.NO_WRAP)
+    } catch (e: IllegalArgumentException) {
+        return null
+    }
+    val pair = CryptoService(uid).getOrCreateKeyPair()
+        ?: return Pair("🔒 Ratchet-сообщение: нет ключа этого устройства", true)
+    val remoteKey = keys.firstOrNull { it.keyId == senderKeyId }
+        ?: return Pair("🔒 Ratchet-сообщение: нет ключа отправителя в реестре чата", true)
+    return try {
+        val ratchet = RatchetService()
+        val state = ratchet.ensureSession(chatId, pair, remoteKey)
+        Pair(String(ratchet.decrypt(chatId, senderKeyId, wire, state), Charsets.UTF_8), true)
+    } catch (e: Exception) {
+        Pair("🔒 Ratchet-сообщение не расшифровано (сессия не совпала)", true)
     }
 }
 
 private data class UiMessage(
     val mine: Boolean,
     val text: String,
-    val time: String)
+    val time: String,
+    val isRatchet: Boolean)
 
 @Composable
 fun MedchatApp() {
@@ -78,7 +117,10 @@ fun MedchatApp() {
         var userId by remember { mutableStateOf<String?>(null) }
         var chats by remember { mutableStateOf(listOf<ChatSummary>()) }
         var openChat by remember { mutableStateOf<ChatSummary?>(null) }
+        var ratchetOn by remember { mutableStateOf(true) }
+        var ratchetNote by remember { mutableStateOf<String?>(null) }
         val messages = remember { mutableStateListOf<UiMessage>() }
+        val ratchet = remember { RatchetService() }
 
         fun resetToLogin() {
             SecureStore.delete(KEY_TOKEN)
@@ -102,27 +144,40 @@ fun MedchatApp() {
             }.start()
         }
 
-        fun loadMessages(chatId: String) {
+        fun loadMessages(chat: ChatSummary) {
             val service = api ?: return
             val uid = userId ?: return
             busy = true
             status = null
             Thread {
                 try {
-                    val rows = service.messages(chatId)
+                    val rows = service.messages(chat.chatId)
+                    val keys = try {
+                        service.chatKeys(chat.chatId)
+                    } catch (e: Exception) {
+                        emptyList<ChatKey>()
+                    }
                     val crypto = CryptoService(uid)
                     val parsed = ArrayList<UiMessage>()
                     for (row in rows) {
                         val envelope = CryptoService.envelopeFrom(row.e2eEnvelope)
                         var text = row.content
+                        var isRatchet = false
                         if (envelope != null) {
                             val opened = crypto.openEnvelope(envelope)
-                            text = if (opened != null) opened else "🔒 Не удалось расшифровать (нет ключа этого устройства)"
+                            if (opened != null) {
+                                val unwrapped = ratchetUnwrap(chat.chatId, uid, keys, opened)
+                                if (unwrapped != null) {
+                                    text = unwrapped.first
+                                    isRatchet = unwrapped.second
+                                } else {
+                                    text = opened
+                                }
+                            } else {
+                                text = "🔒 Не удалось расшифровать (нет ключа этого устройства)"
+                            }
                         }
-                        if (isRatchetPayload(text)) {
-                            text = RATCHET_BADGE
-                        }
-                        parsed.add(UiMessage(row.senderId == uid, text, row.createdAt))
+                        parsed.add(UiMessage(row.senderId == uid, text, row.createdAt, isRatchet))
                     }
                     messages.clear()
                     messages.addAll(parsed)
@@ -133,7 +188,41 @@ fun MedchatApp() {
             }.start()
         }
 
-        fun sendText(chatId: String, text: String) {
+        // Исходящий ratchet-payload: wire шифруется сессией с собеседником
+        // и заворачивается в JSON {"t":"r1","k":keyId,"w":wire} — тот же
+        // формат, что в desktop и iOS. Ошибка (нет ключа собеседника,
+        // отвечающая сторона пишет первой — NotInitialized) — null + честная
+        // плашка: уйдёт обычный E2E-конверт, чат не ломается.
+        fun ratchetPayload(
+            chatId: String,
+            uid: String,
+            byUser: Map<String, ChatKey>,
+            text: String): String? {
+            val pair = CryptoService(uid).getOrCreateKeyPair()
+            if (pair == null) {
+                ratchetNote = "Ratchet: нет ключа устройства — отправлено обычным E2E-конвертом"
+                return null
+            }
+            val peer = byUser.entries.filter { it.key != uid }.lastOrNull()?.value
+            if (peer == null) {
+                ratchetNote = "Ratchet: нет ключа собеседника — отправлено обычным E2E-конвертом"
+                return null
+            }
+            return try {
+                val state = ratchet.ensureSession(chatId, pair, peer)
+                val wire = ratchet.encrypt(chatId, peer.keyId, text.toByteArray(Charsets.UTF_8), state)
+                JSONObject()
+                    .put("t", "r1")
+                    .put("k", pair.keyId)
+                    .put("w", Base64.encodeToString(wire, Base64.NO_WRAP))
+                    .toString()
+            } catch (e: Exception) {
+                ratchetNote = "Ratchet: сессия не готова (собеседник ещё не писал) — отправлено обычным E2E-конвертом"
+                null
+            }
+        }
+
+        fun sendText(chat: ChatSummary, text: String) {
             val service = api ?: return
             val uid = userId ?: return
             if (text.isEmpty()) {
@@ -141,26 +230,45 @@ fun MedchatApp() {
             }
             busy = true
             status = null
+            ratchetNote = null
             Thread {
                 try {
-                    val keys = service.chatKeys(chatId)
-                    val byUser = LinkedHashMap<String, String>()
+                    val keys = service.chatKeys(chat.chatId)
+                    val byUser = LinkedHashMap<String, ChatKey>()
                     for (key in keys) {
-                        byUser[key.userId] = key.publicKey
+                        byUser[key.userId] = key
                     }
-                    val mine = byUser[uid]
-                    val envelope = if (byUser.isNotEmpty() && mine != null) {
-                        val recipients = byUser.entries.map { entry -> entry.key to entry.value }
-                        CryptoService(uid).buildEnvelope(text, recipients)
+                    val participants = ArrayList<String>()
+                    chat.doctorUserId?.let { participants.add(it) }
+                    chat.patientUserId?.let { participants.add(it) }
+                    participants.add(uid)
+                    val ids = participants.distinct()
+                    val chatE2E = ids.isNotEmpty() && ids.all { byUser[it] != null }
+                    var outgoing = text
+                    if (chatE2E && ratchetOn) {
+                        val payload = ratchetPayload(chat.chatId, uid, byUser, text)
+                        if (payload != null) {
+                            outgoing = payload
+                        }
+                    }
+                    if (chatE2E) {
+                        val recipients = ids.mapNotNull { id ->
+                            byUser[id]?.let { key -> id to key.publicKey }
+                        }
+                        val envelope = if (recipients.size == ids.size) {
+                            CryptoService(uid).buildEnvelope(outgoing, recipients)
+                        } else {
+                            null
+                        }
+                        if (envelope != null) {
+                            service.send(chat.chatId, "", envelope)
+                        } else {
+                            service.send(chat.chatId, text)
+                        }
                     } else {
-                        null
+                        service.send(chat.chatId, text)
                     }
-                    if (envelope != null) {
-                        service.send(chatId, "", envelope)
-                    } else {
-                        service.send(chatId, text)
-                    }
-                    loadMessages(chatId)
+                    loadMessages(chat)
                 } catch (e: ApiError) {
                     busy = false
                     status = if (e.status == 402) {
@@ -173,6 +281,14 @@ fun MedchatApp() {
                     status = e.message ?: "ошибка отправки"
                 }
             }.start()
+        }
+
+        fun openChatById(c: ChatSummary) {
+            openChat = c
+            ratchetOn = (SecureStore.get(ratchetFlagKey(c.chatId)) ?: "1") == "1"
+            ratchetNote = null
+            screen = "chat"
+            loadMessages(c)
         }
 
         LaunchedEffect(Unit) {
@@ -241,17 +357,13 @@ fun MedchatApp() {
                 }.start()
             }
             "chats" -> ChatsScreen(chats, busy, status, onOpen = { chat ->
-                openChat = chat
-                screen = "chat"
-                loadMessages(chat.chatId)
+                openChatById(chat)
             })
             "chat" -> {
                 val chat = openChat
                 if (chat == null) {
                     ChatsScreen(chats, busy, status, onOpen = { c ->
-                        openChat = c
-                        screen = "chat"
-                        loadMessages(c.chatId)
+                        openChatById(c)
                     })
                 } else {
                     ChatScreen(
@@ -259,7 +371,13 @@ fun MedchatApp() {
                         messages,
                         busy,
                         status,
-                        onSend = { text -> sendText(chat.chatId, text) },
+                        ratchetOn,
+                        ratchetNote,
+                        onToggleRatchet = { value ->
+                            ratchetOn = value
+                            SecureStore.set(if (value) "1" else "0", ratchetFlagKey(chat.chatId))
+                        },
+                        onSend = { text -> sendText(chat, text) },
                         onBack = { openChat = null; screen = "chats" })
                 }
             }
@@ -349,6 +467,9 @@ private fun ChatScreen(
     messages: List<UiMessage>,
     busy: Boolean,
     status: String?,
+    ratchetEnabled: Boolean,
+    ratchetNote: String?,
+    onToggleRatchet: (Boolean) -> Unit,
     onSend: (String) -> Unit,
     onBack: () -> Unit) {
     var input by remember { mutableStateOf("") }
@@ -360,12 +481,24 @@ private fun ChatScreen(
             Text(title, style = MaterialTheme.typography.titleLarge)
         }
         status?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Switch(checked = ratchetEnabled, onCheckedChange = onToggleRatchet)
+            Text("Double Ratchet (forward secrecy)", style = MaterialTheme.typography.bodySmall)
+        }
+        ratchetNote?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(messages) { message ->
                 Text(
-                    (if (message.mine) "Вы" else "Собеседник") + " · " + message.time + "\n" + message.text)
+                    (if (message.mine) "Вы" else "Собеседник") +
+                        " · " + message.time +
+                        (if (message.isRatchet) " · ratchet" else "") +
+                        "\n" + message.text)
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -385,7 +518,7 @@ private fun ChatScreen(
             }
         }
         Text(
-            "🔒 E2E: конверт при полном покрытии ключами; Double Ratchet — этап 7",
+            "🔒 E2E при полном покрытии ключами + Double Ratchet (honest-fallback)",
             style = MaterialTheme.typography.bodySmall)
     }
 }

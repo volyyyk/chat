@@ -27,15 +27,19 @@
   (import uniffi.medchat_core): keyId android-*, приватный ключ только
   в Keystore, wire байт-в-байт совместим с мобильным клиентом на
   tweetnacl (контракт-вектор 1ce9516).
-- .../RatchetService.kt — Double Ratchet: save/restore MedRatchetState
-  через Keystore, encrypt/decrypt wire; склейка с путём отправки —
-  остаток этапа 7 (UI-клиент пока ходит E2E-конвертами).
+- .../RatchetService.kt — Double Ratchet (склейка этапа 7 сделана,
+  зеркало desktop/iOS): сессии per-remote — аккаунт
+  ratchet.<chatId>.<remoteKeyId> в Android Keystore; ss = x25519Dh от
+  identity-ключей реестра UserKey, роль по keyId (меньший — инициатор);
+  save/restore через Keystore, encrypt/decrypt wire.
 - .../MainActivity.kt + MedchatApp.kt — Compose UI (зеркало desktop
   ui/index.html): connect → login → chats → chat; ключ E2E
   регистрируется при входе (POST /api/keys); отправка — конверт при
   полном покрытии ключами участников (content пуст), honest-fallback
-  на plaintext; входящие расшифровываются лениво; ratchet-payload —
-  честная плашка (как в RN); токен/сервер/email — SecureStore.
+  на plaintext; входящие расшифровываются лениво; Double Ratchet — тумблер
+  per-chat, payload {"t":"r1","k","w"} поверх E2E-конверта, ленивая
+  расшифровка входящих ratchet-payload, honest-fallback (зеркало
+  desktop/iOS); токен/сервер/email — SecureStore.
 - MedchatCoreSmoke.kt — runtime-smoke обвязки (джоба android-smoke,
   JVM через JNA против host-cdylib).
 - ApiService.kt / SecureStore.kt / CryptoService.kt / RatchetService.kt
@@ -71,9 +75,9 @@
 
 ## Честные ограничения
 
-- Double Ratchet не склеян с UI-путём отправки — остаток этапа 7
-  (RatchetService готов; сообщения идут E2E-конвертами, ratchet-
-  payload от desktop/iOS показывается честной плашкой).
+- Double Ratchet склеян с UI-путём отправки (этап 7 закрыт);
+  отвечающая сторона не пишет первой до первого входящего
+  (NotInitialized) — уходит обычный E2E-конверт, чат не ломается.
 - minSdk 23: .so собирается с api 21, но SecureStore (KeyGenParameterSpec,
   AES-GCM в AndroidKeyStore) требует API 23+.
 - allowBackup=false: секреты не должны уходить в облачный бэкап.
