@@ -1,4 +1,4 @@
-=== run 42467546804 job core-tests Sun Nov  8 09:31:45 UTC 2026 ===
+=== run 42467666999 job core-tests Sun Nov  8 09:33:24 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m     Locking[0m 62 packages to highest compatible versions
 [1m[92m      Adding[0m aes-gcm v0.10.3 [1m[33m(available: v0.11.1)[0m
@@ -9,80 +9,108 @@
 [1m[92m      Adding[0m sha2 v0.10.9 [1m[33m(available: v0.11.1)[0m
 [1m[92m      Adding[0m x25519-dalek v2.0.1 [1m[33m(available: v3.0.0)[0m
 [1m[92m Downloading[0m crates ...
-[1m[92m  Downloaded[0m bitflags v2.13.2
-[1m[92m  Downloaded[0m convert_case v0.6.0
-[1m[92m  Downloaded[0m ctor v0.2.9
 [1m[92m  Downloaded[0m aho-corasick v1.1.5
-[1m[92m  Downloaded[0m memchr v2.8.3
-[1m[92m  Downloaded[0m napi-derive-backend v1.0.75
-[1m[92m  Downloaded[0m napi-build v2.6.0
-[1m[92m  Downloaded[0m napi-derive v2.16.13
+[1m[92m  Downloaded[0m ctor v0.2.9
 [1m[92m  Downloaded[0m napi-sys v2.4.0
+[1m[92m  Downloaded[0m napi-build v2.6.0
+[1m[92m  Downloaded[0m bitflags v2.13.2
+[1m[92m  Downloaded[0m napi-derive v2.16.13
+[1m[92m  Downloaded[0m convert_case v0.6.0
 [1m[92m  Downloaded[0m once_cell v1.21.4
+[1m[92m  Downloaded[0m napi-derive-backend v1.0.75
+[1m[92m  Downloaded[0m memchr v2.8.3
 [1m[92m  Downloaded[0m napi v2.16.17
-[1m[92m  Downloaded[0m regex-syntax v0.8.11
-[1m[92m  Downloaded[0m regex v1.13.1
-[1m[92m  Downloaded[0m regex-automata v0.4.18
 [1m[92m  Downloaded[0m unicode-segmentation v1.13.3
+[1m[92m  Downloaded[0m regex v1.13.1
+[1m[92m  Downloaded[0m regex-syntax v0.8.11
+[1m[92m  Downloaded[0m regex-automata v0.4.18
 [1m[92m   Compiling[0m syn v2.0.119
 [1m[92m   Compiling[0m memchr v2.8.3
 [1m[92m   Compiling[0m regex-syntax v0.8.11
-[1m[92m   Compiling[0m unicode-segmentation v1.13.3
-[1m[92m   Compiling[0m aho-corasick v1.1.5
 [1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m aho-corasick v1.1.5
+[1m[92m   Compiling[0m unicode-segmentation v1.13.3
 [1m[92m   Compiling[0m convert_case v0.6.0
 [1m[92m   Compiling[0m napi-build v2.6.0
+[1m[92m   Compiling[0m regex-automata v0.4.18
 [1m[92m   Compiling[0m medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)
 [1m[92m   Compiling[0m bitflags v2.13.2
 [1m[92m   Compiling[0m napi-sys v2.4.0
-[1m[92m   Compiling[0m regex-automata v0.4.18
 [1m[92m   Compiling[0m zeroize_derive v1.5.0
 [1m[92m   Compiling[0m curve25519-dalek-derive v0.1.1
-[1m[92m   Compiling[0m ctor v0.2.9
 [1m[92m   Compiling[0m regex v1.13.1
 [1m[92m   Compiling[0m zeroize v1.9.1
-[1m[92m   Compiling[0m napi v2.16.17
+[1m[92m   Compiling[0m ctor v0.2.9
 [1m[92m   Compiling[0m generic-array v0.14.7
 [1m[92m   Compiling[0m curve25519-dalek v4.1.3
+[1m[92m   Compiling[0m napi-derive-backend v1.0.75
+[1m[92m   Compiling[0m napi v2.16.17
 [1m[92m   Compiling[0m crypto-common v0.1.7
 [1m[92m   Compiling[0m inout v0.1.4
-[1m[92m   Compiling[0m universal-hash v0.5.1
 [1m[92m   Compiling[0m cipher v0.4.4
+[1m[92m   Compiling[0m universal-hash v0.5.1
 [1m[92m   Compiling[0m aead v0.5.2
 [1m[92m   Compiling[0m block-buffer v0.10.4
-[1m[92m   Compiling[0m salsa20 v0.10.2
 [1m[92m   Compiling[0m digest v0.10.7
-[1m[92m   Compiling[0m polyval v0.6.2
 [1m[92m   Compiling[0m poly1305 v0.8.0
-[1m[92m   Compiling[0m ghash v0.5.1
-[1m[92m   Compiling[0m ctr v0.9.2
+[1m[92m   Compiling[0m polyval v0.6.2
+[1m[92m   Compiling[0m salsa20 v0.10.2
 [1m[92m   Compiling[0m crypto_secretbox v0.1.1
+[1m[92m   Compiling[0m ctr v0.9.2
+[1m[92m   Compiling[0m ghash v0.5.1
 [1m[92m   Compiling[0m aes v0.8.4
-[1m[92m   Compiling[0m napi-derive-backend v1.0.75
 [1m[92m   Compiling[0m crypto_box v0.9.1
-[1m[92m   Compiling[0m x25519-dalek v2.0.1
+[1m[92m   Compiling[0m napi-derive v2.16.13
 [1m[92m   Compiling[0m hmac v0.12.1
 [1m[92m   Compiling[0m sha2 v0.10.9
 [1m[92m   Compiling[0m aes-gcm v0.10.3
-[1m[92m   Compiling[0m napi-derive v2.16.13
-[1m[91merror[E0277][0m[1m: `napi::bindgen_prelude::Buffer` doesn't implement `Debug`[0m
-   [1m[94m--> [0msrc/node.rs:352:10
-    [1m[94m|[0m
-[1m[94m352[0m [1m[94m|[0m         .unwrap_err();
-    [1m[94m|[0m          [1m[91m^^^^^^^^^^[0m [1m[91mthe trait `Debug` is not implemented for `napi::bindgen_prelude::Buffer`[0m
-    [1m[94m|[0m
-[1m[92mnote[0m: required by a bound in `Result::<T, E>::unwrap_err`
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/result.rs:1323:4
+[1m[92m   Compiling[0m x25519-dalek v2.0.1
+[1m[91merror[0m[1m: linking with `cc` failed: exit status: 1[0m
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m:  "cc" "-m64" "/home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/rustcGXHDOe/symbols.o" "<9 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "/home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libx25519_dalek-f482c631b5e06e00.rlib" "<sysroot>/lib/rustlib/x86_64-unknown-linux-gnu/lib/{libtest-*,libgetopts-*,librustc_std_workspace_std-*}.rlib" "/home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/{libnapi-3f555d7aa76be7fb,libnapi_sys-ce8c5496f3fd3eca,libbitflags-8a25d7f34d514d98,libonce_cell-58dd468cb35436f8,libsha2-f3f7cbd7811e3183,libhmac-5a8b268793f886f5,libdigest-c3c3f0a18ca6c0cf,libblock_buffer-4502b5db879020f2,libaes_gcm-64852ef174ac5134,libctr-95280b64a948bd32,libghash-08e9e1660a9a51a4,libpolyval-bebdcb82c7b40ad5,libaes-7dd678c1d6677199,libcrypto_box-6b69859d619df6ff,libcrypto_secretbox-cd4fd76ca5c6ba8a,libsalsa20-9a3dfb0c1c9e5c3c,libpoly1305-19e68f7e1eb101bc,libopaque_debug-3aa0ecc6feae0873,libuniversal_hash-9f3fe89873456b3b,libcipher-e3065f7f12a07d33,libinout-a69e1a9c9d77638f,libaead-f0aff7b2109634dd,libcrypto_common-9d4a333b8081536f,libgeneric_array-7b983ab0f5533c2f,libtypenum-93390c974fd6012d,librand_core-fc1e204711b0930f,libgetrandom-f0060019c8a446fd,liblibc-518c79dc557fa69a,libcurve25519_dalek-80702e48561f89bf,libcpufeatures-d03b0f93a485ccc1,libzeroize-6a526bfd49245d3b,libsubtle-1a1bdfe5db79d7a4,libcfg_if-0fbeb365b695d2ff}.rlib" "<sysroot>/lib/rustlib/x86_64-unknown-linux-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-lc" "-lm" "-lrt" "-lpthread" "-lgcc_s" "-lutil" "-lrt" "-lpthread" "-lm" "-ldl" "-lc" "-L" "/home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/rustcGXHDOe/raw-dylibs" "-B<sysroot>/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld" "-fuse-ld=lld" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "<sysroot>/lib/rustlib/x86_64-unknown-linux-gnu/lib" "-o" "/home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/medchat_core-868419d16cba0437" "-Wl,--gc-sections" "-pie" "-Wl,-z,relro,-z,now" "-nodefaultlibs" "-Wl,-z,nodelete"
+  [1m[94m= [0m[1mnote[0m: some arguments are omitted. use `--verbose` to show all linker arguments
+  [1m[94m= [0m[1mnote[0m: rust-lld: error: undefined symbol: napi_reference_unref
+          >>> referenced by buffer.rs:155 (src/bindgen_runtime/js_values/buffer.rs:155)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.12.rcgu.o:(<napi::bindgen_runtime::js_values::buffer::Buffer as core::ops::drop::Drop>::drop) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          
+          rust-lld: error: undefined symbol: napi_delete_reference
+          >>> referenced by buffer.rs:164 (src/bindgen_runtime/js_values/buffer.rs:164)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.12.rcgu.o:(<napi::bindgen_runtime::js_values::buffer::Buffer as core::ops::drop::Drop>::drop) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          >>> referenced by error.rs:234 (src/error.rs:234)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.13.rcgu.o:(<napi::error::JsError>::into_value) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          
+          rust-lld: error: undefined symbol: napi_get_reference_value
+          >>> referenced by error.rs:229 (src/error.rs:229)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.13.rcgu.o:(<napi::error::JsError>::into_value) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          
+          rust-lld: error: undefined symbol: napi_is_error
+          >>> referenced by error.rs:240 (src/error.rs:240)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.13.rcgu.o:(<napi::error::JsError>::into_value) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          
+          rust-lld: error: undefined symbol: napi_create_string_utf8
+          >>> referenced by error.rs:258 (src/error.rs:258)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.13.rcgu.o:(<napi::error::JsError>::into_value) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          >>> referenced by error.rs:267 (src/error.rs:267)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.13.rcgu.o:(<napi::error::JsError>::into_value) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          
+          rust-lld: error: undefined symbol: napi_create_error
+          >>> referenced by error.rs:275 (src/error.rs:275)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.13.rcgu.o:(<napi::error::JsError>::into_value) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          
+          rust-lld: error: undefined symbol: napi_is_exception_pending
+          >>> referenced by error.rs:299 (src/error.rs:299)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.13.rcgu.o:(<napi::error::JsError>::throw_into) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          
+          rust-lld: error: undefined symbol: napi_throw
+          >>> referenced by error.rs:314 (src/error.rs:314)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.13.rcgu.o:(<napi::error::JsError>::throw_into) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          >>> referenced by error.rs:315 (src/error.rs:315)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.13.rcgu.o:(<napi::error::JsError>::throw_into) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          
+          rust-lld: error: undefined symbol: napi_get_and_clear_last_exception
+          >>> referenced by error.rs:306 (src/error.rs:306)
+          >>>               napi-3f555d7aa76be7fb.napi.6200f4e9f5001a39-cgu.13.rcgu.o:(<napi::error::JsError>::throw_into) in archive /home/runner/work/chat/chat/medchat-v2/core/target/debug/deps/libnapi-3f555d7aa76be7fb.rlib
+          collect2: error: ld returned 1 exit status
+          
 
-[1m[91merror[E0277][0m[1m: `napi::bindgen_prelude::Buffer` doesn't implement `Debug`[0m
-   [1m[94m--> [0msrc/node.rs:450:14
-    [1m[94m|[0m
-[1m[94m450[0m [1m[94m|[0m             .unwrap_err();
-    [1m[94m|[0m              [1m[91m^^^^^^^^^^[0m [1m[91mthe trait `Debug` is not implemented for `napi::bindgen_prelude::Buffer`[0m
-    [1m[94m|[0m
-[1m[92mnote[0m: required by a bound in `Result::<T, E>::unwrap_err`
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/result.rs:1323:4
-
-[1mFor more information about this error, try `rustc --explain E0277`.[0m
-[1m[91merror[0m: could not compile `medchat-core` (lib test) due to 2 previous errors
-[1m[33mwarning[0m: build failed, waiting for other jobs to finish...
+[1m[91merror[0m: could not compile `medchat-core` (lib test) due to 1 previous error
