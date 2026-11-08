@@ -183,3 +183,24 @@ jobs:
           echo "Smoke test failed. Recent server output:"
           ls -la logs 2>/dev/null || true
           tail -n 200 logs/error.log 2>/dev/null || true
+
+  core-tests:
+    name: Rust core (medchat-core, этап 2 ROADMAP_NATIVE)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust (stable, minimal profile)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: medchat-v2/core
+
+      - name: Run cargo tests
+        run: cargo test
