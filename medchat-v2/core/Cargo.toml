@@ -55,6 +55,19 @@ napi-derive = { version = "2", optional = true }
 [build-dependencies]
 napi-build = "2"
 
+# criterion — бенчмарки крипто-пути ядра (benches/crypto.rs), DoD этапа 2
+# ROADMAP_NATIVE («бенчмарк ≥ x10 к Node на крипто-пути»). dev-зависимость:
+# не участвует в сборке .node (napi build) и не запускается обычными
+# прогонами ядра (cargo check --tests / cargo test --no-default-features).
+[dev-dependencies]
+criterion = "0.5"
+
+# Бенчмарки запускает только cargo bench --no-default-features (джоба CI
+# core-bench). harness = false: точка входа — criterion, а не libtest.
+[[bench]]
+name = "crypto"
+harness = false
+
 [profile.release]
 lto = true
 codegen-units = 1
