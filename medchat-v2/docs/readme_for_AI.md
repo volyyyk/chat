@@ -930,6 +930,21 @@ DESKTOP_RELEASE.md). Риски первого прогона: конвенци�
     мёртвого workflow). Урок: после правок ci.yml проверять файл на
     дублирующиеся ключи, а не только глазами на diff.
 
+**uniffi out-dir и cargo rustc crate-type override (ios/android-smoke, run 42518440522)**:
+    Телеметрия 27aaf0c окупилась сразу: обе причины найдены по логам.
+    1) uniffi-bindgen 0.28 кладёт Kotlin-обвязку в подкаталог пакета
+    uniffi-out/kotlin/uniffi/<ns>/, а не в сам out-dir (Swift, в
+    отличие от Kotlin, кладёт .h/.swift прямо в out-dir): глоб
+    uniffi-out/kotlin/*.kt пуст — package-строку и файлы искать
+    рекурсивно (grep --include, find). 2) cargo rustc с флагом
+    --crate-type staticlib КОМПИЛИРУЕТСЯ, но артефакт НЕ продвигается
+    в target/<triple>/release/: cargo продвигает только crate-types
+    из [lib] манифеста (у нас cdylib+rlib), override-тип остаётся в
+    deps/ с hash-суффиксом. Решение: find + cp в ожидаемый путь
+    (альтернатива — добавить staticlib в crate-type манифеста, но
+    тогда cdylib собирается и для iOS-target). Урок: пусть шаг сам
+    докладывает, ГДЕ лежит артефакт, прежде чем ls по угаданному пути.
+
 ## 9. Лаунчер («запуск по кнопке»)
 
 `medchat-v2/launcher/`:

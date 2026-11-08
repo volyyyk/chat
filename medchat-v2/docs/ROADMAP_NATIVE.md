@@ -194,6 +194,11 @@ Play Console и подписи — на машине оператора (сек�
     (bash -e: падение присваивания под $() гасит шаг без следов в
     tee-логе); телеметрия шагов добавлена: exec > >(tee -a …) в начале
     каждого шага, || true на присваиваниях PKG/HEADER, curl -fsSL.
+    Прогон 42518440522: телеметрия сработала — Swift smoke и typecheck
+    зелёные; оба падения точечные: bindgen кладёт Kotlin-обвязку
+    в подкаталог uniffi/ (поиск сделан рекурсивным), cargo rustc
+    --crate-type staticlib оставляет .a в deps/ (find + cp в
+    release-корень).
 
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
 **Tauri 2** (Rust + системный webview): один UI на обе платформы.

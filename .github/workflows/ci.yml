@@ -655,6 +655,27 @@ jobs:
           cargo rustc --release --no-default-features --features uniffi-bind,serde --target aarch64-apple-ios -- --crate-type staticlib
           echo "[ci-ios] cross-compile simulator (staticlib): start"
           cargo rustc --release --no-default-features --features uniffi-bind,serde --target aarch64-apple-ios-sim -- --crate-type staticlib
+          # override crate-type НЕ продвигается в release-корень (cargo
+          # продвигает только типы из [lib] манифеста) — .a лежит в deps/
+          # с hash-суффиксом; находим и кладём в путь, ожидаемый xcframework.
+          echo "[ci-ios] locating device staticlib"
+          DEV_A=$(find target/aarch64-apple-ios/release -name "libmedchat_core*.a" | head -n 1 || true)
+          if [ -z "$DEV_A" ]; then
+            echo "[ci-ios] FAIL: libmedchat_core*.a not found (aarch64-apple-ios)"
+            find target/aarch64-apple-ios -name "libmedchat_core*" -type f | head -n 20
+            exit 1
+          fi
+          echo "[ci-ios] device staticlib: $DEV_A"
+          [ "$DEV_A" = "target/aarch64-apple-ios/release/libmedchat_core.a" ] || cp "$DEV_A" target/aarch64-apple-ios/release/libmedchat_core.a
+          echo "[ci-ios] locating simulator staticlib"
+          SIM_A=$(find target/aarch64-apple-ios-sim/release -name "libmedchat_core*.a" | head -n 1 || true)
+          if [ -z "$SIM_A" ]; then
+            echo "[ci-ios] FAIL: libmedchat_core*.a not found (aarch64-apple-ios-sim)"
+            find target/aarch64-apple-ios-sim -name "libmedchat_core*" -type f | head -n 20
+            exit 1
+          fi
+          echo "[ci-ios] simulator staticlib: $SIM_A"
+          [ "$SIM_A" = "target/aarch64-apple-ios-sim/release/libmedchat_core.a" ] || cp "$SIM_A" target/aarch64-apple-ios-sim/release/libmedchat_core.a
           ls -la target/aarch64-apple-ios/release/libmedchat_core.a
           ls -la target/aarch64-apple-ios-sim/release/libmedchat_core.a
 
@@ -782,18 +803,26 @@ jobs:
           set -o pipefail
           exec > >(tee -a ../../ci-android.log) 2>&1
           echo "[ci-android] kotlin smoke: start"
-          PKG=$(grep -m1 -h "^package " uniffi-out/kotlin/*.kt | sed "s/^package //" | tr -d "\r" || true)
+          # bindgen 0.28 кладёт обвязку в подкаталог пакета
+          # (uniffi-out/kotlin/uniffi/<ns>/), а не в сам out-dir:
+          # glob uniffi-out/kotlin/*.kt пуст — ищем рекурсивно.
+          PKG=$(grep -rh -m1 --include="*.kt" "^package " uniffi-out/kotlin | head -n 1 | sed "s/^package //" | tr -d "\r" || true)
           if [ -z "$PKG" ]; then
             echo "[ci-android] FAIL: package line not found in uniffi-out/kotlin"
-            ls -la uniffi-out/kotlin
-            grep -n "package" uniffi-out/kotlin/*.kt | head -n 5 || true
+            find uniffi-out/kotlin -type f -ls
             exit 1
           fi
           echo "[ci-android] kotlin package: $PKG"
+          KT_FILES=$(find uniffi-out/kotlin -name "*.kt" || true)
+          if [ -z "$KT_FILES" ]; then
+            echo "[ci-android] FAIL: no *.kt in uniffi-out/kotlin"
+            find uniffi-out/kotlin -type f -ls
+            exit 1
+          fi
           mkdir -p smoke-kotlin smoke-classes
           { echo "package $PKG"; cat ../android/MedchatCoreSmoke.kt; } > smoke-kotlin/MedchatCoreSmoke.kt
           echo "[ci-android] compiling kotlinc (обвязка + smoke)"
-          /opt/kotlinc/bin/kotlinc uniffi-out/kotlin/*.kt smoke-kotlin/MedchatCoreSmoke.kt -cp /tmp/jna.jar -d smoke-classes
+          /opt/kotlinc/bin/kotlinc $KT_FILES smoke-kotlin/MedchatCoreSmoke.kt -cp /tmp/jna.jar -d smoke-classes
           echo "[ci-android] running smoke in JVM via JNA (host cdylib)"
           java -Djna.library.path="$PWD/target/release" -cp "/tmp/jna.jar:smoke-classes" "$PKG.MedchatCoreSmokeKt"
           echo "[ci-android] kotlin smoke: done"
