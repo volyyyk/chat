@@ -70,7 +70,10 @@ pub fn generate_keypair() -> KeyPair {
         secret_key: [0u8; KEY_SIZE],
     };
     kp.public_key.copy_from_slice(public.as_bytes());
-    kp.secret_key.copy_from_slice(secret.as_bytes());
+    // as_ref() нейтрален к форме возврата to_bytes ([u8;32] или &[u8;32]):
+    // в обоих случаях получаем &[u8] для copy_from_slice.
+    let secret_bytes = secret.to_bytes();
+    kp.secret_key.copy_from_slice(secret_bytes.as_ref());
     kp
 }
 
