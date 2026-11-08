@@ -17,7 +17,10 @@
 > из-за неё сервер не запускался вовсе). E2E распространено на файлы и
 голосовые (42e5a1d → ed9a661: гибридное шифрование payload, ключ файла внутри
 конверта, расшифровка при просмотре) и wire-формат RatchetMessage для
-биндингов (a43102d).
+биндингов (a43102d). Кросс-платформенные контракт-векторы Этапа 2 (1ce9516):
+канонический вектор NaCl box проверяется в Rust-ядре и tweetnacl на общей
+фикстуре (см. §8, §10). Верификация fingerprint-кодов E2E (safety number)
+реализована в мобильном клиенте (347bc9d + ec1a0de).
 
 ---
 
@@ -81,7 +84,9 @@ medchat-v2/
 │                        fail-fast при JWT_SECRET < 8 символов
 ├── server/tests/
 │   ├── cryptoService.test.js, errorHandler.test.js, paymentService.test.js,
-│   │                    e2eEnvelope.test.js (валидация E2E-конвертов, 02dc969)
+│   │                    e2eEnvelope.test.js (валидация E2E-конвертов, 02dc969),
+│   │                    coreInterop.test.js (контрактный вектор NaCl box на
+│   │                    общей фикстуре core/tests, 1ce9516)
 │   ├── integration/auth.test.js
 │   └── security/      — jwtSecurity, registerSecurity, paymentsSecurity, transactionsIdor
 ├── mobile/src/
@@ -109,6 +114,8 @@ medchat-v2/
 │                          skip-store внеочередных
 │                          сообщений, d033eeb; wire-формат RatchetMessage
 │                          (a43102d) — 13 тестов);
+│                          tests/interop_vectors.rs — контрактный вектор NaCl
+│                          box на фикстуре nacl_box_vector.hex (1ce9516);
 │                          cargo test в CI (джоба core-tests)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
@@ -223,9 +230,22 @@ E2E-сообщений серверу недоступен (хранится т�
   открываются через expo-sharing; legacy-файлы (без ключа) качаются
   downloadAsync с Authorization. Fallback тот же, что у текста: нет ключей
   у участника → plaintext-загрузка (доступность важнее).
+- **Fingerprint чата / safety number (347bc9d + ec1a0de, этап 7)**:
+  e2eCryptoService.chatFingerprint(keys) — 60 десятичных цифр (12 групп по 5)
+  из SHA-512 (nacl.hash) по отсортированным тройкам (userId, keyId, publicKey)
+  активных ключей чата; вычисляется на каждом устройстве из уже имеющихся
+  данных (GET /api/chats/:id/keys), сервер не участвует в доверии. Иконка
+  verified-user в шапке ChatScreen показывает код: участники сверяют его
+  лично или по телефону — несовпадение = в реестре чужой ключ (подмена/MITM).
+  Любая ротация/новое устройство/деактивация меняет код; не-E2E чаты
+  (plaintext-fallback) кода не имеют. Best-effort: сбой загрузки ключей
+  не блокирует чат.
 - **Rust-ядро** (medchat-v2/core, крейт medchat-core): те же примитивы на crypto_box 0.9
   (SalsaBox = X25519 + XSalsa20-Poly1305) — generate_keypair / seal_for_recipients /
-  open_sealed, CoreError; бинарно совместимая раскладка боксов с tweetnacl. Этап 2
+  open_sealed, CoreError; бинарно совместимая раскладка боксов с tweetnacl —
+  подтверждена контракт-тестом на каноническом векторе NaCl box (1ce9516:
+  core/tests/interop_vectors.rs + server/tests/coreInterop.test.js, общая
+  фикстура nacl_box_vector.hex, обе стороны в CI). Этап 2
   ROADMAP_NATIVE; биндинги (napi-rs / UniFFI) — следующие шаги.
 - **Double Ratchet** (этап 7, прототип): medchat-core/src/ratchet.rs — KDF_RK/KDF_CK на
   HMAC-SHA256 (x25519-dalek 2.0.1 для raw DH, явная feature static_secrets), каждое
@@ -446,6 +466,14 @@ a508fda (устаревший), из-за чего «детерминирова�
 dh_pub(32)+pn(4)+n(4) LE || nonce 12 || ciphertext), BadHeader на границах,
 HEADER_SIZE стал pub — подготовка к napi-rs/UniFFI-биндингам; 3 новых теста
 (итого 13).
+**Кросс-платформенные контракт-векторы** (1ce9516): DoD Этапа 2 «тест-векторы
+байт-в-байт» закрыт для примитива NaCl box — общая фикстура
+core/tests/nacl_box_vector.hex (канонический вектор из дистрибуции NaCl,
+public domain: ключи Alice/Bob, nonce, m 131 байт, c 147 байт) проверяется
+в двух джобах: core-tests (interop_vectors.rs: SalsaBox шифрует и
+расшифровывает вектор) и server-tests (coreInterop.test.js: nacl.box /
+nacl.box.open на tweetnacl — библиотеке мобильного клиента). tweetnacl уже
+был в dependencies сервера — новых зависимостей не потребовалось.
 **Мобильный клиент: E2E файлов/голосовых** (42e5a1d → 631b324 → ed9a661):
 sendFile шифрует payload на устройстве (secretbox случайным ключом; wire =
 nonce || ciphertext грузится как payload.bin/octet-stream), ключ файла едет
@@ -455,6 +483,12 @@ nonce || ciphertext грузится как payload.bin/octet-stream), ключ 
 file:// URI для плеера/expo-sharing; кэш расшифрованных файлов на сообщение;
 legacy-файлы (без ключа) качаются downloadAsync с Authorization — плеер сам
 заголовок прикрепить не мог. Fallback-логика идентична тексту.
+**Мобильный клиент: fingerprint чата / safety number** (347bc9d + ec1a0de):
+chatFingerprint в e2eCryptoService (SHA-512 nacl.hash по отсортированным
+тройкам userId|keyId|publicKey, 60 цифр группами по 5) + шапка ChatScreen
+(иконка verified-user → Alert с кодом и инструкцией сверки; только для чатов
+с E2E-ключами). Закрывает «верификацию fingerprint-кодов» этапа 7 в части
+мобильного клиента.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -479,13 +513,19 @@ node stop.js [--docker]                     # остановить процес�
 Три джобы на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
-  валидации E2E-конвертов). При ошибке установки grep npm error выводится в annotations.
+  валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
+  вектор NaCl crypto_box на фикстуре core/tests/nacl_box_vector.hex — tweetnacl
+  обязан совпадать с эталоном и с Rust-ядром байт-в-байт). При ошибке установки
+  grep npm error выводится в annotations.
 - **e2e-smoke**: services Postgres (db medchat_test) + Redis; `npm run seed:test` +
   `npm run test:smoke` (сервер на :3990, сам поднимается). С 623d777 включает секцию [12] E2E:
   +13 проверок реестра ключей и конвертов (ротация, 403 на чужие ключи, plaintext-защита).
 - **core-tests**: Rust-ядро medchat-v2/core — stable-тулчейн, кэш (Swatinem/rust-cache),
   `cargo test` (крейт medchat-core, этап 2 ROADMAP_NATIVE); лог падений публикуется в
-  ci-logs/ci-rust.log. С 6aff983 включает ratchet.rs (Double Ratchet; с d033eeb — 10 кейсов, включая skip-store).
+  ci-logs/ci-rust.log. С 6aff983 включает ratchet.rs (Double Ratchet; с d033eeb — 10 кейсов, включая skip-store);
+  с 1ce9516 — контрактный тест tests/interop_vectors.rs: SalsaBox обязан
+  воспроизвести канонический вектор NaCl box байт-в-байт (общая фикстура с
+  jest-стороной в server-tests).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -514,7 +554,8 @@ node stop.js [--docker]                     # остановить процес�
    wire-формат заголовков готов (a43102d), нужны биндинги napi-rs/UniFFI;
    skip-store сделан d033eeb); ~~E2E для файлов/голосовых~~ — сделано
    (42e5a1d → ed9a661: гибридное шифрование, ключ файла в конверте,
-   расшифровка при просмотре); идентификация
+   расшифровка при просмотре); ~~верификация fingerprint-кодов~~ — сделано
+   (347bc9d + ec1a0de: safety number в шапке чата); идентификация
    пользователей 149-ФЗ ст. 10.1. ~~Secure storage приватных ключей~~ —
    сделано (3ab5cf6: expo-secure-store / Keychain / Keystore, миграция из AsyncStorage).
 3. ~~Фейл-фаст валидация JWT_SECRET при старте сервера~~ — сделано (65ec99c).
