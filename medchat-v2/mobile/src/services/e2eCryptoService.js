@@ -539,6 +539,50 @@ function allParticipantsHaveKeys(participantUserIds, keys) {
   return participantUserIds.every((uid) => covered.has(String(uid)));
 }
 
+// ---------------------------------------------------------------------------
+// Chat fingerprint (safety number, этап 7 ROADMAP_NATIVE)
+//
+// A stable human-comparable code derived from the FULL set of active keys in
+// the chat. Both sides read it out loud (in person / on the phone) and match:
+// a mismatch means the key registry was tampered with (rogue device key
+// injected, MITM) - the chat must be re-verified. Computed purely from data
+// every participant already has (GET /api/chats/:id/keys), so it does not
+// rely on the server being trusted: the server cannot fake the match without
+// changing the key set, which changes the fingerprint.
+// ---------------------------------------------------------------------------
+
+/**
+ * Safety-number style fingerprint of a chat's E2E key set: 60 decimal digits
+ * in 5-digit groups, e.g. "01234 56789 ...". Sorted (userId, keyId,
+ * publicKey) triples are hashed with SHA-512 (nacl.hash) so the same key set
+ * always produces the same fingerprint on every device, while ANY change of
+ * keys (rotation, new device, deactivation) produces a different one.
+ * Returns null when there are no usable keys (plaintext-fallback chats have
+ * no fingerprint - they are not E2E).
+ */
+function chatFingerprint(keys) {
+  if (!Array.isArray(keys) || keys.length === 0) return null;
+  const triples = keys
+    .filter((k) => k && k.userId && k.keyId && k.publicKey)
+    .map((k) => String(k.userId) + '|' + String(k.keyId) + '|' + String(k.publicKey))
+    .sort();
+  if (triples.length === 0) return null;
+  const digest = nacl.hash(utf8Encode('medchat-e2e-fingerprint-v1\n' + triples.join('\n')));
+  // 60 decimal digits from the digest: 12 chunks of 4 bytes, each chunk
+  // folded to 5 digits (mod 100000, zero-padded).
+  let digits = '';
+  for (let i = 0; i + 3 < digest.length && digits.length < 60; i += 4) {
+    const chunk =
+      (digest[i] * 0x1000000 + (digest[i + 1] << 16) + (digest[i + 2] << 8) + digest[i + 3]) % 100000;
+    digits += String(chunk).padStart(5, '0');
+  }
+  const groups = [];
+  for (let i = 0; i < 60; i += 5) {
+    groups.push(digits.slice(i, i + 5));
+  }
+  return groups.join(' ');
+}
+
 export {
   bytesToBase64,
   base64ToBytes,
@@ -559,4 +603,5 @@ export {
   fetchAndDecryptFile,
   getEnvelope,
   allParticipantsHaveKeys,
+  chatFingerprint,
 };
