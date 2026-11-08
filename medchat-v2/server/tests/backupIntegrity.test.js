@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-jest.mock('../models', () => ({
+jest.mock('../src/models', () => ({
   User: { findByPk: jest.fn() },
   Backup: { findByPk: jest.fn(), create: jest.fn(), findAll: jest.fn(), count: jest.fn() },
   sequelize: { query: jest.fn() },
@@ -23,7 +23,7 @@ jest.mock('../utils/logger', () => ({
 
 const BackupService = require('../src/services/backupService');
 const { sha256Hex } = require('../src/utils/checksum');
-const models = require('../models');
+const models = require('../src/models');
 
 const PASSWORD = 'Backup!Integrity123';
 const BACKUP_DIR = path.join(__dirname, '..', 'backups');
