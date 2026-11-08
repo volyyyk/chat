@@ -301,7 +301,7 @@ E2E-сообщений серверу недоступен (хранится т�
   бинарник не может линковать napi_*-символы — их даёт только процесс Node,
   napi-rs issue #1099; юнит-тесты самих обёрток выполняются джобой napi-build
   в настоящем Node: napi-smoke.js — JS-зеркало тех же проверок).
-  UniFFI-биндинги для Swift/Kotlin реализованы (feature uniffi-bind: src/uniffi_iface.rs — обёртки конвертов, bcrypt_verify, MedRatchetState на Mutex (uniffi-методы иммутабельны), to_wire/from_wire; генерация обвязки — uniffi-bindgen 0.28 (library mode) в джобе CI uniffi-bindings; персистентность состояния — на вызывающей стороне, Keychain/Keystore).
+  UniFFI-биндинги для Swift/Kotlin реализованы (feature uniffi-bind: src/uniffi_iface.rs — обёртки конвертов, bcrypt_verify, MedRatchetState на Mutex (uniffi-методы иммутабельны), to_wire/from_wire; генерация обвязки — uniffi-bindgen 0.28.3 из git-тега v0.28.3 (library mode; uniffi-крейты отсутствуют в sparse-индексе crates.io, см. §8) в джобе CI uniffi-bindings; персистентность состояния — на вызывающей стороне, Keychain/Keystore).
 - **Double Ratchet** (этап 7, прототип): medchat-core/src/ratchet.rs — KDF_RK/KDF_CK на
   HMAC-SHA256 (x25519-dalek 2.0.1 для raw DH, явная feature static_secrets), каждое
   сообщение AES-256-GCM на одноразовом message key, DH-шаг при смене ratchet-ключа
@@ -665,19 +665,33 @@ ratchet_message_to_wire/from_wire + константы (32/24/40/12). Отлич
 napi: uniffi-методы Object иммутабельны — MedRatchetState держит
 Mutex<RatchetState> (poison обходится into_inner). Джоба CI uniffi-bindings:
 cargo build --release --no-default-features --features uniffi-bind (cdylib с
-setup_scaffolding!-метаданными), uniffi-bindgen 0.28 (library mode) генерирует
+setup_scaffolding!-метаданными), uniffi-bindgen 0.28.3 (library mode) генерирует
 Kotlin- и Swift-обвязку в uniffi-out/ (артефакт upload-artifact), плюс
 cargo test обёрток — в отличие от napi, uniffi-код линкуется в тестовый
-бинарник чисто (metadata — обычный Rust). Версии крейта и CLI закреплены
-на 0.28 (формат metadata меняется между minor; пин CLI точный — 0.28.3).
-Прогон #105: шаг установки CLI падал мгновенно (джоба 6 с) ДО первого tee —
-ci-uniffi.log не создавался, publish-шагу копировать нечего, причина
-недоступна без админ-прав на logs-API (403). Фикс: вывод установки пишется
-в ci-uniffi.log с первой команды (заголовок прогона для сверки метки
-времени, cargo --version для контекста), --locked оставлен с фолбэком
-без --locked (официальная форма документации uniffi-rs). УРОК: шаги
-ДО первого tee невидимы для ci-reporter — потенциально капризный шаг
-обязан писать лог с самого начала. Честное ограничение:
+бинарник чисто (metadata — обычный Rust). Версия 0.28.3 закреплена с обеих сторон: крейт и CLI берутся из
+git-тега v0.28.3 репозитория mozilla/uniffi-rs (формат metadata меняется
+между minor — CLI обязан совпадать с крейтом). Прогоны #105–#107:
+установка CLI падала — «could not find uniffi-bindgen in registry
+crates-io» на любую версию. Причина (диагностируемый ci-uniffi.log +
+ручные пробы sparse-индекса): семейство uniffi-крейтов ОТСУТСТВУЕТ
+в sparse-индексе crates.io — index.crates.io/un/iff/uniffi* отвечает
+NoSuchKey (контроль: serde/crypto_box/x25519-dalek/generic-array
+отдаются), при живых метаданных crates.io API (0.28.3 существует, не
+yanked, линейка до 0.32.2). cargo не может разрешить зависимость из
+отсутствующей индексной записи — ни --version, ни фолбэк без --locked
+не спасают. Фикс: зависимость крейта и установка CLI переведены на
+git-тег v0.28.3 (внутренние зависимости uniffi — uniffi-macro,
+uniffi-meta — path-депы того же workspace, обращений к отсутствующим
+индекс-записям не остаётся; Cargo.lock в gitignore). УРОКИ:
+(1) шаги ДО первого tee невидимы для ci-reporter — потенциально
+капризный шаг обязан писать лог с самого начала (#105: причина была
+недиагностируема, пока лог не стал писаться с первой команды;
+заголовок прогона — для сверки метки времени, cargo --version —
+контекст); (2) «крейта нет в реестре» ≠ «крейт не существует»:
+crates.io API и sparse-индекс cargo расходятся — при «could not find
+in registry» проверять index.crates.io/<2 буквы>/<2 буквы>/<имя>
+напрямую (NoSuchKey) и держать в голове git-тег как альтернативный
+источник пина версии. Честное ограничение:
 компиляция сгенерированного кода в Xcode/Gradle — этапы 3/4 (на ubuntu их
 нет); джоба гейтит сборку, тесты обёрток и генерацию.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
@@ -744,7 +758,8 @@ node stop.js [--docker]                     # остановить процес�
   по требованию; лог падений — ci-logs/ci-fuzz.log.
 - **uniffi-bindings**: UniFFI-биндинги Swift/Kotlin (этап 2): сборка cdylib
   с scaffolding (--no-default-features --features uniffi-bind) → uniffi-bindgen
-  0.28 (library mode) генерирует Kotlin/Swift-обвязку (uniffi-out/, артефакт);
+  0.28.3 из git-тега v0.28.3 (library mode) генерирует Kotlin/Swift-обвязку
+  (uniffi-out/, артефакт);
   cargo тестов обёрток (uniffi-метаданные — обычный Rust, линкуются чисто,
   в отличие от napi); лог падений — ci-logs/ci-uniffi.log. Компиляция
   сгенерированного кода в Xcode/Gradle — этапы 3/4, на ubuntu недоступна.
@@ -775,10 +790,12 @@ node stop.js [--docker]                     # остановить процес�
   обёрток (napi-smoke.js). Джоба fuzz-smoke — cargo-fuzz (три цели,
   ограниченные итерации; прогоны #102/#103 красные по мелочи — «: » в именах
   шагов YAML и libFuzzer-флаги после «--»; #104/#105 — фиктивная X25519-пара
-  в harness ratchet_roundtrip_fuzz (decrypt Aead на любом входе; фикс —
-  generate_keypair, урок в §8) — всё исправлено). Джоба uniffi-bindings —
-  генерация Swift/Kotlin-обвязки ядра (этап 2 закрыт; прогон #105: падение
-  установки CLI до создания лога — фикс с диагностикой, урок в §8). Логи
+  в harness ratchet_roundtrip_fuzz (decrypt Aead на любом входе; фикс
+  856b636 — generate_keypair, урок в §8; прогоны #106/#107 — fuzz-smoke
+  зелёная, все три цели проходят smoke-итерации). Джоба uniffi-bindings —
+  генерация Swift/Kotlin-обвязки ядра (этап 2 закрыт; прогоны #105–#107:
+  uniffi-крейтов нет в sparse-индексе crates.io — крейт и CLI переведены
+  на git-тег v0.28.3, уроки в §8). Логи
   падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log; ci-bench.log пишется при любом исходе) — при
   красном прогоне читать оттуда.

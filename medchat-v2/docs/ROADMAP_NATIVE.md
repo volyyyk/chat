@@ -114,9 +114,13 @@ DoD «cargo-fuzz без падений 24 ч» — суточный прогон
 uniffi-методы Object иммутабельны), ratchet_message to_wire/from_wire,
 константы; MedCryptoError повторяет CoreError + InvalidArgument для длин).
 Джоба CI uniffi-bindings: сборка cdylib с metadata-scaffolding, uniffi-bindgen
-0.28 (library mode) генерирует Kotlin- и Swift-обвязку (артефакт CI), cargo
+0.28.3 (library mode) генерирует Kotlin- и Swift-обвязку (артефакт CI), cargo
 test обёрток (в отличие от napi, uniffi-код линкуется в тестовый бинарник
-чисто). Склейка сгенерированной обвязки с Xcode/Gradle-проектами — этапы 3/4.
+чисто). Крейт и CLI берутся из git-тега v0.28.3 mozilla/uniffi-rs: семейство
+uniffi-крейтов отсутствует в sparse-индексе crates.io (прогоны #105–#107 —
+«could not find uniffi-bindgen in registry crates-io»), git-источник
+фиксирует версию и не требует индексных записей (внутренние зависимости —
+path-депы workspace). Склейка сгенерированной обвязки с Xcode/Gradle-проектами — этапы 3/4.
 Этап 2 закрыт по всем заявленным позициям: контракт-векторы (NaCl box,
 AES-256-GCM, bcrypt), бенчмарк ≥ x10 (11.6–15.2x на конвертном пути),
 cargo-fuzz scaffold + smoke в CI, биндинги napi-rs (Node) и UniFFI

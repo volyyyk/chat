@@ -57,10 +57,17 @@ bcrypt = "0.15"
 napi = { version = "2", default-features = false, features = ["compat-mode"], optional = true }
 napi-derive = { version = "2", optional = true }
 # UniFFI (src/uniffi_iface.rs, feature uniffi-bind): биндинги Swift/Kotlin
-# (этап 2 ROADMAP_NATIVE). Версия 0.28 закреплена и здесь, и в CI (cargo
-# install uniffi-bindgen --version 0.28): CLI обязан совпадать с крейтом
-# по линии версий — формат metadata меняется между minor-версиями.
-uniffi = { version = "0.28", optional = true }
+# (этап 2 ROADMAP_NATIVE). Источник — git-тег v0.28.3 репозитория
+# mozilla/uniffi-rs: семейство uniffi-крейтов ОТСУТСТВУЕТ в sparse-индексе
+# crates.io (index.crates.io/un/iff/uniffi* → NoSuchKey; в CI cargo 1.99
+# отвечает «could not find uniffi-bindgen in registry crates-io» на любую
+# версию — прогоны #105–#107), при живых метаданных crates.io API.
+# Git-тег фиксирует точную версию (CLI обязан совпадать с крейтом — формат
+# metadata меняется между minor), внутренние зависимости uniffi
+# (uniffi-macro, uniffi-meta) идут path-депами того же workspace —
+# обращений к отсутствующим индекс-записям не остаётся. Cargo.lock в
+# gitignore (библиотечный крейт) — правок лок-файла не требуется.
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", tag = "v0.28.3", optional = true }
 
 [build-dependencies]
 napi-build = "2"

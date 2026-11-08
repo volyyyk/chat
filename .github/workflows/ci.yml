@@ -452,22 +452,21 @@ jobs:
         with:
           workspaces: medchat-v2/core
 
-      # CLI обязан совпадать по версии с крейтом uniffi (формат metadata
-      # меняется между minor-версиями): обе стороны закреплены на 0.28
-      # (пин точный — 0.28.3). Прогон #105: установка падала мгновенно
-      # (джоба 6 с), ДО создания ci-uniffi.log — единственный tee в джобе
-      # стоял на шаге сборки, publish-шагу было нечего копировать, а
-      # logs-API без админ-прав отвечает 403. Фикс диагностируемости:
-      # вывод cargo install пишется в ci-uniffi.log с первой команды
-      # (заголовок прогона — сверка метки времени, урок ad575d3;
-      # cargo --version в логе для контекста); --locked оставлен с
-      # фолбэком без --locked (официальная форма документации uniffi-rs:
-      # транзитивные зависимости пересолвятся, версия CLI остаётся
-      # закреплённой 0.28.3).
-      - name: Install uniffi-bindgen (0.28.3)
+      # Установка CLI из git-тега v0.28.3 (прогоны #105–#107: семейство
+      # uniffi-крейтов отсутствует в sparse-индексе crates.io — cargo
+      # «could not find uniffi-bindgen in registry crates-io» на любую
+      # версию, ни --version, ни фолбэк без --locked не спасают: нет самой
+      # индексной записи, при живых метаданных crates.io API). Git-тег
+      # фиксирует точную версию (CLI обязан совпадать с крейтом — формат
+      # metadata меняется между minor; крейт в Cargo.toml — тот же тег),
+      # внутренние зависимости bindgen идут path-депами workspace —
+      # реестр для них не нужен. Диагностируемость (урок #105): вывод
+      # пишется в ci-uniffi.log с первой команды (заголовок прогона для
+      # сверки метки времени, cargo --version для контекста).
+      - name: Install uniffi-bindgen (v0.28.3 from git)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install uniffi-bindgen --version 0.28.3 --locked || cargo install uniffi-bindgen --version 0.28.3; } 2>&1 | tee ../../ci-uniffi.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.28.3 uniffi-bindgen; } 2>&1 | tee ../../ci-uniffi.log
 
       # cdylib c UniFFI-scaffolding (без napi): setup_scaffolding! эмитит
       # metadata-символы, по которым bindgen строит обвязку в library mode.
