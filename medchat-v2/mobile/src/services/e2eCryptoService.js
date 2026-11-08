@@ -407,6 +407,113 @@ async function decryptEnvelope(envelope, myUserId) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// E2E for files / voice messages (hybrid encryption)
+//
+// File wire format (exactly these bytes are uploaded to the server / MinIO
+// and downloaded back; the server never sees the original file):
+//   nonce (24 bytes, XSalsa20-Poly1305) || ciphertext
+// The random 32-byte symmetric key never travels in the clear: it is wrapped
+// for every recipient with the SAME x25519-box envelope format as text
+// messages. The only difference: the boxes carry the wrapped file key
+// instead of UTF-8 text, and envelope.kind = 'filekey' tells the receiver
+// how to unwrap. The nonce doubles as the secretbox nonce and the box nonce:
+// every box runs under a different DH key, and the secretbox runs under the
+// random file key - no key/nonce pair is ever reused.
+// ---------------------------------------------------------------------------
+
+/**
+ * Encrypt a binary payload (file / voice recording bytes) for a set of
+ * recipients (list of { userId, publicKey }, including the sender's own key).
+ * Returns { wire: Uint8Array, envelope } where wire = nonce || ciphertext,
+ * or null when encryption is not possible.
+ */
+function encryptFileForRecipients(payloadBytes, recipientKeys) {
+  if (!payloadBytes || !Array.isArray(recipientKeys) || recipientKeys.length === 0) {
+    return null;
+  }
+  const fileKey = nacl.randomBytes(nacl.secretbox.keyLength);
+  const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
+  const box = nacl.secretbox(payloadBytes, nonce, fileKey);
+  if (!box) return null;
+
+  // wrap the symmetric file key for every recipient (same envelope format)
+  const ephemeral = nacl.box.keyPair();
+  const boxes = {};
+  for (const entry of recipientKeys) {
+    if (!entry || !entry.userId || !entry.publicKey) continue;
+    let recipientPk;
+    try {
+      recipientPk = base64ToBytes(entry.publicKey);
+    } catch (e) {
+      continue;
+    }
+    if (recipientPk.length !== nacl.box.publicKeyLength) continue;
+    const wrapped = nacl.box(fileKey, nonce, recipientPk, ephemeral.secretKey);
+    if (wrapped) boxes[String(entry.userId)] = bytesToBase64(wrapped);
+  }
+  if (Object.keys(boxes).length === 0) {
+    return null;
+  }
+
+  const wire = new Uint8Array(nonce.length + box.length);
+  wire.set(nonce, 0);
+  wire.set(box, nonce.length);
+
+  return {
+    wire,
+    envelope: {
+      v: 1,
+      alg: 'x25519-box',
+      kind: 'filekey',
+      epk: bytesToBase64(ephemeral.publicKey),
+      nonce: bytesToBase64(nonce),
+      boxes,
+    },
+  };
+}
+
+/**
+ * Unwrap the 32-byte symmetric file key from a 'filekey' envelope with this
+ * device's private key. Returns the key (Uint8Array) or null.
+ */
+async function unwrapFileKey(envelope, myUserId) {
+  if (!envelope || envelope.kind !== 'filekey') return null;
+  const wrappedB64 = envelope.boxes && envelope.boxes[String(myUserId)];
+  if (!wrappedB64) return null;
+  const pair = await getLocalKeyPair(myUserId);
+  if (!pair) return null;
+  try {
+    const boxBytes = base64ToBytes(wrappedB64);
+    const nonceBytes = base64ToBytes(envelope.nonce);
+    const epkBytes = base64ToBytes(envelope.epk);
+    const secretKey = base64ToBytes(pair.secretKey);
+    const fileKey = nacl.box.open(boxBytes, nonceBytes, epkBytes, secretKey);
+    if (!fileKey || fileKey.length !== nacl.secretbox.keyLength) return null;
+    return fileKey;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Decrypt downloaded file bytes (wire = nonce || ciphertext) using the key
+ * unwrapped from the message's filekey envelope.
+ * Returns the original payload (Uint8Array) or null.
+ */
+async function decryptFilePayload(wireBytes, envelope, myUserId) {
+  if (!wireBytes || wireBytes.length <= nacl.secretbox.nonceLength) return null;
+  const fileKey = await unwrapFileKey(envelope, myUserId);
+  if (!fileKey) return null;
+  try {
+    const nonce = wireBytes.slice(0, nacl.secretbox.nonceLength);
+    const ciphertext = wireBytes.slice(nacl.secretbox.nonceLength);
+    return nacl.secretbox.open(ciphertext, nonce, fileKey);
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
  * Does this server message carry an E2E envelope?
  */
@@ -441,6 +548,9 @@ export {
   deactivateKey,
   encryptForRecipients,
   decryptEnvelope,
+  encryptFileForRecipients,
+  unwrapFileKey,
+  decryptFilePayload,
   getEnvelope,
   allParticipantsHaveKeys,
 };
