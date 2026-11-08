@@ -202,10 +202,23 @@ jobs:
         with:
           workspaces: medchat-v2/core
 
-      - name: Run cargo tests
+      # Шаг 1: полная проверка компиляции, включая napi-биндинги (src/node.rs)
+      # и их #[cfg(test)]-код. cargo check не линкует бинарник, поэтому
+      # napi_*-символы (которые в рантайме даёт только процесс Node —
+      # libnode.so в дистрибутиве Node нет, napi-rs issue #1099) не нужны.
+      # Ловит все ошибки типов (включая E0277-класс из прогона a1061cd).
+      - name: Type-check core + napi bindings and tests (no linking)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo test; } 2>&1 | tee ../../ci-rust.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo check --tests; } 2>&1 | tee ../../ci-rust.log
+
+      # Шаг 2: юнит-тесты логики ядра (lib, ratchet, контрактные векторы)
+      # — без napi-биндингов: тестовый бинарник линкуется чисто, потому что
+      # napi/napi-derive исключены feature-гейтом (--no-default-features).
+      - name: Run core unit tests (without napi bindings)
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo test --no-default-features; } 2>&1 | tee -a ../../ci-rust.log
 
       - name: Publish failure logs to the repo
         if: failure()

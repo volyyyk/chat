@@ -19,6 +19,19 @@ rust-version = "1.77"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+# napi-биндинги (src/node.rs) — отдельная feature. Причина: `cargo test`
+# линкует ИСПОЛНЯЕМЫЙ тестовый бинарник, а napi_*-символы в рантайме даёт
+# только процесс Node; дистрибутив Node не содержит libnode.so (napi-rs
+# issue #1099), поэтому линковщик не может разрешить их в тестовом
+# бинарнике. Тесты логики ядра гоняются с --no-default-features (без
+# биндингов линкуются чисто), компиляция node.rs и его #[cfg(test)]-кода
+# проверяется в CI через `cargo check --tests` (type-check без линковки —
+# ловит ошибки типов вроде E0277). Обычная разработка и сборка .node-артефакта
+# (napi build) используют default: napi-bind включён.
+default = ["napi-bind"]
+napi-bind = ["dep:napi", "dep:napi-derive"]
+
 [dependencies]
 crypto_box = "0.9"
 # Double Ratchet (src/ratchet.rs): raw X25519 (DH-выход для KDF_RK),
@@ -27,11 +40,12 @@ x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 hmac = "0.12"
 sha2 = "0.10"
 aes-gcm = "0.10"
-# napi-rs (src/node.rs): Node.js-биндинги (этап 2). compat-mode — совместимость
-# со старыми Node/Electron; default-features = false — минимальный рантайм
-# (без tokio: наши обёртки синхронные).
-napi = { version = "2", default-features = false, features = ["compat-mode"] }
-napi-derive = "2"
+# napi-rs (src/node.rs, feature napi-bind): Node.js-биндинги (этап 2).
+# compat-mode — совместимость со старыми Node/Electron; default-features =
+# false — минимальный рантайм (без tokio: наши обёртки синхронные).
+# optional: тесты ядра собираются без биндингов (см. [features] выше).
+napi = { version = "2", default-features = false, features = ["compat-mode"], optional = true }
+napi-derive = { version = "2", optional = true }
 
 [build-dependencies]
 napi-build = "2"

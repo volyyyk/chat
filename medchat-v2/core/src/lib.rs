@@ -25,7 +25,13 @@ use crypto_box::{Nonce, PublicKey, SalsaBox, SecretKey};
 pub mod ratchet;
 pub use ratchet::{RatchetMessage, RatchetState};
 
-// Node.js-биндинги (napi-rs, этап 2 ROADMAP_NATIVE.md).
+// Node.js-биндинги (napi-rs, этап 2 ROADMAP_NATIVE.md). Опциональная feature
+// napi-bind (default, см. [features] в Cargo.toml): юнит-тесты ядра линкуются
+// без napi-символов (их в рантайме даёт только процесс Node — napi-rs
+// issue #1099, дистрибутив Node не содержит libnode.so), поэтому CI гоняет
+// cargo test --no-default-features; компиляция node.rs и его #[cfg(test)]-
+// кода проверяется отдельным cargo check --tests (type-check без линковки).
+#[cfg(feature = "napi-bind")]
 pub mod node;
 
 /// Размер приватного/публичного ключа X25519.
