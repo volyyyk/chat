@@ -10,7 +10,7 @@ const { validate } = require('../middleware/validation');
 const { authenticate } = require('../middleware/auth');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
-const { authSchema, registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema, changePasswordSchema, refreshTokenSchema } = require('../validators/auth');
+const { authSchema, registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema, changePasswordSchema, refreshTokenSchema, phoneRequestSchema, phoneVerifySchema } = require('../validators/auth');
 
 /**
  * @swagger
@@ -480,5 +480,126 @@ router.post('/resend-verification', authenticate(), async (req, res, next) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/auth/phone/request-code:
+ *   post:
+ *     summary: Request SMS verification code (phone identification, 149-FZ st. 10.1)
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: SMS code sent (devCode is returned outside production)
+ *       400:
+ *         description: No phone number provided
+ */
+router.post('/phone/request-code', authenticate(), validate(phoneRequestSchema), async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const models = require('../models');
+
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // 149-ФЗ ст. 10.1: идентификация по абонентскому номеру. Номер берётся
+    // из тела (смена) или уже сохранённый на пользователе.
+    const phone = req.body.phone || user.phone;
+    if (!phone) {
+      return res.status(400).json({ error: 'Phone number is required' });
+    }
+
+    // Смена номера сбрасывает верификацию: подтверждённым должен быть
+    // именно текущий номер.
+    if (phone !== user.phone) {
+      await user.update({ phone, phoneVerified: false });
+    }
+
+    // Прошлые неиспользованные коды инвалидируются (активен один код).
+    await models.VerificationToken.update(
+      { usedAt: new Date() },
+      { where: { userId: user.id, type: 'phone', usedAt: null } }
+    );
+
+    // Одноразовый код: 6 цифр, срок жизни 10 минут. Токен = hex-соль:код,
+    // чтобы код не хранился в БД в открытом виде как отдельное поле.
+    const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    const token = `${crypto.randomBytes(16).toString("hex")}:${code}`;
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await models.VerificationToken.create({
+      token,
+      userId: user.id,
+      expiresAt,
+      type: 'phone',
+    });
+
+    // Доставка: заглушка (реальный SMS-гейт или Госуслуги — оператор, LEGAL.md §5).
+    logger.info(`SMS verification code for ${user.email}: ${code}`);
+
+    const response = { message: 'SMS verification code sent', phone };
+    // Тестовый режим: код возвращается в ответе (только вне production).
+    if (process.env.NODE_ENV !== 'production') {
+      response.devCode = code;
+    }
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/phone/verify:
+ *   post:
+ *     summary: Verify phone with SMS code (identification, 149-FZ st. 10.1)
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Phone verified (user.phoneVerified = true)
+ *       400:
+ *         description: Invalid, expired or already used code
+ */
+router.post('/phone/verify', authenticate(), validate(phoneVerifySchema), async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const models = require('../models');
+
+    const { code } = req.body;
+
+    const verificationToken = await models.VerificationToken.findOne({
+      where: { userId, type: 'phone', usedAt: null },
+    });
+
+    if (!verificationToken) {
+      return res.status(400).json({ error: 'Verification code not found or already used' });
+    }
+
+    const expected = verificationToken.token.split(':').pop();
+    if (expected !== String(code)) {
+      return res.status(400).json({ error: 'Invalid verification code' });
+    }
+
+    if (verificationToken.expiresAt < new Date()) {
+      return res.status(400).json({ error: 'Verification code has expired' });
+    }
+
+    await verificationToken.update({ usedAt: new Date() });
+
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    await user.update({ phoneVerified: true });
+
+    res.json({ message: 'Phone verified successfully', phoneVerified: true });
+  } catch (error) {
+    next(error);
+  }
+});
 module.exports = router;
 

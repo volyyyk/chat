@@ -187,6 +187,8 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
   **clinic_admin/система не принимает** (security-фикс 1fafeb9).
 - `POST /api/auth/login` → `{user (+patientProfile/doctorProfile), accessToken, refreshToken, expiresIn}`
 - `GET /api/auth/me`, `POST /api/auth/refresh {refreshToken}`, `POST /api/auth/change-password`
+- POST /api/auth/phone/request-code {phone?} (authenticate) — идентификация по 149-ФЗ ст. 10.1: одноразовый 6-значный код (VerificationToken type=phone, срок 10 минут; повторный запрос инвалидирует предыдущие, смена номера сбрасывает phoneVerified); SMS-доставка — заглушка, в тестовом режиме (NODE_ENV != production) код возвращается в ответе (devCode).
+- POST /api/auth/phone/verify {code} (authenticate) — сверка кода и срока, одноразовость; успех → user.phoneVerified=true. Реальный SMS-гейт/Госуслуги — оператору перед продом (LEGAL.md §5).
 - JWT: **HS256 с пиннингом алгоритма** в middleware/auth.js; access ~15m;
   refresh — randomBytes(64), хранится в БД, ротация + revoke (смена пароля/блокировка).
 
@@ -694,6 +696,7 @@ in registry» проверять index.crates.io/<2 буквы>/<2 буквы>/<
 источник пина версии; (3) cargo install из git ищет ПАКЕТ по имени среди workspace-мемберов: имя пакета в реестре может отсутствовать в git-workspace, а бинарь может называться не как пакет (фикс #109: uniffi-bindgen-cli → бинарь uniffi-bindgen). Честное ограничение:
 компиляция сгенерированного кода в Xcode/Gradle — этапы 3/4 (на ubuntu их
 нет); джоба гейтит сборку, тесты обёрток и генерацию.
+**Сервер: идентификация пользователей 149-ФЗ ст. 10.1** (этот коммит): эндпоинты POST /api/auth/phone/request-code и /phone/verify (оба под authenticate): одноразовый 6-значный код (crypto.randomInt), хранится в VerificationToken (type=phone, формат hex:код, срок 10 минут), повторный запрос инвалидирует предыдущие коды (update usedAt), успешная сверка ставит user.phoneVerified=true, смена номера сбрасывает phoneVerified; Joi-схемы phoneRequestSchema/phoneVerifySchema; интеграционные тесты (успешный флоу, неверный/истёкший код, 400 без номера, 401 без токена, 400 на невалидное тело). Честно: SMS-доставка — заглушка (logger.info), реальный SMS-гейт/Госуслуги — оператору перед продом; NODE_ENV != production возвращает devCode в ответе.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -811,7 +814,10 @@ node stop.js [--docker]                     # остановить процес�
    (42e5a1d → ed9a661: гибридное шифрование, ключ файла в конверте,
    расшифровка при просмотре); ~~верификация fingerprint-кодов~~ — сделано
    (347bc9d + ec1a0de: safety number в шапке чата); идентификация
-   пользователей 149-ФЗ ст. 10.1. ~~Secure storage приватных ключей~~ —
+   пользователей 149-ФЗ ст. 10.1 — серверная основа сделана (эндпоинты
+   POST /api/auth/phone/request-code и /phone/verify: одноразовый код в
+   VerificationToken type=phone, срок 10 минут; реальный SMS-гейт/Госуслуги —
+   оператору перед продом, LEGAL.md §5). ~~Secure storage приватных ключей~~ —
    сделано (3ab5cf6: expo-secure-store / Keychain / Keystore, миграция из AsyncStorage).
 3. ~~Фейл-фаст валидация JWT_SECRET при старте сервера~~ — сделано (65ec99c).
 4. ~~Вырезать privateKey из req.user~~ — сделано (65ec99c).

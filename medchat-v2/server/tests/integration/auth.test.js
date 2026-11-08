@@ -30,7 +30,7 @@ jest.mock('../../src/models', () => ({
   RefreshToken: { create: jest.fn(), findOne: jest.fn(), update: jest.fn() },
   Session: { create: jest.fn(), destroy: jest.fn() },
   PasswordResetToken: { create: jest.fn(), findOne: jest.fn() },
-  VerificationToken: { findOne: jest.fn() },
+  VerificationToken: { findOne: jest.fn(), create: jest.fn(), update: jest.fn() },
 }));
 
 const bcrypt = require('bcrypt');
@@ -81,6 +81,9 @@ beforeEach(() => {
   models.Patient.create.mockResolvedValue({ id: 'p-new' });
   models.Doctor.create.mockResolvedValue({ id: 'd-new' });
   models.Clinic.findOne.mockResolvedValue({ id: 'c-1', code: 'TESTCLINIC' });
+  models.VerificationToken.create.mockResolvedValue({});
+  models.VerificationToken.update.mockResolvedValue([1]);
+  models.VerificationToken.findOne.mockResolvedValue(null);
 });
 
 describe('POST /api/auth/login', () => {
@@ -215,6 +218,120 @@ describe('POST /api/auth/register', () => {
   });
 });
 
+describe('POST /api/auth/phone/* (идентификация 149-ФЗ ст. 10.1)', () => {
+  let accessToken;
+
+  beforeEach(async () => {
+    models.User.findOne.mockResolvedValue(buildUser());
+    const loginRes = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'patient1@medchat.test', password: PASSWORD });
+    accessToken = loginRes.body.accessToken;
+  });
+
+  it('rejects a request without an access token (401)', async () => {
+    const res = await request(app).post('/api/auth/phone/request-code').send({});
+    expect(res.status).toBe(401);
+  });
+
+  it('requests a code for a new phone number and returns devCode in test mode', async () => {
+    const user = buildUser({ phone: null });
+    models.User.findByPk.mockResolvedValue(user);
+
+    const res = await request(app)
+      .post('/api/auth/phone/request-code')
+      .set('Authorization', 'Bearer ' + accessToken)
+      .send({ phone: '+79001234567' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.devCode).toMatch(/^\d{6}$/);
+    expect(user.update).toHaveBeenCalledWith({ phone: '+79001234567', phoneVerified: false });
+    expect(models.VerificationToken.update).toHaveBeenCalled();
+    expect(models.VerificationToken.create).toHaveBeenCalledTimes(1);
+    const created = models.VerificationToken.create.mock.calls[0][0];
+    expect(created.type).toBe('phone');
+    expect(created.token.split(':').pop()).toBe(res.body.devCode);
+  });
+
+  it('rejects a request when no phone is provided and none is stored (400)', async () => {
+    models.User.findByPk.mockResolvedValue(buildUser({ phone: null }));
+
+    const res = await request(app)
+      .post('/api/auth/phone/request-code')
+      .set('Authorization', 'Bearer ' + accessToken)
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(models.VerificationToken.create).not.toHaveBeenCalled();
+  });
+
+  it('verifies a valid code and marks the phone verified', async () => {
+    const user = buildUser({ phone: '+79001234567' });
+    models.User.findByPk.mockResolvedValue(user);
+    models.VerificationToken.findOne.mockResolvedValue({
+      token: 'salt:123456',
+      expiresAt: new Date(Date.now() + 60000),
+      usedAt: null,
+      update: jest.fn(),
+    });
+
+    const res = await request(app)
+      .post('/api/auth/phone/verify')
+      .set('Authorization', 'Bearer ' + accessToken)
+      .send({ code: '123456' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.phoneVerified).toBe(true);
+    expect(user.update).toHaveBeenCalledWith({ phoneVerified: true });
+  });
+
+  it('rejects a wrong code (400)', async () => {
+    models.User.findByPk.mockResolvedValue(buildUser({ phone: '+79001234567' }));
+    models.VerificationToken.findOne.mockResolvedValue({
+      token: 'salt:123456',
+      expiresAt: new Date(Date.now() + 60000),
+      usedAt: null,
+      update: jest.fn(),
+    });
+
+    const res = await request(app)
+      .post('/api/auth/phone/verify')
+      .set('Authorization', 'Bearer ' + accessToken)
+      .send({ code: '654321' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an expired code (400)', async () => {
+    models.User.findByPk.mockResolvedValue(buildUser({ phone: '+79001234567' }));
+    models.VerificationToken.findOne.mockResolvedValue({
+      token: 'salt:123456',
+      expiresAt: new Date(Date.now() - 60000),
+      usedAt: null,
+      update: jest.fn(),
+    });
+
+    const res = await request(app)
+      .post('/api/auth/phone/verify')
+      .set('Authorization', 'Bearer ' + accessToken)
+      .send({ code: '123456' });
+
+    expect(res.status).toBe(400);
+    expect(String(res.body.error)).toContain('expired');
+  });
+
+  it('rejects a non-6-digit code body (400, validation layer)', async () => {
+    models.User.findByPk.mockResolvedValue(buildUser());
+
+    const res = await request(app)
+      .post('/api/auth/phone/verify')
+      .set('Authorization', 'Bearer ' + accessToken)
+      .send({ code: 'abc' });
+
+    expect(res.status).toBe(400);
+    expect(models.VerificationToken.findOne).not.toHaveBeenCalled();
+  });
+});
 describe('unknown routes', () => {
   it('falls through to the 404 handler with structured JSON', async () => {
     const res = await request(app).get('/api/does-not-exist');

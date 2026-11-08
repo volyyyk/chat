@@ -92,6 +92,20 @@ const changePasswordSchema = Joi.object({
   newPassword: passwordValidation,
 });
 
+// Phone identification (149-FZ st. 10.1): request/verify SMS code
+const phoneRequestSchema = Joi.object({
+  phone: Joi.string().pattern(/^\+?[0-9\s-()]{10,20}$/).optional().allow(null, '').messages({
+    'string.pattern.base': 'Please provide a valid phone number',
+  }),
+});
+
+const phoneVerifySchema = Joi.object({
+  code: Joi.string().pattern(/^\d{6}$/).required().messages({
+    'string.pattern.base': 'Code must be exactly 6 digits',
+    'any.required': 'Verification code is required',
+  }),
+});
+
 // Auth schema (for protected routes)
 const authSchema = Joi.object({
   authorization: Joi.string().required().messages({
@@ -107,4 +121,6 @@ module.exports = {
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  phoneRequestSchema,
+  phoneVerifySchema,
 };
