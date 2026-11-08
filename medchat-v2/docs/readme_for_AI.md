@@ -11,7 +11,10 @@
 > и покрытия E2E тестами (02dc969 → 7cb0832: юнит-тесты валидатора конвертов +
 > smoke-секция E2E [12]) и наведение честности данных (815f6cb → a508fda:
 > маркер E2E-сообщения в smoke — metadata.e2e; честный дефолт
-> Message.isEncrypted=false — легаси true ложно помечал plaintext).
+> Message.isEncrypted=false — легаси true ложно помечал plaintext), skip-store
+> в Double Ratchet (6aff983 → d033eeb: расшифровка внеочередных сообщений) и фикс
+> критической синтаксической ошибки в Message.js, внесённой a508fda (ad575d3 —
+> из-за неё сервер не запускался вовсе).
 
 ---
 
@@ -37,7 +40,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
-| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM |
+| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
 ## 3. Структура проекта
@@ -96,7 +99,8 @@ medchat-v2/
 │                          SalsaBox (X25519 + XSalsa20-Poly1305, crypto_box 0.9),
 │                          generate_keypair / seal_for_recipients / open_sealed,
 │                          CoreError; ratchet.rs — Double Ratchet (KDF_RK/KDF_CK
-│                          HMAC-SHA256, AES-256-GCM на message keys, 6aff983);
+│                          HMAC-SHA256, AES-256-GCM на message keys, 6aff983;
+│                          skip-store внеочередных сообщений, d033eeb — 10 тестов);
 │                          cargo test в CI (джоба core-tests)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
@@ -203,15 +207,17 @@ E2E-сообщений серверу недоступен (хранится т�
 - **Double Ratchet** (этап 7, прототип): medchat-core/src/ratchet.rs — KDF_RK/KDF_CK на
   HMAC-SHA256 (x25519-dalek 2.0.1 для raw DH, явная feature static_secrets), каждое
   сообщение AES-256-GCM на одноразовом message key, DH-шаг при смене ratchet-ключа
-  собеседника; forward secrecy + break-in recovery. Честные ограничения прототипа:
-  сообщения строго по порядку (n == nr, skip-store не реализован), в клиенты
-  НЕ интегрирован (мобильный клиент работает на конвертах x25519-box) — интеграция
-  после биндингов.
+  собеседника; forward secrecy + break-in recovery. Skip-store реализован (d033eeb): одноразовые
+  message keys пропущенных номеров буферизуются (MAX_SKIP=2000, MAX_SKIPPED_KEYS=500,
+  превышение → OutOfOrder), replay по-прежнему отклоняется — сообщения доставляются
+  и расшифровываются вне порядка. В клиенты НЕ интегрирован (мобильный клиент работает
+  на конвертах x25519-box) — интеграция после биндингов.
 - **Админы** (clinic_admin/system_admin) **не являются участниками E2E-переписки** и
   прочитать содержимое E2E-сообщений не могут — осознанное свойство end-to-end модели.
 - **Остаточные ограничения** (честно): файлы/голосовые пока вне E2E-конвертов;
-  метаданные видимы серверу; нет Double Ratchet (forward secrecy) — этап 7
-  ROADMAP_NATIVE.md; AsyncStorage остаётся fallback-хранилищем приватного ключа только
+  метаданные видимы серверу; Double Ratchet (forward secrecy) пока НЕ интегрирован
+  в клиенты — прототип с skip-store готов в medchat-core (этап 7 ROADMAP_NATIVE.md);
+  AsyncStorage остаётся fallback-хранилищем приватного ключа только
   на платформах без secure storage (expo web).
 
 ### Файлы, приёмы, рецепты
@@ -393,6 +399,22 @@ raw X25519 (x25519-dalek 2.0.1 с явной feature static_secrets) + KDF_RK/KD
 раундтрип с ratchet-шагами, replay старого сообщения → OutOfOrder, восстановление
 порядка, tampering, битый заголовок). Не интегрирован в клиенты; ограничения
 прототипа честно задокументированы в модуле.
+**Rust-ядро: фиксы компиляции + skip-store** (7576e65 + f1faf96 + d033eeb): ratchet.rs не
+компилировался — E0034 (неоднозначность KeyInit/Mac в new_from_slice → дисамбигуация
+<HmacSha256 as Mac>::new_from_slice) и E0308 (byte string вместо u8-литерала в тестах),
+починено 7576e65; f1faf96 добавил диагностический extra-объект в падающую проверку
+smoke [12]; d033eeb — skip-store: буфер одноразовых message keys
+HashMap(([u8;KEY_SIZE], u32) → [u8;32]), skip_message_keys с лимитами
+MAX_SKIP=2000/MAX_SKIPPED_KEYS=500, decrypt в 3 шага (одноразовый ключ из skip-store →
+DH-шаг со skip до pn → skip до n), тесты out_of_order_decoded_via_skip_store и
+too_many_skipped_rejected — итог 10 тестов.
+**Критический фикс: сервер не запускался** (ad575d3): a508fda внёс в models/Message.js
+синтаксическую ошибку — строка 21 заканчивалась «;» вместо «,» после свойства comment
+поля content → SyntaxError при загрузке модели → seed:test падал → e2e-smoke не доходила
+до smoke-теста. ВАЖНЫЙ УРОК ДИАГНОСТИКИ: ci-smoke.log в репо оставался от прогона ДО
+a508fda (устаревший), из-за чего «детерминированное падение проверки [12]» было
+артефактом устаревшего лога. Всегда сверяй метку времени в заголовке ci-logs/*.log
+с коммитом прогона, прежде чем доверять логу.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -423,14 +445,20 @@ node stop.js [--docker]                     # остановить процес�
   +13 проверок реестра ключей и конвертов (ротация, 403 на чужие ключи, plaintext-защита).
 - **core-tests**: Rust-ядро medchat-v2/core — stable-тулчейн, кэш (Swatinem/rust-cache),
   `cargo test` (крейт medchat-core, этап 2 ROADMAP_NATIVE); лог падений публикуется в
-  ci-logs/ci-rust.log. С 6aff983 включает ratchet.rs (Double Ratchet, 8 кейсов).
+  ci-logs/ci-rust.log. С 6aff983 включает ratchet.rs (Double Ratchet; с d033eeb — 10 кейсов, включая skip-store).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
   ee76670/#52 (все три джобы, включая core-tests), 02dc969/#57 (E2E-конверты под юнит-тестами).
   623d777/#58 красный (опечатка в smoke, см. историю фиксов), починен 7cb0832;
   #59/#60 красные (легаси-дефолт isEncrypted=true ловил сид-plaintext в проверке [12]),
-  починено 815f6cb (маркер metadata.e2e; #61 зелёный, 63/63) + a508fda (честный дефолт false). Логи падений бот ci-reporter
+  починено 815f6cb (маркер metadata.e2e; #61 зелёный, 63/63) + a508fda (честный дефолт false).
+  СЕРИЯ #62–#69 красная, две независимые причины: (1) a508fda внёс синтаксическую
+  ошибку в models/Message.js (см. историю фиксов) — seed падал раньше smoke, а
+  ci-smoke.log в репо оставался УСТАРЕВШИМ (от прогона до a508fda), из-за чего падение
+  проверки [12] казалось детерминированным — артефакт устаревшего лога; фикс ad575d3.
+  (2) ratchet.rs не компилировался (E0034/E0308) — починено 7576e65; d033eeb добавил
+  skip-store (10 тестов), f1faf96 — диагностический extra в smoke [12]. Логи падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log) — при
   красном прогоне читать оттуда.
 
@@ -440,7 +468,7 @@ node stop.js [--docker]                     # остановить процес�
 2. ~~E2E-шифрование~~ — **реализовано** (d11762c → 596c4a3): X25519 + NaCl box, реестр
    ключей UserKey, конверты в Message.metadata, graceful fallback. Остаточное (в порядке
    приоритета): интеграция Double Ratchet (прототип в ядре готов — ratchet.rs, 6aff983;
-   нужно: skip-store, wire-формат, биндинги); E2E для файлов/голосовых; идентификация
+   нужно: wire-формат заголовков и биндинги; skip-store сделан d033eeb); E2E для файлов/голосовых; идентификация
    пользователей 149-ФЗ ст. 10.1. ~~Secure storage приватных ключей~~ —
    сделано (3ab5cf6: expo-secure-store / Keychain / Keystore, миграция из AsyncStorage).
 3. ~~Фейл-фаст валидация JWT_SECRET при старте сервера~~ — сделано (65ec99c).
@@ -453,8 +481,8 @@ node stop.js [--docker]                     # остановить процес�
 10. Нативные клиенты и Rust-ядро — см. ROADMAP_NATIVE.md (iOS/Android native, Tauri
     desktop Windows/Linux, крипто-ядро на Rust/C++). **Этап 2 начат**: крейт medchat-core
     (3a70911 → ee76670) + джоба core-tests в CI. **Double Ratchet: прототип готов**
-    (6aff983: ratchet.rs, 8 тестов, forward secrecy + break-in recovery; ограничения —
-    строго по порядку, без skip-store, в клиенты не интегрирован). Дальше:
+    (6aff983 + d033eeb: ratchet.rs с skip-store, 10 тестов, forward secrecy + break-in
+    recovery + внеочередная доставка; в клиенты не интегрирован). Дальше:
     napi-rs-биндинги для Node, UniFFI для Swift/Kotlin, интеграция ratchet.
 
 ---

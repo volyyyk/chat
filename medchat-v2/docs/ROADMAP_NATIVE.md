@@ -20,7 +20,7 @@
 |---|---|---|---|
 | Криптография at-rest (cryptoService) | Node (AES-GCM через crypto) | **Rust**: `libmedchat_core` + napi-rs | Memory safety, единая реализация на сервере и всех клиентах, готовность к аудиту |
 | E2E X25519-box | реализовано (tweetnacl в мобильном, Rust-ядро совместимо; контракт — readme_for_AI §5) | остаётся в клиентах | Рабочий E2E-контур: сервер хранит только шифротекст |
-| Double Ratchet (forward secrecy) | прототип в medchat-core (src/ratchet.rs, 6aff983) | **Rust** в ядре + napi-rs/UniFFI биндинги | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
+| Double Ratchet (forward secrecy) | прототип в medchat-core (src/ratchet.rs, 6aff983 + skip-store d033eeb) | **Rust** в ядре + napi-rs/UniFFI биндинги | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
 | Хэширование чексумм файлов, сжатие бэкапов | Node streams | **Rust** (napi-rs) | CPU-bound, разгружает event-loop сервера |
 | Realtime gateway (fan-out тысяч соединений) | Node Socket.IO | Этап A: Node + Redis pub/sub; Этап B: **Rust** (tokio) при >10k соединений | Node справляется до тысяч; переписывать раньше времени — риск без выгоды |
 | Поиск по сообщениям | Postgres LIKE | Сначала pg_trgm + GIN; затем **Rust** (Tantivy) при полнотексте | Дешёлая оптимизация раньше тяжёлой |
@@ -80,9 +80,11 @@ CI остаётся зелёным на каждом шаге.
 ### Этап 7. E2E-шифрование (Double Ratchet) + юридическая фаза
 **Прогресс (ноябрь 2026):** X25519-box E2E работает (d11762c → 596c4a3: реестр
 UserKey, конверты, plaintext в БД отсутствует). Прототип Double Ratchet в
-medchat-core (src/ratchet.rs, 6aff983: KDF_RK/KDF_CK на HMAC-SHA256, AES-256-GCM
-на одноразовых message keys, 8 тестов). Ограничения прототипа честно: сообщения
-строго по порядку (без skip-store), в клиенты не интегрирован.
+medchat-core (src/ratchet.rs, 6aff983 → d033eeb: KDF_RK/KDF_CK на HMAC-SHA256,
+AES-256-GCM на одноразовых message keys, 10 тестов). Skip-store реализован (d033eeb):
+внеочередные сообщения расшифровываются через буфер одноразовых message keys
+(MAX_SKIP=2000/MAX_SKIPPED_KEYS=500, превышение → OutOfOrder), replay отклоняется.
+Ограничения честно: в клиенты не интегрирован — ждёт wire-формат заголовков и биндинги.
 Реализация в Rust-ядре: X25519 + Double Ratchet, серверный key-registry,
 верификация fingerprint-кодов. После этого — при необходимости — ГОСТ СКЗИ
 (сертифицированные C++-библиотеки) для аттестации ФСТЭК УЗ-1.
