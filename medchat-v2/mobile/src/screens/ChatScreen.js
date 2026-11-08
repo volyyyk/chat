@@ -61,6 +61,22 @@ const extensionFor = (item, file) => {
   return mime.indexOf('audio') === 0 ? '.m4a' : '.bin';
 };
 
+// Honest marker for Double Ratchet payloads (этап 7 ROADMAP_NATIVE):
+// desktop- и iOS-клиенты при включённом тумблере кладут ratchet-wire внутрь
+// E2E-конверта как JSON {"t":"r1","k":keyId,"w":wire}. RN-клиент ratchet-
+// сессию не держит (склейка — desktop/iOS), поэтому вместо сырого JSON
+// показываем честную плашку; обычные тексты не задеты.
+const RATCHET_BADGE = '🔒 Сообщение Double Ratchet — расшифровка в клиентах с ratchet-склейкой (desktop/iOS)';
+const isRatchetPayload = (text) => {
+  if (typeof text !== 'string' || text.indexOf('"t"') === -1) return false;
+  try {
+    const parsed = JSON.parse(text);
+    return !!(parsed && parsed.t === 'r1' && typeof parsed.k === 'string' && typeof parsed.w === 'string');
+  } catch (e) {
+    return false;
+  }
+};
+
 const ChatScreen = ({ navigation, route }) => {
   const { chatId } = route.params || {};
   const { user } = useAuth();
@@ -532,10 +548,12 @@ const ChatScreen = ({ navigation, route }) => {
       );
     }
 
-    // Regular text message
+    // Regular text message. Ratchet-payload → честная плашка (RN не держит
+    // ratchet-сессию — этап 7), обычный текст рендерится как раньше.
+    const isRatchet = isRatchetPayload(item.content);
     return (
       <View style={bubbleStyle}>
-        <Text style={textStyle}>{item.content}</Text>
+        <Text style={textStyle}>{isRatchet ? RATCHET_BADGE : item.content}</Text>
         <View style={styles.messageFooter}>
           <Text style={[chatStyles.messageTime, isMyMessage && styles.myMessageTime]}>
             {formatMessageTime(item.createdAt)}

@@ -351,7 +351,7 @@ x25519_dh(identity-ключи реестра, X3DH-lite без prekeys), нач�
 состояние — bincode в secure storage medchat.ratchet, аккаунт
 ratchet.<chatId>.<remoteKeyId>; UI: per-chat тумблер, plaintext конверта —
 payload {"t":"r1","k":keyId,"w":wire}, honest-fallback на обычный E2E
-при любой ошибке — чат не ломается). iOS-склейка сделана (фаза 3: RatchetService.ensureSession — ss = x25519Dh от identity-ключей UserKey, роль по keyId, аккаунт ratchet.<chatId>.<remoteKeyId> в Keychain; ChatView — тумблер, payload {"t":"r1","k":keyId,"w":wire}, honest-fallback). Android/RN — остаток этапа 7.
+при любой ошибке — чат не ломается). iOS-склейка сделана (фаза 3: RatchetService.ensureSession — ss = x25519Dh от identity-ключей UserKey, роль по keyId, аккаунт ratchet.<chatId>.<remoteKeyId> в Keychain; ChatView — тумблер, payload {"t":"r1","k":keyId,"w":wire}, honest-fallback). RN — честная плашка сделана (ChatScreen.isRatchetPayload: бейдж вместо JSON-мусора; RN ratchet-сессию не держит). Android — склейка после ч.3 (Compose UI).
 Реализация в Rust-ядре: X25519 + Double Ratchet, серверный key-registry.
 Верификация fingerprint-кодов: РЕАЛИЗОВАНА в мобильном клиенте
 (347bc9d + ec1a0de: safety number — 60 цифр из SHA-512 по набору ключей чата,

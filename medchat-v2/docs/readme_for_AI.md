@@ -1213,8 +1213,9 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     ratchet.<chatId>.<remoteKeyId> в Keychain; ChatView — per-chat тумблер
     в UserDefaults (не секрет), payload {"t":"r1","k":keyId,"w":wire}
     внутри конверта, honest-fallback на обычный E2E, входящие
-    расшифровываются лениво, при неудаче — честная плашка). Остаток
-    этапа 7: RN-плашка ratchet-payload, Android — после ч.3.
+    расшифровываются лениво, при неудаче — честная плашка). RN-плашка сделана (ChatScreen:
+    isRatchetPayload — честный бейдж вместо JSON-мусора, RN ratchet-сессию
+    не держит). Остаток этапа 7: Android — склейка после ч.3 (Compose UI).
     Этап 3 начат (ч.1 — инструментальная цепочка): джоба CI ios-smoke (macos-latest):
     runtime-smoke Swift-обвязки (ios/MedchatCoreSmoke.swift — зеркало napi-smoke.js
     на host-cdylib), кросс-компиляция iOS device/sim (staticlib), артефакт
