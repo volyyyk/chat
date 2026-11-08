@@ -627,8 +627,9 @@ bcrypt: обе стороны нативные, Rust-крейт чуть мед�
 open_sealed обязан вернуть Ok/Err, не панику; ratchet_wire_fuzz — from_wire
 на произвольных байтах (Err(BadHeader) на границе) + decrypt валидного формата
 отвечающей стороной (ошибки допускаются, паники нет); ratchet_roundtrip_fuzz —
-сессия на фиксированных ключах, произвольный plaintext (включая пустой) обязан
-вернуться байт-в-байт через to_wire/from_wire. bcrypt_verify в fuzz НЕ включена
+сессия на настоящей X25519-паре (generate_keypair; фиктивная несогласованная
+пара была причиной красных прогонов #104/#105, см. ниже), произвольный
+plaintext (включая пустой) обязан вернуться байт-в-байт через to_wire/from_wire. bcrypt_verify в fuzz НЕ включена
 осознанно: хэш cost 31 валиден по формату и вешает проверку на минуты (при
 необходимости — отдельная цель с гейтом cost). Джоба CI fuzz-smoke: cargo
 install --locked cargo-fuzz, -runs=5000 на цель (libFuzzer-флаги — после «--»),
@@ -643,6 +644,18 @@ file ci.yml#L401), ни одна джоба не стартовала и ci-ло
 ПОСЛЕ «--» (cargo fuzz run <target> -- -runs=5000). УРОК: cargo-fuzz-CLI
 и флаги libFuzzer-бинаря разделены «--»; «: » в name шагов GH Actions
 недопустим.
+Прогоны #104/#105: ratchet_roundtrip_fuzz паниковал на первом же входе
+(пустой crash-файл, sha1 пустой строки) — roundtrip decrypt: Aead. Причина
+в harness-е цели, НЕ в ядре: фиксированная пара
+KeyPair{public_key:[0;32], secret_key:[1;32]} невалидна по построению —
+public_key не соответствует secret_key (x25519([1;32]) != [0;32]):
+DH-выход инициатора (DH с [0;32]) и респондента (DH с secret [1;32])
+не совпадают, decrypt обязан отвечать Aead на любом входе. Фикс —
+generate_keypair(), как в юнит-тестах ratchet.rs. УРОК: в X25519-паре
+обе половины обязаны быть согласованы (public = x25519(secret));
+фиксированные байтовые константы для ОБЕИХ половин «пары» — ошибка
+по построению, а детерминированный краш на пустом входе — признак бага
+в setup-е цели.
 **UniFFI-биндинги Swift/Kotlin** (этот коммит): последний пункт Этапа 2
 (биндинги). feature uniffi-bind (НЕ default, как napi-bind) + модуль
 src/uniffi_iface.rs: MedKeyPair/MedSealedMessage/MedRatchetMessage (Record),
@@ -753,7 +766,9 @@ node stop.js [--docker]                     # остановить процес�
   «≥ x10» закрыт: конвертный x25519-box-путь 11.6–15.2x в пользу Rust). Джоба napi-build — сборка .node-артефакта + Node-интеграция
   обёрток (napi-smoke.js). Джоба fuzz-smoke — cargo-fuzz (три цели,
   ограниченные итерации; прогоны #102/#103 красные по мелочи — «: » в именах
-  шагов YAML и libFuzzer-флаги после «--», исправлено). Джоба uniffi-bindings —
+  шагов YAML и libFuzzer-флаги после «--»; #104/#105 — фиктивная X25519-пара
+  в harness ratchet_roundtrip_fuzz (decrypt Aead на любом входе; фикс —
+  generate_keypair, урок в §8) — всё исправлено). Джоба uniffi-bindings —
   генерация Swift/Kotlin-обвязки ядра (этап 2 закрыт). Логи
   падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log; ci-bench.log пишется при любом исходе) — при
