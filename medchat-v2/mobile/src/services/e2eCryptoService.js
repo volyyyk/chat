@@ -5,7 +5,7 @@
  *
  * SECURITY MODEL
  * - The X25519 key pair is generated ON THIS DEVICE. The private key is
- *   stored locally (AsyncStorage, base64) and NEVER leaves the device.
+ *   stored LOCALLY and NEVER leaves the device.
  * - Only the PUBLIC key is registered on the server (/api/keys).
  * - When sending, the message plaintext is encrypted on-device to every
  *   recipient's public key (including our own other devices) using a fresh
@@ -13,13 +13,16 @@
  *   ciphertext envelope, never the plaintext.
  * - When receiving, the envelope is opened with the local private key.
  *
- * NOTE ON STORAGE: AsyncStorage is not a hardware-backed keystore. For
- * production builds migrate the private key to expo-secure-store / Keychain /
- * Keystore (see docs/ROADMAP_NATIVE.md, stage 3-4 native clients).
+ * NOTE ON STORAGE: the private key is kept in hardware-backed secure storage
+ * (expo-secure-store: iOS Keychain / Android Keystore) whenever the platform
+ * provides it. On platforms without secure storage (e.g. expo web) it falls
+ * back to AsyncStorage, and legacy AsyncStorage key pairs are migrated to
+ * the secure store transparently on first read.
  */
 
 import nacl from 'tweetnacl';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '../config/config';
 
 const API_URL = API_BASE_URL + '/api';
@@ -118,7 +121,12 @@ function utf8Decode(bytes) {
 }
 
 // ---------------------------------------------------------------------------
-// Local key pair management
+// Local key pair storage
+//
+// Backend: hardware-backed expo-secure-store (iOS Keychain / Android
+// Keystore) whenever available; AsyncStorage only as a fallback (e.g. expo
+// web). Legacy AsyncStorage records are migrated to the secure store
+// transparently on first read, then removed from AsyncStorage.
 // ---------------------------------------------------------------------------
 
 function storageKey(userId) {
@@ -130,16 +138,86 @@ function randomKeyId() {
   return 'device-' + bytesToBase64(raw).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 }
 
+// Memoized per app session: true = use Keychain/Keystore, false = AsyncStorage.
+let secureStoreAvailable = null;
+
+async function isSecureStoreAvailable() {
+  if (secureStoreAvailable !== null) return secureStoreAvailable;
+  try {
+    secureStoreAvailable =
+      typeof SecureStore.isAvailableAsync === 'function' &&
+      (await SecureStore.isAvailableAsync()) === true;
+  } catch (e) {
+    secureStoreAvailable = false;
+  }
+  return secureStoreAvailable;
+}
+
+/**
+ * Read the stored key pair record from secure storage first, then from the
+ * legacy AsyncStorage location. Returns { raw, backend } or null.
+ */
+async function readRecord(userId) {
+  if (await isSecureStoreAvailable()) {
+    try {
+      const raw = await SecureStore.getItemAsync(storageKey(userId));
+      if (raw) return { raw, backend: 'secure' };
+    } catch (e) {
+      // fall through to the legacy location
+    }
+  }
+  try {
+    const raw = await AsyncStorage.getItem(storageKey(userId));
+    if (raw) return { raw, backend: 'async' };
+  } catch (e) {
+    // ignore - treat as no key pair
+  }
+  return null;
+}
+
+/**
+ * Persist the key pair record. Prefers the secure store; falls back to
+ * AsyncStorage when secure storage is unavailable or fails.
+ * Returns 'secure' | 'async'.
+ */
+async function writeRecord(userId, raw) {
+  if (await isSecureStoreAvailable()) {
+    try {
+      await SecureStore.setItemAsync(storageKey(userId), raw, {
+        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      });
+      return 'secure';
+    } catch (e) {
+      // fall back below
+    }
+  }
+  await AsyncStorage.setItem(storageKey(userId), raw);
+  return 'async';
+}
+
 /**
  * Read this device's key pair for the given user (or null).
  * NOTE: returns the PRIVATE key - must never be logged or sent anywhere.
+ * Legacy AsyncStorage records are migrated to the secure store on read.
  */
 async function getLocalKeyPair(userId) {
   try {
-    const raw = await AsyncStorage.getItem(storageKey(userId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
+    const found = await readRecord(userId);
+    if (!found) return null;
+    const parsed = JSON.parse(found.raw);
     if (!parsed || !parsed.keyId || !parsed.publicKey || !parsed.secretKey) return null;
+
+    // Opportunistic one-time migration: AsyncStorage -> Keychain/Keystore.
+    if (found.backend === 'async' && (await isSecureStoreAvailable())) {
+      const backend = await writeRecord(userId, found.raw);
+      if (backend === 'secure') {
+        try {
+          await AsyncStorage.removeItem(storageKey(userId));
+        } catch (e) {
+          // best-effort cleanup
+        }
+      }
+    }
     return parsed;
   } catch (e) {
     return null;
@@ -161,14 +239,22 @@ async function getOrCreateKeyPair(userId) {
     secretKey: bytesToBase64(pair.secretKey),
     createdAt: new Date().toISOString(),
   };
-  await AsyncStorage.setItem(storageKey(userId), JSON.stringify(record));
+  await writeRecord(userId, JSON.stringify(record));
   return record;
 }
 
 /**
- * Forget the local key pair (e.g. after logout on this device).
+ * Forget the local key pair (e.g. after logout / account deletion on this
+ * device). Removes it from BOTH storage backends.
  */
 async function removeLocalKeyPair(userId) {
+  try {
+    if (await isSecureStoreAvailable()) {
+      await SecureStore.deleteItemAsync(storageKey(userId));
+    }
+  } catch (e) {
+    // best-effort
+  }
   try {
     await AsyncStorage.removeItem(storageKey(userId));
   } catch (e) {
