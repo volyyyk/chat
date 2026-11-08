@@ -1208,9 +1208,13 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     ratchet.<chatId>.<remoteKeyId>; UI: per-chat тумблер, plaintext
     конверта — payload {"t":"r1","k":keyId,"w":wire}, honest-fallback
     на обычный E2E при любой ошибке, входящие расшифровываются лениво,
-    при неудаче — честная плашка; чат никогда не ломается). Остаток
-    этапа 7: зеркальная склейка iOS (RatchetService + ChatView),
-    RN-плашка ratchet-payload, Android — после ч.3.
+    при неудаче — честная плашка; чат никогда не ломается). iOS-склейка сделана (фаза 3: RatchetService.ensureSession — X3DH-lite
+    ss = x25519Dh от identity-ключей UserKey, роль по keyId, аккаунт
+    ratchet.<chatId>.<remoteKeyId> в Keychain; ChatView — per-chat тумблер
+    в UserDefaults (не секрет), payload {"t":"r1","k":keyId,"w":wire}
+    внутри конверта, honest-fallback на обычный E2E, входящие
+    расшифровываются лениво, при неудаче — честная плашка). Остаток
+    этапа 7: RN-плашка ratchet-payload, Android — после ч.3.
     Этап 3 начат (ч.1 — инструментальная цепочка): джоба CI ios-smoke (macos-latest):
     runtime-smoke Swift-обвязки (ios/MedchatCoreSmoke.swift — зеркало napi-smoke.js
     на host-cdylib), кросс-компиляция iOS device/sim (staticlib), артефакт
@@ -1218,7 +1222,9 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     следующие шаги; TestFlight/подписи/APNs — оператор (DESKTOP_RELEASE.md-паттерн).
     Этап 3 ч.2: каркас SwiftUI-источников ios/ (экраны, ApiService, KeychainStore,
     CryptoService, RatchetService, README_IOS.md) + typecheck в ios-smoke; сборка
-    .ipa/TestFlight/подписи — оператор (README_IOS.md); склейка Double Ratchet — этап 7.
+    .ipa/TestFlight/подписи — оператор (README_IOS.md); склейка Double Ratchet сделана (этап 7, фаза 3: RatchetService +
+    ChatView — тумблер, payload {"t":"r1","k","w"} внутри E2E-конверта,
+    honest-fallback).
     Этап 4 начат (ч.1 — инструментальная цепочка): джоба CI android-smoke (ubuntu) —
     runtime-smoke Kotlin-обвязки (android/MedchatCoreSmoke.kt — зеркало napi-smoke.js,
     kotlinc 2.0.21 + JNA против host-cdylib), кросс-компиляция NDK r27c (cargo-ndk,

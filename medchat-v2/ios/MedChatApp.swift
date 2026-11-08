@@ -5,7 +5,8 @@ import SwiftUI
 // connect (адрес сервера, GET /health) → login (POST /api/auth/login,
 // accessToken в Keychain, refresh сознательно не хранится) → main
 // (чаты + переписка, E2E-конверты x25519-box при полном покрытии ключами).
-// Сборка в Xcode — README_IOS.md; склейка Double Ratchet — этап 7.
+// Сборка в Xcode — README_IOS.md; склейка Double Ratchet сделана
+// (этап 7: RatchetService + ChatView — зеркало desktop).
 
 enum AppScreen {
     case connect

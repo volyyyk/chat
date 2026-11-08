@@ -6,6 +6,13 @@ import SwiftUI
 // только если у КАЖДОГО участника есть активный ключ
 // (GET /api/chats/:id/keys), иначе честный plaintext — «чат никогда
 // не ломается» (как в мобильном клиенте). 402 — тариф исчерпан.
+// Double Ratchet (этап 7, зеркало desktop-склейки): при включённом
+// тумблере plaintext конверта — payload {"t":"r1","k":keyId,"w":wire}
+// (wire ratchet-сообщения), состояние сессии — в Keychain через
+// RatchetService (аккаунт ratchet.<chatId>.<remoteKeyId>); тумблер
+// per-chat в UserDefaults (НЕ секрет). Любая ошибка ratchet —
+// honest-fallback на обычный E2E-конверт; входящие расшифровываются
+// лениво, при неудаче — честная плашка: чат никогда не ломается.
 
 struct ChatView: View {
     let chat: ApiService.ChatSummary
@@ -14,11 +21,20 @@ struct ChatView: View {
     @State private var messages: [ApiService.ChatMessage] = []
     @State private var texts: [String: String] = [:]
     @State private var e2eMessageIds: Set<String> = []
+    @State private var ratchetMessageIds: Set<String> = []
     @State private var chatKeys: [ApiService.ChatKey] = []
     @State private var chatE2E = false
+    @State private var ratchetEnabled = false
+    @State private var ratchetNote = ""
     @State private var input = ""
     @State private var status = ""
     @State private var sending = false
+    
+    // Тумблер Double Ratchet per-chat: НЕ секрет, поэтому UserDefaults
+    // (секреты — только Keychain, INTEGRATION_BINDINGS §1).
+    private var ratchetStorageKey: String {
+        return "medchat.ratchet." + chat.id
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -46,6 +62,14 @@ struct ChatView: View {
                 }
                 .padding()
             }
+            if chatE2E {
+                Toggle("Double Ratchet (forward secrecy)", isOn: $ratchetEnabled)
+                    .font(.footnote)
+                    .padding(.horizontal)
+                    .onChange(of: ratchetEnabled) { value in
+                        UserDefaults.standard.set(value, forKey: ratchetStorageKey)
+                    }
+            }
             HStack {
                 TextField("Сообщение", text: $input)
                     .textFieldStyle(.roundedBorder)
@@ -54,6 +78,12 @@ struct ChatView: View {
                     .disabled(sending)
             }
             .padding()
+            if !ratchetNote.isEmpty {
+                Text(ratchetNote)
+                    .font(.footnote)
+                    .foregroundColor(.orange)
+                    .padding(.horizontal)
+            }
             if !status.isEmpty {
                 Text(status)
                     .font(.footnote)
@@ -91,6 +121,9 @@ struct ChatView: View {
         if e2eMessageIds.contains(message.id) {
             who += " · 🔒"
         }
+        if ratchetMessageIds.contains(message.id) {
+            who += " · ratchet"
+        }
         return who
     }
     
@@ -112,16 +145,25 @@ struct ChatView: View {
             let covered = Set(chatKeys.map { $0.userId })
             let ids = participants()
             chatE2E = app.e2eEnabled && app.crypto != nil && !ids.isEmpty && ids.allSatisfy { covered.contains($0) }
+            ratchetEnabled = (UserDefaults.standard.object(forKey: ratchetStorageKey) as? Bool) ?? true
             messages = list
             var decoded: [String: String] = [:]
             var encryptedIds: Set<String> = []
+            var ratchetIds: Set<String> = []
             for message in list {
                 if let rawEnvelope = message.e2eEnvelope {
                     encryptedIds.insert(message.id)
                     if let envelope = CryptoService.envelopeFrom(rawEnvelope),
                        let cryptoService = app.crypto,
                        let plaintext = cryptoService.openEnvelope(envelope) {
-                        decoded[message.id] = plaintext
+                        if let unwrapped = ratchetUnwrap(plaintext) {
+                            decoded[message.id] = unwrapped.text
+                            if unwrapped.isRatchet {
+                                ratchetIds.insert(message.id)
+                            }
+                        } else {
+                            decoded[message.id] = plaintext
+                        }
                     } else {
                         decoded[message.id] = "🔒 Зашифровано (E2E): нет бокса для ключа этого устройства"
                     }
@@ -131,6 +173,7 @@ struct ChatView: View {
             }
             texts = decoded
             e2eMessageIds = encryptedIds
+            ratchetMessageIds = ratchetIds
         } catch {
             status = "Ошибка загрузки: " + apiErrorMessage(error)
         }
@@ -142,8 +185,15 @@ struct ChatView: View {
         guard let service = app.api else { return }
         sending = true
         status = ""
+        ratchetNote = ""
+        var outgoing = text
+        if chatE2E, ratchetEnabled {
+            if let payload = ratchetPayload(text) {
+                outgoing = payload
+            }
+        }
         do {
-            if chatE2E, let envelope = buildEnvelope(text) {
+            if chatE2E, let envelope = buildEnvelope(outgoing) {
                 try await service.send(chatId: chat.id, content: "", envelope: envelope)
             } else {
                 try await service.send(chatId: chat.id, content: text)
@@ -156,6 +206,64 @@ struct ChatView: View {
             status = "Не отправлено: " + apiErrorMessage(error)
         }
         sending = false
+    }
+    
+    // Последний чужой активный ключ чата (зеркало desktop peerKey):
+    // ratchet-сессия ведётся с устройством собеседника.
+    private func peerKey() -> ApiService.ChatKey? {
+        guard let me = app.user?.id else { return nil }
+        return chatKeys.filter { $0.userId != me }.last
+    }
+    
+    // Исходящий ratchet-payload: wire шифруется сессией с собеседником
+    // и заворачивается в JSON {"t":"r1","k":keyId,"w":wire} — тот же
+    // формат, что в desktop. Ошибка (нет ключа собеседника, отвечающая
+    // сторона пишет первой — NotInitialized) — nil + честная плашка:
+    // уйдёт обычный E2E-конверт, чат не ломается.
+    private func ratchetPayload(_ text: String) -> String? {
+        guard let crypto = app.crypto, let pair = crypto.getOrCreateKeyPair(),
+              let peer = peerKey() else {
+            ratchetNote = "Ratchet: нет ключа собеседника — отправлено обычным E2E-конвертом"
+            return nil
+        }
+        do {
+            let state = try RatchetService.shared.ensureSession(chatId: chat.id, myPair: pair, remoteKey: peer)
+            let wire = try RatchetService.shared.encrypt(chatId: chat.id, remoteKeyId: peer.keyId, plaintext: Data(text.utf8), state: state)
+            let payload: [String: Any] = ["t": "r1", "k": pair.keyId, "w": wire.base64EncodedString()]
+            if let data = try? JSONSerialization.data(withJSONObject: payload),
+               let json = String(data: data, encoding: .utf8) {
+                return json
+            }
+            ratchetNote = "Ratchet: payload не собрался — отправлено обычным E2E-конвертом"
+            return nil
+        } catch {
+            ratchetNote = "Ratchet: сессия не готова (собеседник ещё не писал) — отправлено обычным E2E-конвертом"
+            return nil
+        }
+    }
+    
+    // Входящий plaintext конверта: обычный текст (nil — показать как есть)
+    // или ratchet-payload {"t":"r1","k":keyId,"w":wire}. Расшифровка
+    // ленивая, сессией с отправителем (его ключ — по keyId из реестра
+    // чата); не расшифровалось — честная плашка, чат не ломается.
+    private func ratchetUnwrap(_ plaintext: String) -> (text: String, isRatchet: Bool)? {
+        guard let data = plaintext.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              object["t"] as? String == "r1",
+              let senderKeyId = object["k"] as? String,
+              let wireB64 = object["w"] as? String,
+              let wire = Data(base64Encoded: wireB64) else { return nil }
+        guard let crypto = app.crypto, let pair = crypto.getOrCreateKeyPair(),
+              let remoteKey = chatKeys.first(where: { $0.keyId == senderKeyId }) else {
+            return ("🔒 Ratchet-сообщение: нет ключа отправителя в реестре чата", true)
+        }
+        do {
+            let state = try RatchetService.shared.ensureSession(chatId: chat.id, myPair: pair, remoteKey: remoteKey)
+            let plain = try RatchetService.shared.decrypt(chatId: chat.id, remoteKeyId: senderKeyId, wire: wire, state: state)
+            return (String(data: plain, encoding: .utf8) ?? "🔒 Ratchet: не удалось прочитать текст", true)
+        } catch {
+            return ("🔒 Ratchet-сообщение не расшифровано (сессия не совпала)", true)
+        }
     }
     
     // Конверт: по боксу на участника (последний активный ключ), бокс

@@ -13,6 +13,8 @@
 - ChatListView.swift / ChatView.swift — список чатов и переписка
   (GET /api/chats?limit=50, GET /api/chats/:id/messages?limit=50,
   POST /api/chats/:id/messages; 402 → тариф исчерпан);
+  ChatView: тумблер Double Ratchet per-chat, payload {"t":"r1",...} внутри
+  E2E-конверта, honest-fallback на обычный E2E;
 - ApiService.swift — REST + Bearer accessToken. refreshToken сознательно
   НЕ хранится: при протухании access пользователь входит заново; 401 от
   любой точки сбрасывает сессию;
@@ -25,8 +27,10 @@
   { keyId, publicKey, algorithm, deviceName: ios }). E2E включается только
   при полном покрытии участников ключами, иначе plaintext-fallback —
   «чат никогда не ломается»;
-- RatchetService.swift — персистентность Double Ratchet (save/restore в
-  Keychain). В путь отправки ещё не вклеен: этап 7 ROADMAP_NATIVE;
+- RatchetService.swift — Double Ratchet, склейка с отправкой (этап 7):
+  сессия на каждый ключ собеседника ratchet.<chatId>.<remoteKeyId> в
+  Keychain (save/restore), ss = x25519Dh от identity-ключей UserKey,
+  роль по keyId (лексикографически меньший — инициатор);
 - MedchatCoreSmoke.swift — runtime-smoke ДЛЯ CI (в приложение НЕ добавлять).
 
 ## Сборка в Xcode (оператор)
@@ -55,6 +59,7 @@
   (typecheck) и ядро (xcframework) — всё, что не требует секретов.
 - Подписи, TestFlight, APNs, push — аккаунт и секреты оператора
   (тот же принцип, что Authenticode в desktop: DESKTOP_RELEASE.md).
-- Double Ratchet: транспорт и Keychain-персистентность готовы, в кнопку
-  «Отправить» не вклеен (этап 7); файлы/голосовые с гибридной схемой mc:2
-  мобильного клиента не перенесены.
+- Double Ratchet: склеен с отправкой (этап 7: тумблер в ChatView, сессия
+  ratchet.<chatId>.<remoteKeyId> в Keychain, payload {"t":"r1",...} внутри
+  E2E-конверта, honest-fallback на обычный E2E — чат не ломается);
+  файлы/голосовые с гибридной схемой mc:2 мобильного клиента не перенесены.
