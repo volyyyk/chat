@@ -75,6 +75,18 @@ assert.throws(
 );
 ok('битые длины epk/nonce — InvalidArg');
 
+// ---------- горячие пути (этап 6): SHA-256 checksum ----------
+const nodeCrypto = require('node:crypto');
+const HOT = Buffer.from('MedChat hot path: checksum via napi', 'utf8');
+assert.strictEqual(core.sha256Checksum(HOT), nodeCrypto.createHash('sha256').update(HOT).digest('hex'));
+assert.strictEqual(
+  core.sha256Checksum(Buffer.alloc(0)),
+  'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+);
+assert.strictEqual(core.sha256Verify(HOT, core.sha256Checksum(HOT).toUpperCase()), true);
+assert.strictEqual(core.sha256Verify(HOT, 'deadbeef'), false);
+ok('sha256Checksum/sha256Verify — KAT + parity с node:crypto');
+
 // ---------- Double Ratchet ----------
 assert.strictEqual(core.ratchetHeaderSize(), 40);
 assert.strictEqual(core.ratchetNonceSize(), 12);

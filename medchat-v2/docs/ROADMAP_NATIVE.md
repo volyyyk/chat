@@ -182,6 +182,13 @@ Double Ratchet — ТОЛЬКО системное хранилище.
 ### Этап 6. Сервер: горячие пути
 napi-rs-плагин для крипто/checksum/сжатия; при росте — вынос websocket-gateway
 на Rust (tokio) за общим Redis pub/sub (прозрачно для клиентов — тот же протокол).
+**Прогресс (ноябрь 2026):** начат — SHA-256 checksum перенесён в medchat-core
+(модуль src/hotpath.rs на sha2 — зависимости не растут: HMAC-SHA256 уже в
+дереве Double Ratchet; KAT FIPS 180-4 «abc»/пустая строка в юнит-тестах),
+napi-обёртки sha256Checksum/sha256Verify (src/node.rs) едут в том же
+.node-артефакте napi-build; parity с node:crypto сверяет napi-smoke.js.
+Серверная интеграция (обёртка с fallback на node:crypto) и сжатие бэкапов —
+следующие шаги; k6-нагрузочный по DoD — после интеграции.
 **DoD:** нагрузочный тест (k6) x10 текущей нагрузки без деградации p95;
 CI остаётся зелёным на каждом шаге.
 

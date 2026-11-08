@@ -30,6 +30,11 @@ use crypto_box::{Nonce, PublicKey, SalsaBox, SecretKey};
 pub mod ratchet;
 pub use ratchet::{RatchetMessage, RatchetState};
 
+// Серверные горячие пути (этап 6 ROADMAP_NATIVE.md): CPU-bound операции
+// (первая — SHA-256 checksum) для .node-аддона сервера и нативных клиентов.
+pub mod hotpath;
+pub use hotpath::{sha256_hex, sha256_verify};
+
 // Node.js-биндинги (napi-rs, этап 2 ROADMAP_NATIVE.md). Опциональная feature
 // napi-bind (default, см. [features] в Cargo.toml): юнит-тесты ядра линкуются
 // без napi-символов (их в рантайме даёт только процесс Node — napi-rs

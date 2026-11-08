@@ -152,6 +152,22 @@ pub fn open_sealed(
     Ok(Buffer::from(plaintext))
 }
 
+// ----- Серверные горячие пути (этап 6): checksum для Node ----------
+
+/// SHA-256 от буфера → hex (64, lowercase). KAT FIPS 180-4, байт-в-байт
+/// с node:crypto (crypto.createHash("sha256")) — parity сверяет napi-smoke.js.
+#[napi]
+pub fn sha256_checksum(data: Buffer) -> String {
+    crate::hotpath::sha256_hex(bytes(&data))
+}
+
+/// Сверить буфер с ожидаемым SHA-256 hex (регистр/краевые пробелы не
+/// важны): контроль целостности бэкапов/файлов из Node одним вызовом.
+#[napi]
+pub fn sha256_verify(data: Buffer, expected_hex: String) -> bool {
+    crate::hotpath::sha256_verify(bytes(&data), &expected_hex)
+}
+
 // ----- Double Ratchet (этап 7, прототип): биндинги для Node -----
 
 /// Wire-сообщение Double Ratchet (части): header (40) || nonce (12) || ciphertext.
@@ -384,6 +400,24 @@ mod tests {
         .err()
         .unwrap();
         assert!(err.to_string().contains("epk must be 32 bytes, got 31"));
+    }
+
+    /// Hot-path checksum (этап 6): KAT FIPS 180-4 через napi-обёртки.
+    #[test]
+    fn napi_sha256_kat() {
+        let hex = sha256_checksum(Buffer::from(b"abc".to_vec()));
+        assert_eq!(
+            hex,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert!(sha256_verify(
+            Buffer::from(b"abc".to_vec()),
+            "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD".to_string()
+        ));
+        assert!(!sha256_verify(
+            Buffer::from(b"abc".to_vec()),
+            hex.replace('8', "9")
+        ));
     }
 
     fn b32(v: u8) -> Buffer {
