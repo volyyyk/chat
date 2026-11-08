@@ -11,12 +11,16 @@
 //! тот же алгоритм, что у tweetnacl nacl.box) — конверты, запечатанные здесь,
 //! открываются мобильным клиентом, и наоборот.
 //!
-//! Дальнейшие шаги (см. ROADMAP_NATIVE.md): Double Ratchet (forward secrecy),
-//! napi-rs-биндинги для Node-сервера, UniFFI-биндинги для Swift/Kotlin,
+//! Double Ratchet (forward secrecy) — модуль ratchet (этап 7 ROADMAP_NATIVE,
+//! прототип: строго по порядку сообщений, без skip-store).
+//! Дальнейшие шаги: napi-rs-биндинги для Node-сервера, UniFFI-биндинги для Swift/Kotlin,
 //! опционально ГОСТ СКЗИ для сертифицированного контура.
 
 use crypto_box::aead::{Aead, AeadCore, OsRng};
 use crypto_box::{Nonce, PublicKey, SalsaBox, SecretKey};
+
+pub mod ratchet;
+pub use ratchet::{RatchetMessage, RatchetState};
 
 /// Размер приватного/публичного ключа X25519.
 pub const KEY_SIZE: usize = 32;
@@ -31,6 +35,12 @@ pub enum CoreError {
     Aead,
     /// Ни один бокс конверта не расшифрован нашей парой ключей.
     NoBoxForRecipient,
+    /// Ratchet: нет ключа собеседника/цепочки (нужно получить первое сообщение).
+    NotInitialized,
+    /// Ratchet: сообщение пришло не по порядку (прототип без skip-store).
+    OutOfOrder,
+    /// Ratchet: заголовок неверной длины.
+    BadHeader,
 }
 
 impl From<crypto_box::aead::Error> for CoreError {
@@ -46,6 +56,11 @@ impl std::fmt::Display for CoreError {
             CoreError::NoBoxForRecipient => {
                 write!(f, "no box in envelope decryptable by this keypair")
             }
+            CoreError::NotInitialized => {
+                write!(f, "ratchet not initialized (no remote key / chain)")
+            }
+            CoreError::OutOfOrder => write!(f, "ratchet message out of order"),
+            CoreError::BadHeader => write!(f, "ratchet header has invalid length"),
         }
     }
 }
