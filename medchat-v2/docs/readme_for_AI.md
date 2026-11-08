@@ -4,9 +4,10 @@
 > Здесь: структура, контракты, бизнес-логика, а главное — честный разбор,
 > что реализовано «по-настоящему», а где временные заплатки и осознанные компромиссы.
 > Обновлён после security-аудита (коммит 1fafeb9), серии фиксов
-> 65ec99c → 5a8eceb (user-API, печатная форма рецептов, чистка мёртвого шифрования мобилки)
-> и серии E2E-коммитов d11762c → 596c4a3 (сквозное шифрование содержимого сообщений —
-> см. раздел 5, «E2E-контракт»).
+> 65ec99c → 5a8eceb (user-API, печатная форма рецептов, чистка мёртвого шифрования мобилки),
+> серии E2E-коммитов d11762c → 596c4a3 (сквозное шифрование содержимого сообщений —
+> см. раздел 5, «E2E-контракт»), каркаса Rust-ядра medchat-core с джобой core-tests
+> в CI (3a70911 → ee76670) и перевода приватных ключей в Keychain/Keystore (3ab5cf6).
 
 ---
 
@@ -30,8 +31,9 @@ MedChat v2 — телемедицинская платформа «клиник�
 | Часть | Технологии |
 |---|---|
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
-| mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E) |
+| mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
+| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
 ## 3. Структура проекта
@@ -78,15 +80,21 @@ medchat-v2/
 │   ├── services/ (9)           — authService, chatService (socket+REST), api, file,
 │   │                            payment, database (экспортирует database + initDatabase),
 │   │                            notification, backup, e2eCryptoService (X25519 E2E:
-│   │                            base64/UTF-8 pure JS, keypair, конверты, расшифровка)
-│   ├── components/ (8)         — MessageBubble, AudioPlayer, ...
+│   │                            base64/UTF-8 pure JS, keypair в expo-secure-store
+│   │                            (Keychain/Keystore) с fallback и миграцией, конверты,
+│   │                            расшифровка)
+│   ├── components/ (8)         — MessageBubble (🔒 на E2E-сообщениях), AudioPlayer, ...
 │   ├── navigation/, styles/, utils/
 ├── web/src/             — pages (7), services, context
+├── core/                — Rust-ядро medchat-core (Cargo.toml, src/lib.rs):
+│                          SalsaBox (X25519 + XSalsa20-Poly1305, crypto_box 0.9),
+│                          generate_keypair / seal_for_recipients / open_sealed,
+│                          CoreError; cargo test в CI (джоба core-tests)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
 │                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE + этот файл
 ├── docker/, docker-compose.yml
-└── .github/workflows/ci.yml
+└── .github/workflows/ci.yml — server-tests + e2e-smoke + core-tests
 ```
 
 ## 4. Тестовые данные (`cd server && npm run seed:test`)
@@ -120,7 +128,7 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
   `GET|PUT /api/users/me/preferences`, `POST /api/users/me/avatar` (multipart, multer),
   `DELETE /api/users/me/avatar`
 - Админ (`system_admin|clinic_admin`): `GET /api/users`, `GET /api/users/statistics`
-  (роут ДО `/:id`!), `GET|PUT|DELETE /api/users/:id`, `PUT /:id/status` (enum
+  (роут ДО `:id`!), `GET|PUT|DELETE /api/users/:id`, `PUT /:id/status` (enum
   active/inactive/pending/banned/deleted), `PUT /:id/role` (enum
   system_admin/clinic_admin/doctor/patient)
 - Профильные инклуды — только через алиасы: `doctorProfile`, `patientProfile`, `clinic`,
@@ -146,9 +154,11 @@ E2E-сообщений серверу недоступен (хранится т�
 время, размеры конвертов) сервер видит.
 
 - **Ключи**: каждое устройство генерирует X25519 keypair (tweetnacl). **Приватный ключ
-  никогда не покидает устройство** (AsyncStorage base64; для прода —
-  expo-secure-store / Keychain / Keystore, задокументировано как остаточное ограничение
-  в LEGAL.md §2). Публичный регистрируется на сервере.
+  никогда не покидает устройство**: хранится в аппаратно-защищённом хранилище
+  (expo-secure-store: iOS Keychain / Android Keystore,
+  keychainAccessible WHEN_UNLOCKED_THIS_DEVICE_ONLY) с прозрачной миграцией из
+  AsyncStorage и fallback на AsyncStorage только на платформах без secure storage
+  (например, expo web) — см. LEGAL.md §2. Публичный ключ регистрируется на сервере.
 - **Модель UserKey** (user_keys): userId, keyId, publicKey (base64), deviceName, is_active;
   unique(user_id, key_id); models/index.js подхватывает автоматически (readdirSync).
 - **API ключей** (routes/keys.js, Joi registerKeySchema, все под authenticate()):
@@ -172,12 +182,18 @@ E2E-сообщений серверу недоступен (хранится т�
     **чат никогда не ломается**;
   - входящие: расшифровка конвертов в REST-истории и Socket.IO newMessage;
     нерасшифровываемое → «🔒 Зашифрованное сообщение»;
-  - чат-лист: пустой preview + наличие lastMessageId = зашифрованное сообщение (🔒).
+  - чат-лист: пустой preview + наличие lastMessageId = зашифрованное сообщение (🔒);
+  - MessageBubble рисует 🔒 на каждом сообщении с metadata.e2e.
+- **Rust-ядро** (medchat-v2/core, крейт medchat-core): те же примитивы на crypto_box 0.9
+  (SalsaBox = X25519 + XSalsa20-Poly1305) — generate_keypair / seal_for_recipients /
+  open_sealed, CoreError; бинарно совместимая раскладка боксов с tweetnacl. Этап 2
+  ROADMAP_NATIVE; биндинги (napi-rs / UniFFI) — следующие шаги.
 - **Админы** (clinic_admin/system_admin) **не являются участниками E2E-переписки** и
   прочитать содержимое E2E-сообщений не могут — осознанное свойство end-to-end модели.
 - **Остаточные ограничения** (честно): файлы/голосовые пока вне E2E-конвертов;
-  метаданные видимы серверу; приватные ключи в AsyncStorage до перехода на secure store;
-  нет Double Ratchet (forward secrecy) — этап 7 ROADMAP_NATIVE.md.
+  метаданные видимы серверу; нет Double Ratchet (forward secrecy) — этап 7
+  ROADMAP_NATIVE.md; AsyncStorage остаётся fallback-хранилищем приватного ключа только
+  на платформах без secure storage (expo web).
 
 ### Файлы, приёмы, рецепты
 - `POST /api/files/upload` — multipart поле `file`, `chatId` optional (Joi uuid)
@@ -250,9 +266,10 @@ E2E-сообщений серверу недоступен (хранится т�
    спроектировано заново** (d11762c → 596c4a3): X25519 key exchange + серверный реестр
    публичных ключей (UserKey) + конверты x25519-box (раздел 5, «E2E-контракт»).
    Приватные ключи не покидают устройство; plaintext E2E-сообщений в БД отсутствует.
-   Честные остаточные ограничения: AsyncStorage вместо secure store (прод — Keychain/
-   Keystore), plaintext-fallback при отсутствии ключей у участника, метаданные видимы
-   серверу, файлы вне E2E-контура (см. LEGAL.md §2).
+   Честные остаточные ограничения: plaintext-fallback при отсутствии ключей у участника,
+   метаданные видимы серверу, файлы вне E2E-контура (см. LEGAL.md §2). Приватные ключи
+   переведены из AsyncStorage в Keychain/Keystore (expo-secure-store, 3ab5cf6) с
+   прозрачной миграцией; AsyncStorage — только fallback на платформах без secure storage.
 6. **AuthContext (mobile)** — тонкий pass-through на authService + стабы
    verifyClinicCode/checkDoctorVerification (UI ждёт эти методы, реальной серверной
    проверки кода клиники в мобильном флоу нет — она есть на сервере при register doctor).
@@ -276,7 +293,7 @@ E2E-сообщений серверу недоступен (хранится т�
     на PUT /me, /me/password, /me/profile, /me/preferences и GET /api/users. Схемы
     написаны; legacy-экспорты validators/user.js сохранены. Помни: middleware/validation.js
     при schema === undefined роняет запрос — если добавляешь новую схему, проверь имя.
-15. **Роуты users**: `GET /api/users/statistics` ДОЛЖЕН идти до `/:id` (иначе id="statistics"
+15. **Роуты users**: `GET /api/users/statistics` ДОЛЖЕН идти до `:id` (иначе id="statistics"
     перехватит запрос); avatar-роут обязан оборачиваться в `uploadMiddleware('avatar')`.
     Проверено и зафиксировано в 65ec99c.
 16. **Мобильная локальная БД чинилась в d11d285**: database.js не экспортировал ни `database`
@@ -288,6 +305,11 @@ E2E-сообщений серверу недоступен (хранится т�
     Joi) — конверт валидируется инлайн в chatController (validateE2EEnvelope): структура,
     лимиты размеров, обязательность бокса отправителя, пустой content. Если появится
     Joi-схема на этот роут — не потерять поле envelope.
+19. **Rust-ядро в CI**: первая версия lib.rs писалась по устаревшим примерам (seal/open,
+    crypto_box::generate_nonce) — два красных прогона (#50, #51) починены по логам
+    ci-logs/ci-rust.log (f24ab36, ee76670): реальный API crypto_box 0.9 = encrypt/decrypt,
+    SalsaBox::generate_nonce (AeadCore), SecretKey::to_bytes. Урок: перед использованием
+    незнакомого Rust-крейта сверяйся с docs.rs его версии, а не с памятью.
 
 ### История критических багфиксов (эта серия коммитов, ноябрь 2026)
 **Сервер** (ранние фиксы): req.file vs req.files (все загрузки падали 400); file.buffer пуст при
@@ -323,6 +345,15 @@ UTF-8 — в RN нет гарантированных btoa/atob; tweetnacl уж�
 ключа при монтировании, buildE2EEnvelope с participant-проверками, шифрование при отправке,
 расшифровка входящих (REST + сокет), замочек в чат-листе, локальное восстановление текста
 своих сообщений (сервер его не хранит).
+**Мобильный клиент** (3ab5cf6, E2E secure storage): приватные ключи из AsyncStorage →
+expo-secure-store (iOS Keychain / Android Keystore, WHEN_UNLOCKED_THIS_DEVICE_ONLY),
+прозрачная миграция при первом чтении, fallback на AsyncStorage только там, где secure
+storage недоступен (expo web); removeLocalKeyPair чистит оба хранилища.
+**Мобильный клиент** (a14ffd4, E2E UX): MessageBubble рисует 🔒 в футере сообщений
+с metadata.e2e.
+**Rust-ядро** (3a70911 → ee76670): крейт medchat-core (crypto_box 0.9, SalsaBox), CoreError,
+джоба core-tests в CI с публикацией ci-logs/ci-rust.log; два красных прогона починены
+(API-расхождения, см. п. 8.19).
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -344,15 +375,19 @@ node stop.js [--docker]                     # остановить процес�
 
 ## 10. CI (.github/workflows/ci.yml)
 
+Три джобы на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен). При ошибке установки grep npm error выводится в annotations.
 - **e2e-smoke**: services Postgres (db medchat_test) + Redis; `npm run seed:test` +
   `npm run test:smoke` (сервер на :3990, сам поднимается).
+- **core-tests**: Rust-ядро medchat-v2/core — stable-тулчейн, кэш (Swatinem/rust-cache),
+  `cargo test` (крейт medchat-core, этап 2 ROADMAP_NATIVE); лог падений публикуется в
+  ci-logs/ci-rust.log.
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
-- CI зелёный: 3ef9ff0/#30, 65ec99c/#31, серия E2E-коммитов d11762c → 9588c90 (runs #38–#41
-  success). Мобильные коммиты серии (3d5bfd1, 596c4a3) серверные джобы не затрагивают.
-  Логи падений бот ci-reporter коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log) — при
+- CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
+  ee76670/#52 (все три джобы, включая core-tests). Логи падений бот ci-reporter
+  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log) — при
   красном прогоне читать оттуда.
 
 ## 11. Что осталось сделать (roadmap)
@@ -360,8 +395,9 @@ node stop.js [--docker]                     # остановить процес�
 1. ~~Добить CI до зелёного~~ — зелёный с 3ef9ff0/#30 и 65ec99c/#31; держать зелёным.
 2. ~~E2E-шифрование~~ — **реализовано** (d11762c → 596c4a3): X25519 + NaCl box, реестр
    ключей UserKey, конверты в Message.metadata, graceful fallback. Остаточное (в порядке
-   приоритета): приватные ключи → expo-secure-store/Keychain/Keystore; Double Ratchet
-   (forward secrecy); E2E для файлов/голосовых; идентификация пользователей 149-ФЗ ст. 10.1.
+   приоритета): Double Ratchet (forward secrecy); E2E для файлов/голосовых;
+   идентификация пользователей 149-ФЗ ст. 10.1. ~~Secure storage приватных ключей~~ —
+   сделано (3ab5cf6: expo-secure-store / Keychain / Keystore, миграция из AsyncStorage).
 3. ~~Фейл-фаст валидация JWT_SECRET при старте сервера~~ — сделано (65ec99c).
 4. ~~Вырезать privateKey из req.user~~ — сделано (65ec99c).
 5. Подписи вебхуков (когда/если появятся реальные шлюзы).
@@ -370,7 +406,9 @@ node stop.js [--docker]                     # остановить процес�
 8. Пагинация/виртуализация длинных чатов в мобильном клиенте.
 9. Webhook-заглушки (п. 8.4) — при подключении реальных шлюзов.
 10. Нативные клиенты и Rust-ядро — см. ROADMAP_NATIVE.md (iOS/Android native, Tauri
-    desktop Windows/Linux, крипто-ядро на Rust/C).
+    desktop Windows/Linux, крипто-ядро на Rust/C++). **Этап 2 начат**: крейт medchat-core
+    (3a70911 → ee76670) + джоба core-tests в CI. Дальше: napi-rs-биндинги для Node,
+    UniFFI для Swift/Kotlin, Double Ratchet поверх ядра.
 
 ---
 
