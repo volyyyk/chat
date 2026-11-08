@@ -69,7 +69,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
 | desktop | Tauri 2 (Rust + системный webview): рабочий клиент этапа 5 (подключение/логин/чаты/сообщения REST); ядро medchat-core напрямую path-депом (Rust→Rust, без FFI); secure storage keyring 3 (Credential Manager / libsecret) |
-| ios/android | каркасы нативных клиентов (этапы 3/4): SwiftUI-источники ios/ (экраны, ApiService, KeychainStore, CryptoService, RatchetService; runtime-smoke MedchatCoreSmoke.swift + typecheck — джоба ios-smoke); Kotlin-каркас android/ начат с MedchatCoreSmoke.kt (runtime-smoke через kotlinc + JNA — джоба android-smoke; .so для jniLibs — cargo-ndk, артефакт medchat-core-android) |
+| ios/android | каркасы нативных клиентов (этапы 3/4): SwiftUI-источники ios/ (экраны, ApiService, KeychainStore, CryptoService, RatchetService; runtime-smoke MedchatCoreSmoke.swift + typecheck — джоба ios-smoke); Kotlin-каркас android/ — MedchatCoreSmoke.kt (runtime-smoke через kotlinc + JNA) и каркас источников этапа 4 ч.2: ApiService, SecureStore (Android Keystore), CryptoService, RatchetService, README_ANDROID.md (.so для jniLibs — cargo-ndk, артефакт medchat-core-android; typecheck против android.jar — джоба android-smoke) |
 | core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs); uniffi-биндинги Swift/Kotlin (feature uniffi-bind); serde-сериализация RatchetState (feature serde) + биндинги save/restore наружу (napi/UniFFI; персистентность сессий для клиентов) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
@@ -1188,7 +1188,7 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     runtime-smoke Kotlin-обвязки (android/MedchatCoreSmoke.kt — зеркало napi-smoke.js,
     kotlinc 2.0.21 + JNA против host-cdylib), кросс-компиляция NDK r27c (cargo-ndk,
     arm64-v8a / armeabi-v7a / x86_64) — артефакт medchat-core-android (.so jniLibs);
-    Gradle-каркас клиента (Compose, Keystore) — следующие шаги; Play Console и
+    каркас источников этапа 4 ч.2 сделан (ApiService / SecureStore (Android Keystore) / CryptoService / RatchetService + README_ANDROID.md; typecheck в android-smoke против android.jar, без androidx), Gradle-проект и Compose UI (ч.3) — следующие шаги; Play Console и
     подписи — оператор.
 
 ---

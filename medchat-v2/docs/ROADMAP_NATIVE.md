@@ -221,6 +221,21 @@ Play Console и подписи — на машине оператора (сек�
     --platform 21, ANDROID_NDK_ROOT выровнен с зафиксированной NDK r27c
     (иначе warning о несовпадении с предустановленной NDK раннера).
 
+**Прогресс (ноябрь 2026, ч.2 — каркас Kotlin-источников):** medchat-v2/android/ —
+ApiService (REST поверх HttpURLConnection + org.json: те же контракты §5,
+Bearer, 401 сбрасывает сессию, refresh не хранится), SecureStore (Android
+Keystore: мастер-ключ AES-256-GCM только в AndroidKeyStore, значения —
+шифротекст под ним; зеркало KeychainStore), CryptoService (E2E x25519-box
+через обвязку; keyId android-*, пара — только через SecureStore),
+RatchetService (save/restore MedRatchetState через Keystore, wire
+encrypt/decrypt), README_ANDROID.md (сборка Gradle-проекта у оператора).
+Джоба android-smoke дополнена шагом typecheck: источники компилируются
+kotlinc вместе с обвязкой против android.jar (org.json + Keystore API;
+sdkmanager-фолбэк platforms;android-34) и JNA — без androidx/Compose.
+Gradle-проект, Compose UI (ч.3), Play Console и подписи — оператор
+(секреты оператора, паттерн честности DESKTOP_RELEASE.md); wire .so —
+api 21, но Keystore (KeyGenParameterSpec) требует API 23+ — minSdk
+Gradle-проекта 23, честно зафиксировано в README_ANDROID.md.
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
 **Tauri 2** (Rust + системный webview): один UI на обе платформы.
 Windows: подписанный `.exe`/MSIX (Authenticode), автoupdate.

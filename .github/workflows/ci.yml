@@ -838,6 +838,44 @@ jobs:
           java -Djna.library.path="$PWD/target/release" -cp "$STDLIB:/tmp/jna.jar:smoke-classes" "$PKG.MedchatCoreSmokeKt"
           echo "[ci-android] kotlin smoke: done"
 
+      # Этап 4 ч.2: typecheck каркаса Kotlin-источников (android/).
+      # Источники компилируются вместе со сгенерированной обвязкой (один
+      # пакет) против android.jar (org.json + API Android Keystore) и
+      # JNA — без androidx/Compose: UI будет в Gradle-проекте оператора.
+      - name: Typecheck Kotlin sources (android/, этап 4 ч.2)
+        run: |
+          set -o pipefail
+          exec > >(tee -a ../../ci-android.log) 2>&1
+          echo "[ci-android] typecheck kotlin sources: start"
+          ANDROID_JAR=$(find "$ANDROID_HOME/platforms" -maxdepth 2 -name "android.jar" 2>/dev/null | sort -V | tail -n 1 || true)
+          if [ -z "$ANDROID_JAR" ]; then
+            echo "[ci-android] android.jar not found — installing platform android-34 via sdkmanager"
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-34" > /dev/null 2>&1 || true
+            ANDROID_JAR=$(find "$ANDROID_HOME/platforms" -maxdepth 2 -name "android.jar" 2>/dev/null | sort -V | tail -n 1 || true)
+          fi
+          if [ -z "$ANDROID_JAR" ]; then
+            echo "[ci-android] FAIL: android.jar not found"
+            ls -la "$ANDROID_HOME" || true
+            ls -la "$ANDROID_HOME/platforms" 2>/dev/null || true
+            exit 1
+          fi
+          echo "[ci-android] android.jar: $ANDROID_JAR"
+          PKG=$(grep -rh -m1 --include="*.kt" "^package " uniffi-out/kotlin | head -n 1 | sed "s/^package //" | tr -d "\r" || true)
+          if [ -z "$PKG" ]; then
+            echo "[ci-android] FAIL: package line not found in uniffi-out/kotlin"
+            find uniffi-out/kotlin -type f -ls
+            exit 1
+          fi
+          mkdir -p skeleton-kotlin skeleton-classes
+          for f in ../android/ApiService.kt ../android/SecureStore.kt ../android/CryptoService.kt ../android/RatchetService.kt; do
+            { echo "package $PKG"; cat "$f"; } > "skeleton-kotlin/$(basename "$f")"
+          done
+          echo "[ci-android] compiling kotlinc (обвязка + каркас против android.jar)"
+          KT_FILES=$(find uniffi-out/kotlin -name "*.kt" || true)
+          /opt/kotlinc/bin/kotlinc $KT_FILES skeleton-kotlin/*.kt -cp "/tmp/jna.jar:$ANDROID_JAR" -d skeleton-classes
+          echo "[ci-android] typecheck: ok"
+
       - name: Install Android NDK r27c
         run: |
           set -e
