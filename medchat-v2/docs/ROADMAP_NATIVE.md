@@ -79,8 +79,20 @@ cargo test --no-default-features (тесты логики); .node-артефак
 MSRV поднят до 1.77 (30c3f5e: napi-build 2.6 эмитит инструкции билд-скрипта
 синтаксисом cargo::, старый rust-version 1.65 заставлял cargo отвергать
 билд-скрипт).
-Осталось: cargo-fuzz, бенчмарки, сборка .node-артефакта в CI (тогда же —
-прогон юнит-тестов самих napi-обёрток в Node-интеграции).
+Бенчмарки criterion добавлены (d2db23e): benches/crypto.rs — конверты
+x25519-box (seal+open на 1/3 получателя, seal), Double Ratchet (encrypt+
+decrypt и полный wire-цикл to_wire/from_wire), bcrypt_verify (cost 5 KAT +
+production cost 12); criterion 0.5 — dev-зависимость, target [[bench]]
+harness=false, в обычные прогоны ядра не входит. Зеркальная Node-сторона и
+джоба CI (f79de00): server/bench/coreBench.js (tweetnacl-box мобильного
+клиента, Node crypto AES-256-GCM, нативный bcrypt; тот же payload и cost,
+sanity-проверки roundtrip/KAT), core-bench гоняет cargo bench
+--no-default-features и Node-референс на одном раннере, лог публикуется
+в ci-logs/ci-bench.log всегда — числа для сверки DoD «≥ x10» читаются из
+лога (тайминги не гейтятся автоматикой: машины шатательны).
+Осталось: cargo-fuzz, сверка чисел DoD «≥ x10» по ci-bench.log, сборка
+.node-артефакта в CI (тогда же — прогон юнит-тестов самих napi-обёрток
+в Node-интеграции).
 
 ### Этап 3. Нативный iOS (Swift/SwiftUI)
 SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudio), рецепты, приёмы;

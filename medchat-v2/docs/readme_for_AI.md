@@ -29,6 +29,9 @@ e411a54 feature napi-bind; e411a54 — зелёный во всех трёх д�
 Контракт-векторы bcrypt (8776f7c): KAT-векторы OpenBSD/crypt_blowfish на общей
 фикстуре — Rust-ядро (bcrypt_verify) и серверный нативный bcrypt (compareSync,
 cost 12 в authService) верифицируют одинаково.
+Бенчмарки крипто-пути (d2db23e: criterion benches/crypto.rs; f79de00:
+Node-зеркало server/bench/coreBench.js + джоба CI core-bench с публикацией
+лога ci-logs/ci-bench.log для сверки DoD «≥ x10»).
 
 ---
 
@@ -56,7 +59,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
-| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c) |
+| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
 ## 3. Структура проекта
@@ -90,6 +93,9 @@ medchat-v2/
 │   │                    key (registerKeySchema), ...)
 │   └── index.js       — Express bootstrap + Socket.IO (joinChat/typing/newMessage);
 │                        fail-fast при JWT_SECRET < 8 символов
+├── server/bench/       — coreBench.js: Node-бенчмарки крипто-пути
+│   │                    (tweetnacl box, AES-256-GCM, bcrypt; зеркало
+│   │                    benches/crypto.rs ядра, f79de00)
 ├── server/tests/
 │   ├── cryptoService.test.js, errorHandler.test.js, paymentService.test.js,
 │   │                    e2eEnvelope.test.js (валидация E2E-конвертов, 02dc969),
@@ -134,7 +140,11 @@ medchat-v2/
 │                          node.rs — napi-rs-биндинги для Node (754f677 →
 │                          2bb38f2: конвертные примитивы + JsRatchetState; feature
 │                          napi-bind, e411a54); CI: cargo check --tests +
-│                          cargo test --no-default-features (джоба core-tests)
+│                          cargo test --no-default-features (джоба core-tests;
+│                          бенчмарки — джоба core-bench);
+│                          benches/crypto.rs — criterion-бенчмарки
+│                          крипто-пути (d2db23e: конверты x25519-box,
+│                          Double Ratchet, bcrypt cost 5/12)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
 │                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE + этот файл
@@ -218,7 +228,7 @@ E2E-сообщений серверу недоступен (хранится т�
 - **Серверная валидация** (validateE2EEnvelope, utils/e2eEnvelope.js — вынесена из
   chatController в 02dc969, покрыта юнит-тестами tests/e2eEnvelope.test.js): структура конверта,
   ≤10 boxes, ≤32 КБ/бокс, ≤256 КБ конверт, бокс отправителя обязателен, content обязан
-  быть пуст. При валидном конверте: `Message.metadata.e2e = конверт`, `content='',
+  быть пуст. При валидном конверте: `Message.metadata.e2e = конверт`, `content=''`,
   `isEncrypted=true`, `lastMessageText=''` — **plaintext в БД отсутствует**.
   С a508fda дефолт модели Message.isEncrypted=false (легаси true был написан до E2E
   и ложно помечал plaintext-сообщения, включая сид и prescription); true ставится
@@ -573,6 +583,22 @@ authService хэширует пароли с cost 12) на той же фикс�
 ($2x$, баг 2a) осознанно исключены — реализации расходятся. УРОК: вектор по
 памяти был неверен (E5YPOq... вместо E5YPO9...) — KAT-значения всегда сверять
 по первоисточнику (Openwall wiki), не по памяти.
+**Бенчмарки крипто-пути** (d2db23e + f79de00): DoD Этапа 2 «бенчмарк
+≥ x10 к Node». Rust-сторона: benches/crypto.rs (criterion 0.5 — dev-зависимость,
+target [[bench]] harness=false, в обычные прогоны ядра не входит): конверты
+x25519-box (seal+open 1/3 получателя, seal; payload 31 байт), Double Ratchet
+(encrypt+decrypt и полный wire-цикл), bcrypt_verify (cost 5 KAT «U*U» +
+production cost 12, sample_size 10). Node-зеркало: server/bench/coreBench.js
+(npm run bench:core) — tweetnacl-box мобильного клиента (эфемерная пара +
+боксы по числу получателей, как seal_for_recipients), Node crypto AES-256-GCM,
+нативный bcrypt compareSync; те же payload и cost, sanity-проверки (roundtrip
+и KAT обязаны сходиться, иначе бенчмарк некорректен). Джоба CI core-bench
+гоняет cargo bench --no-default-features и Node-референс на ОДНОМ раннере и
+публикует ci-logs/ci-bench.log всегда (не только при падении): свёртка DoD
+«≥ x10» читается из лога, тайминги не гейтятся автоматикой (машины
+шатательны). Честно: AES-GCM в Node — нативный OpenSSL, ratchet в Node нет —
+поэтому эталон сравнения — конвертный x25519-box-путь (JS tweetnacl), по нему
+и ожидается ≥ x10.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -594,7 +620,7 @@ node stop.js [--docker]                     # остановить процес�
 
 ## 10. CI (.github/workflows/ci.yml)
 
-Три джобы на каждый пуш в main:
+Четыре джобы на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
   валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
@@ -618,6 +644,12 @@ node stop.js [--docker]                     # остановить процес�
   interop_vectors.rs, aes_gcm_vector.rs и bcrypt_vector.rs). Лог падений публикуется в
   ci-logs/ci-rust.log. 6 юнит-тестов самих napi-обёрток компилируются
   (check), выполнятся в Node-интеграции со сборкой .node (roadmap).
+- **core-bench** (f79de00): cargo bench --no-default-features (criterion,
+  release+LTO; benches/crypto.rs — d2db23e) + Node-референс npm run
+  bench:core на том же раннере; лог ci-bench.log публикуется в ci-logs/
+  ВСЕГДА (числа для сверки DoD «≥ x10»; тайминги машин шатательны — не
+  автогейт). Джоба гейтит сборку и прогон бенчмарков (паника в бенче =
+  красный прогон).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -638,8 +670,10 @@ node stop.js [--docker]                     # остановить процес�
   см. историю фиксов): 754f677, 2bb38f2, bfa904f, 30c3f5e, e7879a7,
   a1061cd — красные; e411a54 (feature napi-bind) — зелёный во всех трёх
   джобах, серия закрыта. Далее eed2ddb/e2e42c3/edc65e2 (доки), 8776f7c добавил
-  векторные тесты bcrypt в server-tests и core-tests (см. выше). Логи падений бот ci-reporter
-  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log) — при
+  векторные тесты bcrypt в server-tests и core-tests (см. выше). Серия бенчмарков:
+  d2db23e (criterion, benches/crypto.rs) и f79de00 (Node-зеркало + джоба
+  core-bench, лог публикуется при любом исходе). Логи падений бот ci-reporter
+  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log; ci-bench.log пишется при любом исходе) — при
   красном прогоне читать оттуда.
 
 ## 11. Что осталось сделать (roadmap)
@@ -672,8 +706,9 @@ node stop.js [--docker]                     # остановить процес�
     recovery + внеочередная доставка; в клиенты не интегрирован). ~~napi-rs-биндинги
     для Node~~ — сделано (754f677 → 2bb38f2 → e411a54: src/node.rs, конверты +
     JsRatchetState, feature napi-bind — CI зелёный). Дальше: UniFFI для
-    Swift/Kotlin, интеграция ratchet в клиенты, cargo-fuzz, бенчмарки (DoD ≥ x10
-    к Node), сборка .node-артефакта в CI (+ Node-интеграция юнит-тестов обёрток).
+    Swift/Kotlin, интеграция ratchet в клиенты, cargo-fuzz, ~~бенчмарки (DoD ≥ x10
+    к Node)~~ — сделано (d2db23e + f79de00: criterion + Node-зеркало + джоба
+    core-bench; числа — ci-logs/ci-bench.log), сборка .node-артефакта в CI (+ Node-интеграция юнит-тестов обёрток).
 
 ---
 
