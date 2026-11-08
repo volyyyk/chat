@@ -453,9 +453,21 @@ jobs:
           workspaces: medchat-v2/core
 
       # CLI обязан совпадать по версии с крейтом uniffi (формат metadata
-      # меняется между minor-версиями): обе стороны закреплены на 0.28.
-      - name: Install uniffi-bindgen (0.28)
-        run: cargo install uniffi-bindgen --version 0.28 --locked
+      # меняется между minor-версиями): обе стороны закреплены на 0.28
+      # (пин точный — 0.28.3). Прогон #105: установка падала мгновенно
+      # (джоба 6 с), ДО создания ci-uniffi.log — единственный tee в джобе
+      # стоял на шаге сборки, publish-шагу было нечего копировать, а
+      # logs-API без админ-прав отвечает 403. Фикс диагностируемости:
+      # вывод cargo install пишется в ci-uniffi.log с первой команды
+      # (заголовок прогона — сверка метки времени, урок ad575d3;
+      # cargo --version в логе для контекста); --locked оставлен с
+      # фолбэком без --locked (официальная форма документации uniffi-rs:
+      # транзитивные зависимости пересолвятся, версия CLI остаётся
+      # закреплённой 0.28.3).
+      - name: Install uniffi-bindgen (0.28.3)
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install uniffi-bindgen --version 0.28.3 --locked || cargo install uniffi-bindgen --version 0.28.3; } 2>&1 | tee ../../ci-uniffi.log
 
       # cdylib c UniFFI-scaffolding (без napi): setup_scaffolding! эмитит
       # metadata-символы, по которым bindgen строит обвязку в library mode.
