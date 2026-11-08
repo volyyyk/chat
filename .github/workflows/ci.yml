@@ -590,8 +590,11 @@ jobs:
       - name: Generate Swift bindings
         run: |
           set -o pipefail
-          { uniffi-bindgen generate --library target/release/libmedchat_core.dylib --language swift --out-dir uniffi-out/swift; } 2>&1 | tee -a ../../ci-ios.log
-          ls uniffi-out/swift
+          exec > >(tee -a ../../ci-ios.log) 2>&1
+          echo "[ci-ios] generate swift bindings: start"
+          uniffi-bindgen generate --library target/release/libmedchat_core.dylib --language swift --out-dir uniffi-out/swift
+          echo "[ci-ios] generated files:"
+          ls -la uniffi-out/swift
 
       # Имя сгенерированного *.swift не фиксируем (glob), заголовок ищем
       # по маске *.h: bindgen 0.28 кладёт MedchatCoreFFI.h рядом.
@@ -601,15 +604,26 @@ jobs:
       - name: Swift smoke (runtime, зеркало napi-smoke.js)
         run: |
           set -o pipefail
-          HEADER=$(ls uniffi-out/swift/*.h | head -n 1)
+          exec > >(tee -a ../../ci-ios.log) 2>&1
+          echo "[ci-ios] swift smoke: start"
+          HEADER=$(ls uniffi-out/swift/*.h | head -n 1 || true)
+          if [ -z "$HEADER" ]; then
+            echo "[ci-ios] FAIL: *.h not found in uniffi-out/swift"
+            ls -la uniffi-out/swift
+            exit 1
+          fi
+          echo "[ci-ios] header: $HEADER"
           mkdir -p smoke-main
           cp ../ios/MedchatCoreSmoke.swift smoke-main/main.swift
-          { swiftc uniffi-out/swift/*.swift smoke-main/main.swift \
+          echo "[ci-ios] compiling swiftc (обвязка + smoke как main.swift)"
+          swiftc uniffi-out/swift/*.swift smoke-main/main.swift \
               -import-objc-header "$HEADER" \
               -L target/release -lmedchat_core \
               -Xlinker -rpath -Xlinker "$PWD/target/release" \
-              -o swift-smoke-bin; } 2>&1 | tee -a ../../ci-ios.log
-          { ./swift-smoke-bin; } 2>&1 | tee -a ../../ci-ios.log
+              -o swift-smoke-bin
+          echo "[ci-ios] running swift-smoke-bin"
+          ./swift-smoke-bin
+          echo "[ci-ios] swift smoke: done"
 
       # Этап 3 ч.2: typecheck каркаса SwiftUI-источников клиента.
       # Исходники ios/*.swift компилируются ВМЕСТЕ со сгенерированной
@@ -619,12 +633,15 @@ jobs:
       - name: Typecheck SwiftUI sources (ios/, этап 3 ч.2)
         run: |
           set -o pipefail
-          HEADER=$(ls uniffi-out/swift/*.h | head -n 1)
-          { swiftc -typecheck uniffi-out/swift/*.swift \
+          exec > >(tee -a ../../ci-ios.log) 2>&1
+          echo "[ci-ios] typecheck SwiftUI sources: start"
+          HEADER=$(ls uniffi-out/swift/*.h | head -n 1 || true)
+          swiftc -typecheck uniffi-out/swift/*.swift \
               ../ios/MedChatApp.swift ../ios/ApiService.swift ../ios/KeychainStore.swift \
               ../ios/CryptoService.swift ../ios/RatchetService.swift ../ios/AuthViews.swift \
               ../ios/ChatListView.swift ../ios/ChatView.swift \
-              -import-objc-header "$HEADER"; } 2>&1 | tee -a ../../ci-ios.log
+              -import-objc-header "$HEADER"
+          echo "[ci-ios] typecheck: ok"
 
       # Кросс-компиляция под устройство и симулятор: staticlib (dylib на
       # iOS запрещены App Store) — cargo rustc --crate-type override,
@@ -633,21 +650,27 @@ jobs:
       - name: Cross-compile iOS device + simulator (staticlib)
         run: |
           set -o pipefail
-          { cargo rustc --release --no-default-features --features uniffi-bind,serde --target aarch64-apple-ios -- --crate-type staticlib; } 2>&1 | tee -a ../../ci-ios.log
-          { cargo rustc --release --no-default-features --features uniffi-bind,serde --target aarch64-apple-ios-sim -- --crate-type staticlib; } 2>&1 | tee -a ../../ci-ios.log
+          exec > >(tee -a ../../ci-ios.log) 2>&1
+          echo "[ci-ios] cross-compile iOS device (staticlib): start"
+          cargo rustc --release --no-default-features --features uniffi-bind,serde --target aarch64-apple-ios -- --crate-type staticlib
+          echo "[ci-ios] cross-compile simulator (staticlib): start"
+          cargo rustc --release --no-default-features --features uniffi-bind,serde --target aarch64-apple-ios-sim -- --crate-type staticlib
           ls -la target/aarch64-apple-ios/release/libmedchat_core.a
           ls -la target/aarch64-apple-ios-sim/release/libmedchat_core.a
 
       - name: Assemble MedchatCore.xcframework
         run: |
           set -o pipefail
+          exec > >(tee -a ../../ci-ios.log) 2>&1
+          echo "[ci-ios] assembling xcframework: start"
           mkdir -p xcframework-headers/ios xcframework-headers/sim
           cp uniffi-out/swift/*.h uniffi-out/swift/*.modulemap xcframework-headers/ios/
           cp uniffi-out/swift/*.h uniffi-out/swift/*.modulemap xcframework-headers/sim/
-          { xcodebuild -create-xcframework \
+          xcodebuild -create-xcframework \
               -library target/aarch64-apple-ios/release/libmedchat_core.a -headers xcframework-headers/ios \
               -library target/aarch64-apple-ios-sim/release/libmedchat_core.a -headers xcframework-headers/sim \
-              -output MedchatCore.xcframework; } 2>&1 | tee -a ../../ci-ios.log
+              -output MedchatCore.xcframework
+          echo "[ci-ios] xcframework: done"
 
       - name: Upload MedchatCore.xcframework
         uses: actions/upload-artifact@v4
@@ -731,18 +754,25 @@ jobs:
       - name: Generate Kotlin bindings
         run: |
           set -o pipefail
-          { uniffi-bindgen generate --library target/release/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin; } 2>&1 | tee -a ../../ci-android.log
-          ls uniffi-out/kotlin
+          exec > >(tee -a ../../ci-android.log) 2>&1
+          echo "[ci-android] generate kotlin bindings: start"
+          uniffi-bindgen generate --library target/release/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin
+          echo "[ci-android] generated files:"
+          ls -la uniffi-out/kotlin
 
       # kotlinc 2.0.21 (zip из GitHub Releases JetBrains) + JNA 5.14.0:
       # smoke компилируется с обвязкой и исполняется JVM против host-cdylib.
       - name: Install kotlinc + JNA
         run: |
           set -e
-          curl -sSL "https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip" -o /tmp/kotlinc.zip
+          exec > >(tee -a ../../ci-android.log) 2>&1
+          echo "[ci-android] downloading kotlinc 2.0.21"
+          curl -fsSL "https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip" -o /tmp/kotlinc.zip
           unzip -q /tmp/kotlinc.zip -d /opt
-          /opt/kotlinc/bin/kotlinc -version 2>&1 | tee -a ../../ci-android.log
-          curl -sSL "https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar" -o /tmp/jna.jar
+          /opt/kotlinc/bin/kotlinc -version
+          echo "[ci-android] downloading JNA 5.14.0"
+          curl -fsSL "https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar" -o /tmp/jna.jar
+          ls -la /tmp/jna.jar
 
       # package-строку сгенерированной обвязки не фиксируем: smoke-файл
       # компилируется ВМЕСТЕ с обвязкой в одном пакете, имена разрешаются
@@ -750,18 +780,30 @@ jobs:
       - name: Kotlin smoke (runtime, зеркало napi-smoke.js)
         run: |
           set -o pipefail
-          PKG=$(grep -m1 -h "^package " uniffi-out/kotlin/*.kt | sed "s/^package //" | tr -d "\r")
-          if [ -z "$PKG" ]; then echo "kotlin package not found"; exit 1; fi
-          echo "kotlin package: $PKG" | tee -a ../../ci-android.log
+          exec > >(tee -a ../../ci-android.log) 2>&1
+          echo "[ci-android] kotlin smoke: start"
+          PKG=$(grep -m1 -h "^package " uniffi-out/kotlin/*.kt | sed "s/^package //" | tr -d "\r" || true)
+          if [ -z "$PKG" ]; then
+            echo "[ci-android] FAIL: package line not found in uniffi-out/kotlin"
+            ls -la uniffi-out/kotlin
+            grep -n "package" uniffi-out/kotlin/*.kt | head -n 5 || true
+            exit 1
+          fi
+          echo "[ci-android] kotlin package: $PKG"
           mkdir -p smoke-kotlin smoke-classes
           { echo "package $PKG"; cat ../android/MedchatCoreSmoke.kt; } > smoke-kotlin/MedchatCoreSmoke.kt
-          { /opt/kotlinc/bin/kotlinc uniffi-out/kotlin/*.kt smoke-kotlin/MedchatCoreSmoke.kt -cp /tmp/jna.jar -d smoke-classes; } 2>&1 | tee -a ../../ci-android.log
-          { java -Djna.library.path="$PWD/target/release" -cp "/tmp/jna.jar:smoke-classes" "$PKG.MedchatCoreSmokeKt"; } 2>&1 | tee -a ../../ci-android.log
+          echo "[ci-android] compiling kotlinc (обвязка + smoke)"
+          /opt/kotlinc/bin/kotlinc uniffi-out/kotlin/*.kt smoke-kotlin/MedchatCoreSmoke.kt -cp /tmp/jna.jar -d smoke-classes
+          echo "[ci-android] running smoke in JVM via JNA (host cdylib)"
+          java -Djna.library.path="$PWD/target/release" -cp "/tmp/jna.jar:smoke-classes" "$PKG.MedchatCoreSmokeKt"
+          echo "[ci-android] kotlin smoke: done"
 
       - name: Install Android NDK r27c
         run: |
           set -e
-          curl -sSL "https://dl.google.com/android/repository/android-ndk-r27c-linux.zip" -o /tmp/ndk.zip
+          exec > >(tee -a ../../ci-android.log) 2>&1
+          echo "[ci-android] downloading NDK r27c"
+          curl -fsSL "https://dl.google.com/android/repository/android-ndk-r27c-linux.zip" -o /tmp/ndk.zip
           unzip -q /tmp/ndk.zip -d /opt
           ls /opt/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
 
@@ -770,8 +812,11 @@ jobs:
       - name: Cross-compile .so via cargo-ndk (3 ABI)
         run: |
           set -o pipefail
-          { cargo install --locked cargo-ndk; } 2>&1 | tee -a ../../ci-android.log
-          { ANDROID_NDK_HOME=/opt/android-ndk-r27c cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -p 21 build --release --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-android.log
+          exec > >(tee -a ../../ci-android.log) 2>&1
+          echo "[ci-android] installing cargo-ndk"
+          cargo install --locked cargo-ndk
+          echo "[ci-android] cross-compiling 3 ABI (api 21)"
+          ANDROID_NDK_HOME=/opt/android-ndk-r27c cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -p 21 build --release --no-default-features --features uniffi-bind,serde
           ls -la target/aarch64-linux-android/release/libmedchat_core.so
           ls -la target/armv7-linux-androideabi/release/libmedchat_core.so
           ls -la target/x86_64-linux-android/release/libmedchat_core.so
