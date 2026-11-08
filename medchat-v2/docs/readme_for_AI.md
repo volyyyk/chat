@@ -526,7 +526,8 @@ node stop.js [--docker]                     # остановить процес�
 9. Webhook-заглушки (п. 8.4) — при подключении реальных шлюзов.
 10. Нативные клиенты и Rust-ядро — см. ROADMAP_NATIVE.md (iOS/Android native, Tauri
     desktop Windows/Linux, крипто-ядро на Rust/C++). **Этап 2 начат**: крейт medchat-core
-    (3a70911 → ee76670) + джоба core-tests в CI. **Double Ratchet: прототип готов**
+    (3a70911 → ee76670) + джоба core-tests в CI. **Контракт-векторы начаты**
+    (1ce9516: NaCl box верифицирован на Rust-ядре и tweetnacl — DoD Этапа 2). **Double Ratchet: прототип готов**
     (6aff983 + d033eeb: ratchet.rs с skip-store, 10 тестов, forward secrecy + break-in
     recovery + внеочередная доставка; в клиенты не интегрирован). Дальше:
     napi-rs-биндинги для Node, UniFFI для Swift/Kotlin, интеграция ratchet.
