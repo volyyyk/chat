@@ -199,6 +199,12 @@ Play Console и подписи — на машине оператора (сек�
     в подкаталог uniffi/ (поиск сделан рекурсивным), cargo rustc
     --crate-type staticlib оставляет .a в deps/ (find + cp в
     release-корень).
+    Прогон 42519176935: ios-smoke ЗЕЛЁНЫЙ (Swift smoke + typecheck +
+    кросс-компиляция staticlib + xcframework — фикс deps/.a сработал);
+    android упал на баге uniffi-bindgen 0.28.3: поле ошибки message в
+    Kotlin-обвязке конфликтует с Throwable.message (kotlinc:
+    conflicting declarations) — поле переименовано в detail (Swift не
+    задет, у NSError нет message).
 
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
 **Tauri 2** (Rust + системный webview): один UI на обе платформы.

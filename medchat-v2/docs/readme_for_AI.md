@@ -945,6 +945,18 @@ DESKTOP_RELEASE.md). Риски первого прогона: конвенци�
     тогда cdylib собирается и для iOS-target). Урок: пусть шаг сам
     докладывает, ГДЕ лежит артефакт, прежде чем ls по угаданному пути.
 
+**uniffi 0.28.3: поле ошибки с именем message ломает Kotlin-обвязку
+    (android-smoke, run 42519176935)**: gen_kotlin генерирует для варианта
+    ошибки class InvalidArgument(val message: String) : Exception() —
+    свойство message скрывает Throwable.message, и kotlinc падает
+    (conflicting declarations / needs an override modifier), каскадом
+    гася и все ссылки на MedCryptoError в smoke-файле (unresolved
+    reference). Поле переименовано в detail (uniffi_iface.rs); Swift не
+    задет: у NSError нет message, лейбл в обвязке сменился, но ни один
+    smoke не биндит поле. Урок: имена полей ошибок uniffi проверять на
+    конфликты с базовыми классами целевых языков (Kotlin Throwable,
+    Swift NSError) — codegen-тест ловит это только на компиляции обвязки.
+
 ## 9. Лаунчер («запуск по кнопке»)
 
 `medchat-v2/launcher/`:

@@ -30,7 +30,10 @@ use crate::{
 
 /// Ошибки для Swift/Kotlin. Отдельный enum (не CoreError напрямую):
 /// uniffi::Error требует uniffi-совместимые поля; InvalidArgument добавлен
-/// для ошибок длин на границе обёрток (аналог napi InvalidArg).
+/// для ошибок длин на границе обёрток (аналог napi InvalidArg). Поле
+/// называется detail, а не message: gen_kotlin uniffi-bindgen 0.28.3
+/// генерирует val message, конфликтующий с Throwable.message
+/// (прогон 42519176935, kotlinc: conflicting declarations).
 #[derive(Debug, uniffi::Error)]
 pub enum MedCryptoError {
     /// Ошибка шифрования/расшифровки (AEAD).
@@ -46,7 +49,7 @@ pub enum MedCryptoError {
     /// Неверный формат bcrypt-хэша.
     BadHash,
     /// Неверная длина аргумента-байтового буфера на границе обёртки.
-    InvalidArgument { message: String },
+    InvalidArgument { detail: String },
 }
 
 // uniffi::Error (0.28) требует Display у ошибок экспортов: байндинг Result
@@ -69,7 +72,7 @@ impl std::fmt::Display for MedCryptoError {
             }
             MedCryptoError::BadHeader => write!(f, "malformed ratchet header or wire"),
             MedCryptoError::BadHash => write!(f, "invalid bcrypt hash format"),
-            MedCryptoError::InvalidArgument { message } => write!(f, "{}", message),
+            MedCryptoError::InvalidArgument { detail } => write!(f, "{}", detail),
         }
     }
 }
@@ -90,7 +93,7 @@ impl From<CoreError> for MedCryptoError {
 fn need_len(buf: &[u8], n: usize, what: &str) -> Result<(), MedCryptoError> {
     if buf.len() != n {
         return Err(MedCryptoError::InvalidArgument {
-            message: format!("{} must be {} bytes, got {}", what, n, buf.len()),
+            detail: format!("{} must be {} bytes, got {}", what, n, buf.len()),
         });
     }
     Ok(())
@@ -332,7 +335,7 @@ impl MedRatchetState {
     pub fn save(&self) -> Result<Vec<u8>, MedCryptoError> {
         let st = lock(&self.inner);
         bincode::serialize(&*st).map_err(|e| MedCryptoError::InvalidArgument {
-            message: format!("serialization failed: {}", e),
+            detail: format!("serialization failed: {}", e),
         })
     }
 
@@ -342,7 +345,7 @@ impl MedRatchetState {
     pub fn restore(saved: Vec<u8>) -> Result<Self, MedCryptoError> {
         let st: RatchetState = bincode::deserialize(&saved).map_err(|e| {
             MedCryptoError::InvalidArgument {
-                message: format!("deserialization failed: {}", e),
+                detail: format!("deserialization failed: {}", e),
             }
         })?;
         Ok(MedRatchetState {
@@ -377,8 +380,8 @@ mod tests {
     fn invalid_lengths_rejected() {
         let err = seal_for_recipients(b"x".to_vec(), vec![vec![0u8; 31]]).unwrap_err();
         match err {
-            MedCryptoError::InvalidArgument { message } => {
-                assert!(message.contains("32 bytes, got 31"), "{}", message);
+            MedCryptoError::InvalidArgument { detail } => {
+                assert!(detail.contains("32 bytes, got 31"), "{}", detail);
             }
             other => panic!("unexpected: {:?}", other),
         }
