@@ -191,8 +191,12 @@ napi-обёртки sha256Checksum/sha256Verify (src/node.rs) едут в том
 .node-аддон (MEDCHAT_CORE_NODE, иначе артефакт napi-build рядом с core) с
 честным fallback на node:crypto (backend = native|fallback); jest-тест
 checksum.test.js — KAT FIPS 180-4 + parity, нативный путь в CI гейтит
-napi-build (napi-smoke), server-tests гоняют fallback. Сжатие бэкапов и k6-нагрузочный
-(DoD) — следующие шаги. Бизнес-точка подключена: чексуммы целостности
+napi-build (napi-smoke), server-tests гоняют fallback. ~~Сжатие бэкапов~~ — сделано (flate2 в hotpath.rs: gzip RFC 1952, Err
+вместо паники; napi backupCompress/backupDecompress; серверная обёртка
+utils/compress.js с fallback на node:zlib; backupService сжимает ДО
+шифрования, restore разжимает ПОСЛЕ, флаг metadata.compressed для
+старых бэкапов; тесты compress.test.js + сжатый кейс backupIntegrity).
+k6-нагрузочный (DoD этапа 6) — последний незакрытый пункт. Бизнес-точка подключена: чексуммы целостности
 бэкапов (createBackup фиксирует metadata.checksum SHA-256 шифротекста,
 restoreBackup и verifyBackupPassword сверяют до расшифровки, битый файл
 → 422 INTEGRITY_ERROR; тест backupIntegrity.test.js на моках моделей без

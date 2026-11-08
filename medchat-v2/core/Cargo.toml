@@ -51,6 +51,11 @@ x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 hmac = "0.12"
 sha2 = "0.10"
 aes-gcm = "0.10"
+# flate2 (src/hotpath.rs, этап 6): gzip-сжатие бэкапов — второй серверный
+# горячий путь (карта §1: «сжатие бэкапов»). Формат стандартный gzip
+# (RFC 1952), читается node:zlib и любым gunzip (parity — napi-smoke.js).
+# Бэкенд rust (miniz_oxide), C-кода не появляется.
+flate2 = "1"
 # bcrypt (src/lib.rs::bcrypt_verify): проверка паролей в формате OpenBSD
 # ($2a$/$2b$/$2y$, любой cost) — паритет с сервером (нативный bcrypt-пакет,
 # cost 12 в authService). Pure Rust (крейт blowfish), НЕ гейтится за

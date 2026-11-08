@@ -23,6 +23,7 @@ jest.mock('../utils/logger', () => ({
 
 const BackupService = require('../src/services/backupService');
 const { sha256Hex } = require('../src/utils/checksum');
+const { gzipCompress } = require('../src/utils/compress');
 const models = require('../src/models');
 
 const PASSWORD = 'Backup!Integrity123';
@@ -30,10 +31,11 @@ const BACKUP_DIR = path.join(__dirname, '..', 'backups');
 const createdFiles = [];
 
 async function makeBackup(filename, options = {}) {
-  const { withChecksum = true, corrupt = false } = options;
+  const { withChecksum = true, corrupt = false, compressed = false } = options;
   const salt = crypto.randomBytes(32);
   const { key, iv } = await BackupService.generateKey(PASSWORD, salt);
-  const payload = Buffer.from(JSON.stringify({ version: '1.0', dataTypes: [] }), 'utf8');
+  let payload = Buffer.from(JSON.stringify({ version: '1.0', dataTypes: [] }), 'utf8');
+  if (compressed) payload = gzipCompress(payload);
   let encrypted = BackupService.encrypt(payload, key, iv);
   if (corrupt) {
     encrypted = Buffer.from(encrypted);
@@ -46,6 +48,7 @@ async function makeBackup(filename, options = {}) {
     salt: salt.toString('hex'),
     iv: iv.toString('hex'),
   };
+  if (compressed) metadata.compressed = true;
   if (withChecksum) metadata.checksum = sha256Hex(encrypted);
   return {
     id: 'backup-integrity-test',
@@ -92,6 +95,15 @@ describe('backup integrity (этап 6: SHA-256 чексуммы)', () => {
     models.User.findByPk.mockResolvedValue({ id: 'user-1' });
     const res = await BackupService.restoreBackup(record.id, PASSWORD);
     expect(res.success).toBe(true);
+  });
+
+  test('сжатый бэкап (gzip до шифрования) — restore разжимает и проходит', async () => {
+    const record = await makeBackup('int-gzip.enc', { compressed: true });
+    models.Backup.findByPk.mockResolvedValue(record);
+    models.User.findByPk.mockResolvedValue({ id: 'user-1' });
+    const res = await BackupService.restoreBackup(record.id, PASSWORD);
+    expect(res.success).toBe(true);
+    expect(record.update).toHaveBeenCalled();
   });
 
   test('verifyBackupPassword: битый файл не валиден, целостный — валиден', async () => {

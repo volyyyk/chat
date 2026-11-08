@@ -10,6 +10,11 @@
 //! цепочек Double Ratchet), отдельной зависимости не появляется.
 //! KAT-векторы FIPS 180-4 («abc», пустая строка) обязаны совпадать с
 //! node:crypto байт-в-байт (проверяется napi-smoke.js).
+//!
+//! Gzip-сжатие бэкапов — второй перенос (карта §1: «сжатие бэкапов»):
+//! JSON бэкапа сжимается ДО шифрования (AES-шифротекст не сжимается)
+//! в flate2 (miniz_oxide); формат — стандартный gzip (RFC 1952),
+//! читается node:zlib и любым gunzip. Битый поток — Err, не паника.
 
 use sha2::{Digest, Sha256};
 use std::fmt::Write as _;
@@ -32,6 +37,24 @@ pub fn sha256_hex(data: &[u8]) -> String {
 pub fn sha256_verify(data: &[u8], expected_hex: &str) -> bool {
     let expected = expected_hex.trim().to_ascii_lowercase();
     sha256_hex(data) == expected
+}
+
+/// Gzip-сжатие буфера (RFC 1952). Синхронная, CPU-bound: под большие
+/// буферы вызывается из worker-потока Node; для бэкапов — ДО шифрования.
+pub fn gzip_compress(data: &[u8]) -> Vec<u8> {
+    let mut enc = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    std::io::Write::write_all(&mut enc, data).expect("gzip write to Vec cannot fail");
+    enc.finish().expect("gzip finish to Vec cannot fail")
+}
+
+/// Gzip-распаковка: Err для битого/несжатого потока — вызов из Node
+/// получает исключение, а не падение процесса.
+pub fn gzip_decompress(data: &[u8]) -> Result<Vec<u8>, String> {
+    let mut dec = flate2::read::GzDecoder::new(data);
+    let mut out = Vec::new();
+    std::io::Read::read_to_end(&mut dec, &mut out)
+        .map_err(|e| format!("invalid gzip stream: {}", e))?;
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -66,5 +89,33 @@ mod tests {
         assert!(sha256_verify(data, &hex.to_uppercase()));
         assert!(sha256_verify(data, &format!("  {}  ", hex)));
         assert!(!sha256_verify(data, "00"));
+    }
+
+    /// Gzip roundtrip: типичный JSON бэкапа сжимается и восстанавливается.
+    #[test]
+    fn gzip_roundtrip_json() {
+        let json = b"{\"kind\":\"MedChat backup\",\"dataTypes\":[\"chats\"]}".repeat(64);
+        let packed = gzip_compress(&json);
+        assert_eq!(gzip_decompress(&packed).unwrap(), json);
+        // повторяющийся JSON реально сжимается
+        assert!(packed.len() < json.len() / 4);
+    }
+
+    /// Gzip-заголовок RFC 1952 (1f 8b 08); пустой буфер тоже валиден.
+    #[test]
+    fn gzip_header_and_empty() {
+        let packed = gzip_compress(b"");
+        assert_eq!(&packed[..3], &[0x1f, 0x8b, 0x08]);
+        assert_eq!(gzip_decompress(&packed).unwrap(), b"");
+    }
+
+    /// Битый/несжатый/обрезанный поток — Err, а не паника.
+    #[test]
+    fn gzip_decompress_invalid_is_err() {
+        assert!(gzip_decompress(b"not gzip at all").is_err());
+        let data = b"MedChat backup payload ".repeat(64);
+        let mut truncated = gzip_compress(&data);
+        truncated.truncate(truncated.len() / 2);
+        assert!(gzip_decompress(&truncated).is_err());
     }
 }

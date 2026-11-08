@@ -168,6 +168,23 @@ pub fn sha256_verify(data: Buffer, expected_hex: String) -> bool {
     crate::hotpath::sha256_verify(bytes(&data), &expected_hex)
 }
 
+// ----- Серверные горячие пути (этап 6): gzip-сжатие бэкапов ---------
+
+/// Gzip-сжатие буфера (RFC 1952): для бэкапов — ДО шифрования. Формат
+/// стандартный: cross-parity с node:zlib проверяет napi-smoke.js.
+#[napi]
+pub fn backup_compress(data: Buffer) -> Buffer {
+    Buffer::from(crate::hotpath::gzip_compress(bytes(&data)))
+}
+
+/// Gzip-распаковка: Err → JS-исключение (битый бэкап не роняет процесс).
+#[napi]
+pub fn backup_decompress(data: Buffer) -> Result<Buffer> {
+    crate::hotpath::gzip_decompress(bytes(&data))
+        .map_err(arg_err)
+        .map(Buffer::from)
+}
+
 // ----- Double Ratchet (этап 7, прототип): биндинги для Node -----
 
 /// Wire-сообщение Double Ratchet (части): header (40) || nonce (12) || ciphertext.
@@ -418,6 +435,19 @@ mod tests {
             Buffer::from(b"abc".to_vec()),
             hex.replace('8', "9")
         ));
+    }
+
+    /// Gzip-обёртки: roundtrip + magic bytes + битый поток (parity с
+    /// node:zlib — в napi-smoke.js, тут проверяем логику обёрток).
+    #[test]
+    fn napi_backup_compress_roundtrip() {
+        let data = b"MedChat backup json ".repeat(32);
+        let packed = backup_compress(Buffer::from(data.clone()));
+        assert_eq!(&packed[..3], &[0x1f, 0x8b, 0x08]);
+        assert!(packed.len() < data.len());
+        let restored = backup_decompress(packed).unwrap();
+        assert_eq!(bytes(&restored).to_vec(), data);
+        assert!(backup_decompress(Buffer::from(b"nope".to_vec())).is_err());
     }
 
     fn b32(v: u8) -> Buffer {

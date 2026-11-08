@@ -13,6 +13,7 @@ const extract = require('extract-zip');
 const models = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 const { sha256Hex, sha256Verify } = require('../utils/checksum'); // hot-path SHA-256 (этап 6): native .node-аддон, честный fallback node:crypto
+const { gzipCompress, gzipDecompress } = require('../utils/compress'); // hot-path gzip (этап 6): сжатие ДО шифрования, честный fallback node:zlib
 
 // Safe logger: never crash this service if winston is not loadable
 let logger;
@@ -193,9 +194,11 @@ class BackupService {
       iv: iv.toString('hex'),
     };
 
-    // Serialize data
+    // Serialize and compress (этап 6): сжатие ДО шифрования — AES-CBC
+    // шифротекст не сжимается, порядок строгий: JSON → gzip → AES.
+    // Флаг metadata.compressed фиксирует формат для restore.
     const jsonData = JSON.stringify(backupData, null, 2);
-    const dataBuffer = Buffer.from(jsonData, 'utf8');
+    const dataBuffer = gzipCompress(Buffer.from(jsonData, 'utf8'));
 
     // Encrypt data
     const encryptedData = this.encrypt(dataBuffer, key, iv);
@@ -214,6 +217,10 @@ class BackupService {
       metadata: {
         salt: salt.toString('hex'),
         iv: iv.toString('hex'),
+        // Бэкап сжат gzip ДО шифрования (этап 6): restore видит флаг
+        // и разжимает после расшифровки; старые бэкапы без флага —
+        // читаются как раньше (обратная совместимость).
+        compressed: true,
         // SHA-256 шифротекста (этап 6): фиксируется при создании бэкапа,
         // сверяется в restoreBackup/verifyBackupPassword до расшифровки.
         checksum: sha256Hex(encryptedData),
@@ -279,8 +286,12 @@ class BackupService {
       throw new AppError('Invalid password', 401, 'AUTHENTICATION_ERROR');
     }
 
-    // Parse data
-    const backupData = JSON.parse(decryptedData.toString('utf8'));
+    // Parse data (этап 6): сжатые бэкапы разжимаются ПОСЛЕ расшифровки;
+    // старые несжатые (без metadata.compressed) читаются как раньше.
+    const plain = backup.metadata && backup.metadata.compressed
+      ? gzipDecompress(decryptedData)
+      : decryptedData;
+    const backupData = JSON.parse(plain.toString('utf8'));
 
     // Verify user
     const user = await models.User.findByPk(backup.user.id);

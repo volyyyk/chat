@@ -87,6 +87,20 @@ assert.strictEqual(core.sha256Verify(HOT, core.sha256Checksum(HOT).toUpperCase()
 assert.strictEqual(core.sha256Verify(HOT, 'deadbeef'), false);
 ok('sha256Checksum/sha256Verify — KAT + parity с node:crypto');
 
+// ---------- горячие пути (этап 6): gzip-сжатие бэкапов ----------
+const nodeZlib = require('node:zlib');
+const SRC = Buffer.from(JSON.stringify({ kind: 'MedChat backup', users: [] }).repeat(50), 'utf8');
+const packed = core.backupCompress(SRC);
+assert.ok(packed.length > 3 && packed.length < SRC.length);
+assert.deepStrictEqual([...packed.slice(0, 3)], [0x1f, 0x8b, 0x08]);
+assert.ok(core.backupDecompress(packed).equals(SRC));
+// cross-parity: Rust сжимает — Node разжимает, и наоборот
+assert.ok(nodeZlib.gunzipSync(packed).equals(SRC));
+assert.ok(core.backupDecompress(nodeZlib.gzipSync(SRC)).equals(SRC));
+assert.throws(() => core.backupDecompress(Buffer.from('not gzip at all', 'utf8')), Error);
+assert.ok(core.backupDecompress(core.backupCompress(Buffer.alloc(0))).equals(Buffer.alloc(0)));
+ok('backupCompress/backupDecompress — gzip RFC 1952, cross-parity с node:zlib');
+
 // ---------- Double Ratchet ----------
 assert.strictEqual(core.ratchetHeaderSize(), 40);
 assert.strictEqual(core.ratchetNonceSize(), 12);
