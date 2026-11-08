@@ -115,7 +115,7 @@ npm run dev           # API на :3000
    персистентность save/restore, bincode); UniFFI-биндинги для Swift/Kotlin,
    napi-rs для Node — готовы (гайд подключения — `docs/INTEGRATION_BINDINGS.md`).
 3. **iOS (Swift/SwiftUI)** и **Android (Kotlin/Jetpack Compose)** поверх общего ядра.
-4. **Desktop**: Tauri 2 (Rust) — Windows `.exe` и Ubuntu `.deb`/AppImage из одной кодовой базы (каркас готов, установщики `.deb`/AppImage/`.exe` собираются в CI; секреты Double Ratchet — в Credential Manager/libsecret; подписи, автоапдейт и чек-лист релиза — гайд medchat-v2/docs/DESKTOP_RELEASE.md).
+4. **Desktop**: Tauri 2 (Rust) — Windows `.exe` и Ubuntu `.deb`/AppImage из одной кодовой базы (каркас готов, установщики `.deb`/AppImage/`.exe` собираются в CI; секреты Double Ratchet — в Credential Manager/libsecret; подписи, автоапдейт и чек-лист релиза — гайд medchat-v2/docs/DESKTOP_RELEASE.md). E2E-конверты x25519-box (этап 7) — рабочий клиентский путь: ключ устройства в secure storage (medchat.e2e), шифрование/расшифровка в Rust-ядре, wire-формат байт-в-байт совместим с мобильным клиентом; при неполном покрытии ключами — честный plaintext-fallback.
 5. **Серверные горячие пути** на Rust (napi-rs) — начато (этап 6): SHA-256 checksum в medchat-core + napi + серверная обёртка с fallback на node:crypto; чексуммы целостности бэкапов и gzip-сжатие бэкапов (до шифрования, flate2 + честный fallback) подключены, k6-нагрузочный в CI (фиксированный профиль, p95 гейтится); при росте — отдельный websocket-gateway.
 6. **E2E-шифрование**: базовый уровень (X25519 + NaCl box) и E2E файлов/голосовых
    **реализованы**; Double Ratchet (forward secrecy) готов в Rust-ядре с персистентностью

@@ -802,11 +802,39 @@ gin_trgm_ops требует расширение pg_trgm — sync() с таки�
 E2E-сообщения (content='') не ищутся — plaintext у сервера отсутствует (свойство E2E,
 не баг); similarity-ранжирование и Tantivy — «затем» по ROADMAP §1.
 
-**Desktop: рабочий UI-клиент (этот коммит)**: ui/index.html заменяет заглушку-пробы полноценным клиентом без сборки фронтенда (vanilla JS + fetch, app.withGlobalTauri): экран подключения (адрес API-сервера, проверка GET /health, localStorage), экран логина (POST /api/auth/login; accessToken в localStorage, refresh НЕ хранится — честно: при протухании access пользователь входит заново), главный экран (GET /api/chats?limit=50, GET /api/chats/:id/messages?limit=50, POST /api/chats/:id/messages с clientType=desktop; 402 → статус «недостаточно средств»; E2E-конверты отображаются 🔒 с пометкой «расшифровка на устройстве — этап 7»; 401 в api() → сброс токена и возврат на логин). Пробы ядра сохранены панелью «Ядро» в сайдбаре (core_probe/ratchet_probe/ratchet_storage_probe через window.__TAURI__.core.invoke). CORS: сервер отвечает origin=* (дефолт CORS_ORIGIN), отдельные tauri-плагины (http) не нужны. Честно: E2E-расшифровка и Double Ratchet в desktop — этап 7 (ratchet_save/load + secure_store в main.rs готовы).
+**Desktop: рабочий UI-клиент (этот коммит)**: ui/index.html заменяет заглушку-пробы полноценным клиентом без сборки фронтенда (vanilla JS + fetch, app.withGlobalTauri): экран подключения (адрес API-сервера, проверка GET /health, localStorage), экран логина (POST /api/auth/login; accessToken в localStorage, refresh НЕ хранится — честно: при протухании access пользователь входит заново), главный экран (GET /api/chats?limit=50, GET /api/chats/:id/messages?limit=50, POST /api/chats/:id/messages с clientType=desktop; 402 → статус «недостаточно средств»; E2E-конверты отображаются 🔒 с пометкой «расшифровка на устройстве — этап 7»; 401 в api() → сброс токена и возврат на логин). Пробы ядра сохранены панелью «Ядро» в сайдбаре (core_probe/ratchet_probe/ratchet_storage_probe через window.__TAURI__.core.invoke). CORS: сервер отвечает origin=* (дефолт CORS_ORIGIN), отдельные tauri-плагины (http) не нужны. Честно: Double Ratchet в desktop — этап 7 (ratchet_save/load + secure_store готовы); E2E-конверты x25519-box — рабочий путь этапа 7 (запись «Desktop: E2E-конверты x25519-box» ниже).
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
 пиннинга HS256 — всё исправлено, покрыто tests/security/.
+
+**Урок k6/429 (этап 6, env-фикс CI)**: базовый rateLimiter (middleware/rateLimiter.js,
+дефолт 300/окно) считает /api/auth/login НАРЯДУ с authRateLimiter (двойной учёт) —
+k6-профиль без RATE_LIMIT_MAX_REQUESTS=100000 в env CI-стенда упирался ровно в 300
+логинов (run 42509394124: 300 ok / 543 429, http_req_failed 32% > 1%, p95 54 мс — путь
+быстрый, резал лимит); прод-дефолты не тронуты, цифра поднята только в env джобы
+k6-load. Урок: при 429 в нагрузочном тесте сначала считать, чьи лимиты режут — у нас
+два независимых лимита на одном маршруте.
+
+**Desktop: E2E-конверты x25519-box (этап 7)**: полный клиентский путь в desktop без
+сборки фронтенда. main.rs — tauri-команды e2e_get_or_create_key (пара X25519 через
+generate_keypair() ядра; приватный ключ — ТОЛЬКО системный secure storage: отдельный
+сервис medchat.e2e, аккаунт e2e.<userId>, запись JSON {keyId, publicKey, secretKey};
+keyId = desktop- + hex-отпечаток публичного ключа — ротация пары меняет keyId),
+e2e_seal (plaintext + получатели {userId, publicKey(base64)} → {epk, nonce, boxes[]},
+порядок boxes = порядку recipients — JS собирает объект boxes по userId), e2e_open
+(свой приватный ключ из secure storage; open_sealed ядра перебирает боксы; decode
+base64 принимает паддинг и без). UI: после логина POST /api/keys (upsert публичного
+ключа, deviceName=desktop); при открытии чата GET /api/chats/:id/keys; E2E-режим
+только при полном покрытии участников активными ключами (на участника — самый
+свежий ключ, реестр ASC); отправка POST /api/chats/:id/messages {content:"",
+envelope:{v:1, alg:"x25519-box", epk, nonce, boxes}} (content обязан быть пуст, бокс
+отправителя обязателен — сервер валидирует); приём — расшифровка metadata.e2e на
+устройстве (🔒 в мета). Честные ограничения: без Tauri (ui/index.html в браузере) или
+без полного покрытия ключами — plaintext-fallback, чат не ломается; файловые/голосовые
+конверты desktop не шифрует (текстовые боксы — UTF-8, не-UTF-8 — честная ошибка);
+Double Ratchet в desktop не интегрирован. Wire-формат байт-в-байт совместим с
+мобильным клиентом (tweetnacl, вектор 1ce9516).
 
 ## 9. Лаунчер («запуск по кнопке»)
 
@@ -976,6 +1004,10 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     артефакт через upload-artifact). Этап 5 начат: каркас desktop (Tauri 2,
     medchat-v2/desktop) — ядро path-депом без FFI, tauri-команды-пробы, джоба
     CI desktop-check; установщики собирает джоба desktop-bundle (matrix ubuntu .deb + AppImage / windows NSIS .exe, артефакты Actions); подписи и автоапдейт — далее.
+    Этап 7 (desktop) сделан: E2E-конверты x25519-box — рабочий путь
+    (e2e_get_or_create_key/e2e_seal/e2e_open в main.rs, ключ устройства в
+    secure storage medchat.e2e; UI регистрирует ключ POST /api/keys, шифрует
+    и расшифровывает конверты, plaintext-fallback при неполном покрытии).
 
 ---
 

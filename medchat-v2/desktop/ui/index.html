@@ -205,7 +205,11 @@ var state = {
   email: localStorage.getItem("medchat.email") || "",
   user: null,
   chats: [],
-  chatId: null
+  chatId: null,
+  e2e: null,
+  e2eEnabled: false,
+  chatKeys: [],
+  chatE2e: false
 };
 
 function $(id) { return document.getElementById(id); }
@@ -297,6 +301,7 @@ async function doLogin() {
 async function enterMain() {
   $("me").textContent = userLabel(state.user);
   show("main");
+  await ensureE2eKey();
   try {
     await loadChats();
   } catch (e) {
@@ -338,15 +343,116 @@ function renderChats() {
   });
 }
 
+// ----- E2E-конверты x25519-box (этап 7) -----
+
+// Пара ключей устройства: генерируется в ядре Rust (e2e_get_or_create_key),
+// приватный ключ хранится ТОЛЬКО в системном secure storage (Credential
+// Manager / libsecret, сервис medchat.e2e) и никогда не покидает устройство;
+// сервер получает один публичный ключ (POST /api/keys, upsert по
+// (userId, keyId)). Без Tauri (ui/index.html, открытый в браузере) E2E
+// отключается — чат честно работает в plaintext.
+async function ensureE2eKey() {
+  state.e2e = null;
+  state.e2eEnabled = false;
+  var tauri = window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke;
+  if (!tauri || !state.user) return;
+  try {
+    var r = await tauri("e2e_get_or_create_key", { userId: state.user.id });
+    await api("/api/keys", {
+      method: "POST",
+      body: { keyId: r.keyId, publicKey: r.publicKey, algorithm: "x25519-box", deviceName: "desktop" }
+    });
+    state.e2e = r;
+    state.e2eEnabled = true;
+  } catch (e) {
+    state.e2e = null;
+    state.e2eEnabled = false;
+  }
+}
+
+function chatParticipants(chat) {
+  var ids = [];
+  if (chat && chat.doctor && chat.doctor.userId) ids.push(chat.doctor.userId);
+  else if (chat && chat.doctor && chat.doctor.user) ids.push(chat.doctor.user.id);
+  if (chat && chat.patient && chat.patient.userId) ids.push(chat.patient.userId);
+  else if (chat && chat.patient && chat.patient.user) ids.push(chat.patient.user.id);
+  return ids;
+}
+
+function uniqueIds(list) {
+  var seen = {};
+  var out = [];
+  list.forEach(function (x) {
+    var s = String(x);
+    if (!seen[s]) { seen[s] = true; out.push(s); }
+  });
+  return out;
+}
+
+// Активные ключи участников чата (реестр сервера) + решение, возможен ли E2E:
+// у КАЖДОГО участника (включая отправителя) должен быть хотя бы один активный
+// ключ — иначе честный plaintext (как в мобильном клиенте).
+async function loadChatKeys(id) {
+  state.chatKeys = [];
+  state.chatE2e = false;
+  if (!state.e2eEnabled) return;
+  try {
+    var r = await api("/api/chats/" + id + "/keys");
+    state.chatKeys = (r && r.data) || [];
+  } catch (e) {
+    state.chatKeys = [];
+  }
+  var chat = state.chats.filter(function (c) { return c.id === id; })[0];
+  var participants = uniqueIds(chatParticipants(chat).concat([state.user.id]));
+  var covered = {};
+  state.chatKeys.forEach(function (k) { covered[String(k.userId)] = true; });
+  state.chatE2e = participants.every(function (uid) { return covered[uid]; });
+}
+
+// Конверт x25519-box: по одному боксу на каждого участника (бокс отправителя
+// обязателен — сервер это проверяет). На участника берётся самый свежий
+// активный ключ (реестр отсортирован по createdAt ASC — последний и берём).
+// Шифрование — в ядре Rust (e2e_seal); wire-формат байт-в-байт совместим с
+// мобильным клиентом (tweetnacl): {v:1, alg:"x25519-box", epk, nonce, boxes}.
+async function buildEnvelope(text) {
+  var tauri = window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke;
+  if (!tauri || !state.e2e) return null;
+  var chat = state.chats.filter(function (c) { return c.id === state.chatId; })[0];
+  var participants = uniqueIds(chatParticipants(chat).concat([state.user.id]));
+  var latest = {};
+  state.chatKeys.forEach(function (k) { latest[String(k.userId)] = k; });
+  var recipients = [];
+  participants.forEach(function (uid) {
+    var k = latest[uid];
+    if (k && k.publicKey) recipients.push({ userId: uid, publicKey: k.publicKey });
+  });
+  if (recipients.length !== participants.length) return null;
+  try {
+    var r = await tauri("e2e_seal", { plaintext: text, recipients: recipients });
+    var boxes = {};
+    recipients.forEach(function (rcp, i) { boxes[rcp.userId] = r.boxes[i]; });
+    return { v: 1, alg: "x25519-box", epk: r.epk, nonce: r.nonce, boxes: boxes };
+  } catch (e) {
+    return null;
+  }
+}
+
 async function selectChat(id) {
   state.chatId = id;
   renderChats();
   setStatus("send-status", "");
   try {
     var r = await api("/api/chats/" + id + "/messages?limit=50");
-    renderMessages((r && r.data) || []);
+    var messages = (r && r.data) || [];
+    await loadChatKeys(id);
+    await renderMessages(messages);
     var chat = state.chats.filter(function (c) { return c.id === id; })[0];
-    $("chat-title").textContent = (chat && (chat.title || chat.chatId)) || "Чат";
+    $("chat-title").textContent = ((chat && (chat.title || chat.chatId)) || "Чат") + (state.chatE2e ? " · 🔒 E2E" : "");
+    if (state.chatE2e) {
+      setStatus("send-status", "🔒 E2E: сообщения этого чата шифруются на устройстве", false);
+    } else if (state.e2eEnabled) {
+      setStatus("send-status", "E2E недоступен: не у всех участников есть активный ключ — отправка в plaintext", true);
+    }
   } catch (e) {
     $("msg-list").textContent = "";
     var d = document.createElement("div");
@@ -356,7 +462,7 @@ async function selectChat(id) {
   }
 }
 
-function renderMessages(list) {
+async function renderMessages(list) {
   var box = $("msg-list");
   box.textContent = "";
   if (!list.length) {
@@ -366,26 +472,46 @@ function renderMessages(list) {
     box.appendChild(empty);
     return;
   }
-  list.forEach(function (m) {
+  var texts = await Promise.all(list.map(messageText));
+  list.forEach(function (m, i) {
     var mine = state.user && m.senderId === state.user.id;
-    var e2e = m.isEncrypted || (m.metadata && m.metadata.e2e);
     var row = document.createElement("div");
     row.className = "msg" + (mine ? " mine" : "");
     var b = document.createElement("div");
     b.className = "b";
-    b.textContent = e2e
-      ? "🔒 Зашифрованное сообщение (E2E). Расшифровка на устройстве — этап 7."
-      : (m.content || "");
+    b.textContent = texts[i].text;
     var meta = document.createElement("div");
     meta.className = "m";
     var who = mine ? "Я" : (m.sender ? (trimValue(m.sender.firstName) || "Собеседник") : "Собеседник");
     var when = m.createdAt ? new Date(m.createdAt).toLocaleTimeString() : "";
-    meta.textContent = who + (when ? " · " + when : "");
+    meta.textContent = who + (when ? " · " + when : "") + (texts[i].e2e ? " · 🔒" : "");
     row.appendChild(b);
     row.appendChild(meta);
     box.appendChild(row);
   });
   box.scrollTop = box.scrollHeight;
+}
+
+// Текст сообщения: E2E-конверты (metadata.e2e) расшифровываются на устройстве
+// через ядро Rust (e2e_open) — приватным ключом из системного secure storage.
+// Plaintext-сообщения показываются как есть; чат никогда не ломается.
+async function messageText(m) {
+  var env = m.metadata && m.metadata.e2e;
+  if (!env) return { text: m.content || "", e2e: false };
+  var tauri = window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke;
+  if (!state.e2eEnabled || !tauri) {
+    return { text: "🔒 Зашифровано (E2E). Расшифровка доступна в приложении с ключом устройства.", e2e: true };
+  }
+  var myBox = env.boxes && env.boxes[String(state.user.id)];
+  if (!myBox) {
+    return { text: "🔒 Зашифровано не для этого устройства (нет бокса для нашего ключа).", e2e: true };
+  }
+  try {
+    var plain = await tauri("e2e_open", { userId: state.user.id, epk: env.epk, nonce: env.nonce, boxes: [myBox] });
+    return { text: plain, e2e: true };
+  } catch (e) {
+    return { text: "🔒 Не расшифровано: " + (e && e.message ? e.message : String(e)), e2e: true };
+  }
 }
 
 async function sendMessage() {
@@ -394,9 +520,14 @@ async function sendMessage() {
   if (!text || !state.chatId) return;
   setStatus("send-status", "Отправляем...");
   try {
+    var body = { content: text, type: "text", clientType: "desktop" };
+    if (state.chatE2e) {
+      var env = await buildEnvelope(text);
+      if (env) body = { content: "", type: "text", clientType: "desktop", envelope: env };
+    }
     await api("/api/chats/" + state.chatId + "/messages", {
       method: "POST",
-      body: { content: text, type: "text", clientType: "desktop" }
+      body: body
     });
     input.value = "";
     setStatus("send-status", "");

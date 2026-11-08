@@ -24,6 +24,15 @@ medchat-core = { path = "../../core", default-features = false, features = ["ser
 # состояние так же, как это делают биндинги napi/UniFFI.
 bincode = "1"
 
+# E2E-конверты (этап 7): base64 — реестр публичных ключей и wire-формат
+# конвертов (декод прощает отсутствие паддинга — мобильный клиент может
+# слать unpadded); serde/serde_json — запись пары ключей устройства
+# {keyId, publicKey, secretKey} в secure storage (сервис medchat.e2e)
+# и типы аргументов/результатов tauri-команд e2e_*.
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
 # Secure storage этапа 5 (ROADMAP «Секреты: Windows Credential Manager /
 # libsecret (GNOME Keyring)»): крейт keyring 3 поверх системных хранилищ.
 # Платформо-специфичные фичи через target-зависимости: Windows — Credential
