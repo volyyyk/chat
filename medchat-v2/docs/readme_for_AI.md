@@ -3,7 +3,8 @@
 > Этот документ написан для ИИ-ассистентов, которые будут продолжать работу над проектом.
 > Здесь: структура, контракты, бизнес-логика, а главное — честный разбор,
 > что реализовано «по-настоящему», а где временные заплатки и осознанные компромиссы.
-> Обновлён после security-аудита (коммит 1fafeb9).
+> Обновлён после security-аудита (коммит 1fafeb9) и серии фиксов
+> 65ec99c → 5a8eceb (user-API, печатная форма рецептов, чистка мёртвого шифрования мобилки).
 
 ---
 
@@ -38,31 +39,38 @@ medchat-v2/
 │   ├── controllers/   — 16: auth, user, chat, message, file, payment, transaction,
 │   │                    appointment, eprescription, clinic, doctor, patient,
 │   │                    notification, backup, webhook, admin, specialty
-│   ├── middleware/    — auth (JWT+RBAC), validation (Joi), upload (multer),
-│   │                    errorHandler (AppError), rateLimit, sanitize, audit
+│   ├── middleware/    — auth (JWT+RBAC, БЕЗ privateKey), validation (Joi),
+│   │                    upload (multer, uploadMiddleware(field)), errorHandler (AppError),
+│   │                    rateLimit, sanitize, audit
 │   ├── models/        — 34 модели Sequelize (User, Doctor, Patient, Clinic, Chat,
-│   │                    Message, File, Transaction, Balance, BalanceReserve,
-│   │                    Appointment, EPrescription, ChatParticipant, RefreshToken, ...)
+│   │                    Message (+композитный индекс chat_id,created_at), File,
+│   │                    Transaction, Balance, BalanceReserve, Appointment, EPrescription,
+│   │                    ChatParticipant, RefreshToken, ...)
 │   ├── routes/        — 17 файлов (auth, chats, messages, files, payments,
 │   │                    transactions, appointments, eprescriptions, users, clinics, ...)
 │   ├── seeds/         — testData.js (npm run seed:test): аккаунты, балансы, приёмы
 │   ├── services/      — authService, paymentService, balanceService, cryptoService,
-│   │                    notificationService, encryptionService, backupService
+│   │                    notificationService, backupService
 │   ├── utils/         — logger (winston), chatAccess (canAccessChat)
-│   ├── validators/    — 15 Joi-схем (auth, chat, message, file, payment, transaction, ...)
-│   └── index.js       — Express bootstrap + Socket.IO (joinChat/typing/newMessage)
+│   ├── validators/    — 15 Joi-схем (auth, chat, message, file, payment, transaction,
+│   │                    user (updateUserSchema/changePasswordSchema/updateProfileSchema/
+│   │                    updatePreferencesSchema/searchUsersSchema + legacy), ...)
+│   └── index.js       — Express bootstrap + Socket.IO (joinChat/typing/newMessage);
+│                        fail-fast при JWT_SECRET < 8 символов
 ├── server/tests/
 │   ├── cryptoService.test.js, errorHandler.test.js, paymentService.test.js
 │   ├── integration/auth.test.js
 │   └── security/      — jwtSecurity, registerSecurity, paymentsSecurity, transactionsIdor
 ├── mobile/src/
 │   ├── config/config.js        — API_URL http://localhost:3000 (БЕЗ /api/v1)
-│   ├── context/ (3)            — AuthContext (pass-through), ThemeContext, ...
+│   ├── context/ (3)            — AuthContext (pass-through), ThemeContext,
+│   │                            NotificationContext (ChatContext УДАЛЁН, см. п. 8.5)
 │   ├── hooks/ (4)              — useChat (server-first чат), useAuth, ...
 │   ├── screens/ (19)           — Login, Register, ChatList, Chat, Payment,
 │   │                            Appointments, EPrescriptions, Profile, ...
-│   ├── services/ (9)           — authService, chatService (socket+REST),
-│   │                            encryptionService (см. п. 8.6!), api, file, payment, ...
+│   ├── services/ (8)           — authService, chatService (socket+REST), api, file,
+│   │                            payment, database (экспортирует database + initDatabase),
+│   │                            notification, backup (encryptionService УДАЛЁН, п. 8.5)
 │   ├── components/ (8)         — MessageBubble, AudioPlayer, ...
 │   ├── navigation/, styles/, utils/
 ├── web/src/             — pages (7), services, context
@@ -98,6 +106,18 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
 - JWT: **HS256 с пиннингом алгоритма** в middleware/auth.js; access ~15m;
   refresh — randomBytes(64), хранится в БД, ротация + revoke (смена пароля/блокировка).
 
+### Users (оживлён в 65ec99c — раньше был мёртв)
+- `GET /api/users/me`, `PUT /api/users/me` (при смене email/username требует
+  `currentPassword`), `PUT /api/users/me/password`, `PUT /api/users/me/profile`,
+  `GET|PUT /api/users/me/preferences`, `POST /api/users/me/avatar` (multipart, multer),
+  `DELETE /api/users/me/avatar`
+- Админ (`system_admin|clinic_admin`): `GET /api/users`, `GET /api/users/statistics`
+  (роут ДО `/:id`!), `GET|PUT|DELETE /api/users/:id`, `PUT /:id/status` (enum
+  active/inactive/pending/banned/deleted), `PUT /:id/role` (enum
+  system_admin/clinic_admin/doctor/patient)
+- Профильные инклуды — только через алиасы: `doctorProfile`, `patientProfile`, `clinic`,
+  `specialtyDetails` (Doctor.belongsToMany(Specialty) через DoctorSpecialty).
+
 ### Чаты и сообщения
 - `GET /api/chats`, `POST /api/chats`, `GET /api/chats/:id/messages?page&limit` (default 50,
   ответ `{data: [хронология], pagination}`)
@@ -108,6 +128,8 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
     баланса (50 ₽), при нехватке средств → 402 PAYMENT_REQUIRED.
 - ENUM типов сообщений: `text, image, video, audio, file, system, payment, prescription,
   appointment, reminder`; attachments — массив UUID файлов (привязка через File.update).
+- `GET /api/eprescriptions/:id/printable` — печатная форма HTML; специальности врача
+  приходят из `doctor.specialtyDetails` (include через алиас, 65ec99c).
 
 ### Файлы, приёмы, рецепты
 - `POST /api/files/upload` — multipart поле `file`, `chatId` optional (Joi uuid)
@@ -136,6 +158,8 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
 - Мобильный `useChat.js` — **server-first**: сокет + REST-fallback, дедупликация newMessage,
   re-join на реконнект ('connect'), оптимистичная отправка (tmp-* id, замена по ответу,
   402 → человекочитаемая ошибка).
+- Обработчика `sendMessage` на сервере НЕТ: отправка — только REST POST
+  `/api/chats/:id/messages`, сокет — только чтение (newMessage/typing/messageRead).
 
 ## 7. Платёжная логика (services/paymentService.js + balanceService.js)
 
@@ -170,36 +194,69 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
 4. **Вебхуки** (webhookController.js) — ЗАГЛУШКИ: только console.log, статусы транзакций
    НЕ меняют, проверка подписи закомментирована. Реальные шлюзы отключены по требованию
    владельца (`getPaymentMethods`: yoomoney/tinkoff/card → `isAvailable: false`).
-5. **Мобильное E2E-шифрование**: `services/encryptionService.js` (tweetnacl, локальная БД)
-   существует и ключи генерируются при регистрации, НО чат — server-first и шифрование
-   НЕ использует. Это мёртвый код: либо реально включить, либо удалить (roadmap).
+5. **Мобильное E2E-шифрование — РЕШЕНО удалением** (5a8eceb + b7962cd + d11d285):
+   `services/encryptionService.js` и `context/ChatContext.js` удалены. Честное состояние:
+   E2E-шифрование НЕ реализовано (не было ни обмена ключами, ни рабочего кода —
+   в decryptMessage читалась переменная до инициализации). Защита: TLS на транспорте +
+   серверный cryptoService для storage. Если появится задача E2E — проектировать
+   заново (X25519 key exchange + server key registry), а не воскрешать удалённое.
 6. **AuthContext (mobile)** — тонкий pass-through на authService + стабы
    verifyClinicCode/checkDoctorVerification (UI ждёт эти методы, реальной серверной
    проверки кода клиники в мобильном флоу нет — она есть на сервере при register doctor).
 7. **Лаунчер** НЕ поднимает контейнер server из docker-compose — сервер ставится и
    запускается npm'ом напрямую; докер используется только для postgres/redis/minio.
-8. **authenticate** кладёт `privateKey` в `req.user` (включается редко, но утечбельно) —
-   вырезать (roadmap).
+8. ~~authenticate кладёт `privateKey` в `req.user`~~ — **ИСПРАВЛЕНО в 65ec99c**:
+   privateKey больше не прикрепляется к req.user.
 9. **userController.checkEmail/checkUsername** — публичное раскрытие существования аккаунта
    (enumeration вектор). Нужен для UX регистрации, прикрыт rate-limit'ом; для прода —
    подумать (capcha/отключение).
-10. **JWT_SECRET** деструктурируется при загрузке middleware/auth.js; отсутствие секрета
-    при старте НЕ валидируется (в CI/тестах/launcher задан). Перед продом — фейл-фаст проверка.
-11. **updateMe** (userController) позволяет менять email/username без повторной верификации.
+10. ~~JWT_SECRET не валидируется при старте~~ — **ИСПРАВЛЕНО в 65ec99c**: index.js делает
+    fail-fast (process.exit(1)) при отсутствии/длине секрета < 8 символов.
+11. ~~updateMe позволяет менять email/username без повторной верификации~~ —
+    **ИСПРАВЛЕНО в 65ec99c**: смена email/username требует `currentPassword`
+    (Joi-схема + проверка в контроллере).
 12. **Payout** — в тестовом режиме сразу status=completed (реальных выводов нет по требованию).
 13. **Лаунчер-README** обещает «npm install при первом запуске» — ставит и server, и web,
     и mobile (expo) по необходимости; Expo-интерактив может требовать выбора аккаунта.
+14. **user-API был ЦЕЛИКОМ мёртв до 65ec99c**: routes/users.js импортировал 5 Joi-схем,
+    которых не существовало в validators/user.js → validate(undefined) → TypeError → 500
+    на PUT /me, /me/password, /me/profile, /me/preferences и GET /api/users. Схемы
+    написаны; legacy-экспорты validators/user.js сохранены. Помни: middleware/validation.js
+    при schema === undefined роняет запрос — если добавляешь новую схему, проверь имя.
+15. **Роуты users**: `GET /api/users/statistics` ДОЛЖЕН идти до `/:id` (иначе id="statistics"
+    перехватит запрос); avatar-роут обязан оборачиваться в `uploadMiddleware('avatar')`.
+    Проверено и зафиксировано в 65ec99c.
+16. **Мобильная локальная БД чинилась в d11d285**: database.js не экспортировал ни `database`
+    (его импортировали 6 файлов!), ни `initDatabase` (его импортировал App.js). Теперь оба
+    экспорта есть. Помни при добавлении новых сервисов: проверяй ИМЯ экспорта против импортов.
+17. **Fake loading в App.js удалён** (d11d285): искусственная задержка 2 с «simulate loading»
+    замедляла каждый старт без пользы.
 
 ### История критических багфиксов (эта серия коммитов, ноябрь 2026)
-**Сервер**: req.file vs req.files (все загрузки падали 400); file.buffer пуст при diskStorage;
-нет audio/m4a|mp4|aac|webm в MIME-листе (голосовые expo-av не грузились); AuditLog с
-несуществующими полями; cleanupExpired без logger;Attachments не привязывались к сообщению.
+**Сервер** (ранние фиксы): req.file vs req.files (все загрузки падали 400); file.buffer пуст при
+diskStorage; нет audio/m4a|mp4|aac|webm в MIME-листе (голосовые expo-av не грузились); AuditLog с
+несуществующими полями; cleanupExpired без logger; Attachments не привязывались к сообщению.
+**Сервер** (2bb0a01, e2e-smoke): appointmentController getById — спред DOCTOR_INCLUDE затирал
+user-include; eprescriptionController — bare-инклуды Patient×13/Appointment×9 вместо алиасов;
+messageController getUnreadCount — Op.notContains на ARRAY(UUID) генерил невалидный `NOT @>`;
+smoke-test теперь печатает stdout-хвост сервера при failures.
+**Сервер** (65ec99c): весь user-API мёртв из-за несуществующих Joi-схем (см. п. 8.14);
+bare-инклуды в userController (EagerLoadingError); роли 'admin'/'blocked' вместо
+system_admin/banned; аватар без multer (всегда 400); GET /users/statistics перехватывался
+/:id; privateKey в req.user; печатная форма рецептов — doctor.Specialties (несуществующее
+поле) → специальность всегда N/A, заменили на specialtyDetails; композитный индекс
+messages(chat_id, created_at) против filesort пагинации.
 **Мобильный клиент**: /api/v1 в базовом URL; data.token vs accessToken; paymentProcess без
 type; двойное списание при отправке после оплаты; локальное шифрование в useChat ломало чат
 (переписан на server-first); EPrescription без patientId; register без status active;
 joinChat без проверки членства; authenticate без вызова (); ChatListScreen — ReferenceError
 Platform без импорта (заменили на настоящий RefreshControl); ChatScreen — аудио-ветка была
 недостижима из-за item.file.
+**Мобильный клиент** (d11d285 + b7962cd + 5a8eceb): { database } не экспортировался → краш
+локальной БД во всех 6 экранах; initDatabase не экспортировался → TypeError на старте
++ шрифты не грузились; ChatProvider грузил историю ВСЕХ чатов N+1 и шифровал сообщения
+через несуществующий privateKey; encryptionService — мёртвый сломанный код (удалён);
+искусственная задержка старта 2 с (удалена).
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -227,17 +284,21 @@ node stop.js [--docker]                     # остановить процес�
   `npm run test:smoke` (сервер на :3990, сам поднимается).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
+- CI зелёный для 65ec99c (run #31, оба джоба). Логи падений бот ci-reporter коммитит
+  в `ci-logs/` (ci-smoke.log / ci-jest.log) — при красном прогоне читать оттуда.
 
 ## 11. Что осталось сделать (roadmap)
 
-1. Добить CI до зелёного (следить за прогонами после каждого коммита).
-2. E2E-шифрование чата: включить по-настоящему или удалить encryptionService.
-3. Фейл-фаст валидация JWT_SECRET при старте сервера.
-4. Вырезать privateKey из req.user в middleware/auth.js.
+1. ~~Добить CI до зелёного~~ — зелёный с 3ef9ff0/#30 и 65ec99c/#31; держать зелёным.
+2. ~~E2E-шифрование: включить или удалить encryptionService~~ — удалено (5a8eceb);
+   если понадобится настоящее E2E — проектировать key-exchange заново.
+3. ~~Фейл-фаст валидация JWT_SECRET при старте сервера~~ — сделано (65ec99c).
+4. ~~Вырезать privateKey из req.user~~ — сделано (65ec99c).
 5. Подписи вебхуков (когда/если появятся реальные шлюзы).
 6. Прод-инфраструктура: nginx, TLS, регулярные бэкапы (backupService есть, cron нет).
 7. UI-полировка мобилки, локализация, тёмная тема.
 8. Пагинация/виртуализация длинных чатов в мобильном клиенте.
+9. Webhook-заглушки (п. 8.4) — при подключении реальных шлюзов.
 
 ---
 
