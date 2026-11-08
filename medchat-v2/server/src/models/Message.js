@@ -18,7 +18,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true,
         field: 'content',
-        comment: 'Message text content (encrypted)',
+        comment: 'Plaintext for legacy/plain messages; EMPTY for E2E (ciphertext lives in metadata.e2e)';
       },
       // Message type
       type: {
@@ -48,10 +48,13 @@ module.exports = (sequelize, DataTypes) => {
         ),
         defaultValue: 'sent',
       },
-      // Encryption info
+      // Encryption info: true ONLY when the server received an E2E envelope
+      // (chatController.sendMessage sets it explicitly from isE2E). Legacy
+      // default was true, which falsely marked plaintext messages (seed,
+      // prescriptions) as encrypted - now plaintext is honestly false.
       isEncrypted: {
         type: DataTypes.BOOLEAN,
-        defaultValue: true,
+        defaultValue: false,
         field: 'is_encrypted',
       },
       encryptionKeyId: {
