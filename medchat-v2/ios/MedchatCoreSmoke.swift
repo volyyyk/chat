@@ -216,7 +216,7 @@ func hexBytes(_ hex: String) -> Data {
     }
     return out
 }
-let rfcAPriv = "77076d0a7318a57d3c16c17251b26645df4c2e87ebc0992ab177fba51db92c2a"
+let rfcAPriv = "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"
 let rfcAPub = "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
 let rfcBPriv = "5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb"
 let rfcBPub = "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f"
@@ -225,9 +225,9 @@ let dhAB = try! x25519Dh(mySecret: hexBytes(rfcAPriv), theirPublic: hexBytes(rfc
 check(dhAB == hexBytes(rfcK), "x25519Dh KAT (a, B) == K из RFC 7748 §6.1")
 let dhBA = try! x25519Dh(mySecret: hexBytes(rfcBPriv), theirPublic: hexBytes(rfcAPub))
 check(dhBA == hexBytes(rfcK), "x25519Dh KAT (b, A) == K")
-check(try! x25519Dh(mySecret: alice.secretKey, theirPublic: bob.publicKey) ==
-      try! x25519Dh(mySecret: bob.secretKey, theirPublic: alice.publicKey),
-      "x25519Dh симметричен на сгенерированных парах")
+let genAB = try! x25519Dh(mySecret: alice.secretKey, theirPublic: bob.publicKey)
+let genBA = try! x25519Dh(mySecret: bob.secretKey, theirPublic: alice.publicKey)
+check(genAB == genBA, "x25519Dh симметричен на сгенерированных парах")
 expectMedError("битая длина mySecret — InvalidArgument", match: invalidArgCase) {
     _ = try x25519Dh(mySecret: Data(repeating: 0, count: 31), theirPublic: bob.publicKey)
 }

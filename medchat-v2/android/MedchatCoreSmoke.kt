@@ -100,7 +100,7 @@ fun main() {
     fun hexBytes(hex: String): ByteArray = ByteArray(hex.length / 2) { i ->
         hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
     }
-    val rfcAPriv = "77076d0a7318a57d3c16c17251b26645df4c2e87ebc0992ab177fba51db92c2a"
+    val rfcAPriv = "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"
     val rfcAPub = "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
     val rfcBPriv = "5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb"
     val rfcBPub = "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f"
