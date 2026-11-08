@@ -16,6 +16,10 @@
 //!   x25519-box, сервер видит только конверты. Wire-формат сообщения
 //!   определён (to_wire/from_wire: header || nonce || ciphertext,
 //!   pn/n в little-endian); интеграция — после napi-rs/UniFFI-биндингов.
+//! - состояние сериализуется через feature serde (bincode-совместимо):
+//!   персистентность сессии между запусками; сериализованный blob содержит
+//!   СЕКРЕТЫ (dh_self.secret_key, цепочки, skip-store) — хранить только
+//!   в secure storage устройства (Keychain/Keystore/Keyring).
 
 use std::collections::HashMap;
 
@@ -149,6 +153,7 @@ impl RatchetMessage {
 /// сериализуются наружу целиком в проде — хранить только в secure storage
 /// устройства; состояние serializable только для персистентности сессии.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RatchetState {
     root_key: [u8; 32],
     dh_self: KeyPair,
@@ -479,5 +484,61 @@ mod tests {
         bad[last] ^= 0xFF;
         let m = RatchetMessage::from_wire(&bad).unwrap();
         assert_eq!(bob.decrypt(&m), Err(CoreError::Aead));
+    }
+
+    #[cfg(feature = "serde")]
+    mod serde_persistence {
+        use super::*;
+
+        // «Перезапуск приложения»: обе стороны переживают
+        // serialize -> deserialize и продолжают диалог без потери ключей.
+        #[test]
+        fn session_survives_serialization_roundtrip() {
+            let (mut alice, mut bob) = session();
+            let m1 = alice.encrypt(b"hello").unwrap();
+            assert_eq!(bob.decrypt(&m1).unwrap(), b"hello".to_vec());
+
+            let alice_blob = bincode::serialize(&alice).unwrap();
+            let bob_blob = bincode::serialize(&bob).unwrap();
+            let mut alice2: RatchetState = bincode::deserialize(&alice_blob).unwrap();
+            let mut bob2: RatchetState = bincode::deserialize(&bob_blob).unwrap();
+
+            let m2 = alice2.encrypt(b"after restart").unwrap();
+            assert_eq!(bob2.decrypt(&m2).unwrap(), b"after restart".to_vec());
+            let m3 = bob2.encrypt(b"reply after restart").unwrap();
+            assert_eq!(alice2.decrypt(&m3).unwrap(), b"reply after restart".to_vec());
+        }
+
+        // skip-store — часть состояния: отложенное внеочередное сообщение
+        // расшифровывается и после «перезапуска»; replay по-прежнему отклонён.
+        #[test]
+        fn skip_store_survives_serialization() {
+            let (mut alice, mut bob) = session();
+            let m1 = alice.encrypt(b"first").unwrap();
+            let m2 = alice.encrypt(b"second").unwrap();
+            assert_eq!(bob.decrypt(&m2).unwrap(), b"second".to_vec());
+
+            let blob = bincode::serialize(&bob).unwrap();
+            let mut bob2: RatchetState = bincode::deserialize(&blob).unwrap();
+            assert_eq!(bob2.decrypt(&m1).unwrap(), b"first".to_vec());
+
+            let replay = RatchetMessage {
+                header: m1.header.clone(),
+                nonce: m1.nonce,
+                ciphertext: m1.ciphertext.clone(),
+            };
+            assert_eq!(bob2.decrypt(&replay), Err(CoreError::OutOfOrder));
+        }
+
+        // Сериализованный blob содержит секреты (dh_self.secret_key) —
+        // честная пометка: персистентность ТОЛЬКО в secure storage.
+        #[test]
+        fn serialized_blob_contains_secrets() {
+            let (mut alice, _bob) = session();
+            let _ = alice.encrypt(b"x").unwrap();
+            let blob = bincode::serialize(&alice).unwrap();
+            let secret = alice.dh_self.secret_key;
+            assert!(blob.windows(32).any(|w| w == secret.as_slice()));
+        }
     }
 }

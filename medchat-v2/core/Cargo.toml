@@ -36,6 +36,12 @@ napi-bind = ["dep:napi", "dep:napi-derive"]
 # .node; включается джобой CI uniffi-bindings (cdylib + генерация обвязки
 # + тесты обёрток).
 uniffi-bind = ["dep:uniffi"]
+# Сериализация RatchetState (serde derive, src/ratchet.rs) — персистентность
+# сессий Double Ratchet между запусками (этап 7 ROADMAP: клиенты сохраняют
+# состояние в secure storage устройства). НЕ default — как napi-bind/uniffi-bind:
+# serde не нужен сборкам .node/cdylib без персистентности; CI-прогон ядра
+# включает её: cargo test --no-default-features --features serde.
+serde = ["dep:serde"]
 
 [dependencies]
 crypto_box = "0.9"
@@ -68,6 +74,12 @@ napi-derive = { version = "2", optional = true }
 # обращений к отсутствующим индекс-записям не остаётся. Cargo.lock в
 # gitignore (библиотечный крейт) — правок лок-файла не требуется.
 uniffi = { git = "https://github.com/mozilla/uniffi-rs", tag = "v0.28.3", optional = true }
+# serde (feature serde, src/ratchet.rs): сериализация RatchetState для
+# персистентности Double Ratchet (этап 7). Честно: JSON не подходит —
+# ключи skip-store HashMap(([u8;32], u32)) нестроковые; формат персистентности
+# — бинарный (bincode в тестах). derive: KeyPair (lib.rs) тоже сериализуется
+# (поле dh_self состояния).
+serde = { version = "1", features = ["derive"], optional = true }
 
 [build-dependencies]
 napi-build = "2"
@@ -78,6 +90,9 @@ napi-build = "2"
 # прогонами ядра (cargo check --tests / cargo test --no-default-features).
 [dev-dependencies]
 criterion = "0.5"
+# bincode — сериализационные тесты RatchetState (feature serde): бинарный
+# формат с произвольными ключами HashMap (JSON нестроковые ключи не умеет).
+bincode = "1"
 
 # Бенчмарки запускает только cargo bench --no-default-features (джоба CI
 # core-bench). harness = false: точка входа — criterion, а не libtest.

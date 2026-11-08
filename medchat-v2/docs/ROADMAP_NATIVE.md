@@ -20,7 +20,7 @@
 |---|---|---|---|
 | Криптография at-rest (cryptoService) | Node (AES-GCM через crypto) | **Rust**: `libmedchat_core` + napi-rs | Memory safety, единая реализация на сервере и всех клиентах, готовность к аудиту |
 | E2E X25519-box | реализовано (tweetnacl в мобильном, Rust-ядро совместимо; контракт — readme_for_AI §5) | остаётся в клиентах | Рабочий E2E-контур: сервер хранит только шифротекст |
-| Double Ratchet (forward secrecy) | прототип в medchat-core (src/ratchet.rs, 6aff983 + skip-store d033eeb + wire-формат a43102d) | **Rust** в ядре + napi-rs/UniFFI биндинги | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
+| Double Ratchet (forward secrecy) | прототип в medchat-core (src/ratchet.rs, 6aff983 + skip-store d033eeb + wire-формат a43102d + сериализация serde) | **Rust** в ядре + napi-rs/UniFFI биндинги | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
 | Хэширование чексумм файлов, сжатие бэкапов | Node streams | **Rust** (napi-rs) | CPU-bound, разгружает event-loop сервера |
 | Realtime gateway (fan-out тысяч соединений) | Node Socket.IO | Этап A: Node + Redis pub/sub; Этап B: **Rust** (tokio) при >10k соединений | Node справляется до тысяч; переписывать раньше времени — риск без выгоды |
 | Поиск по сообщениям | Postgres ILIKE + GIN pg_trgm (seed: messages_content_trgm_idx) | **Rust** (Tantivy) при полнотексте | «Сначала pg_trgm + GIN» — сделано; дешёвая оптимизация раньше тяжёлой |
@@ -172,14 +172,19 @@ UserKey, конверты, plaintext в БД отсутствует; с 42e5a1d 
 голосовые — внутри E2E-контура: гибридное шифрование, ключ файла в конверте,
 расшифровка при просмотре). Прототип Double Ratchet в
 medchat-core (src/ratchet.rs, 6aff983 → d033eeb: KDF_RK/KDF_CK на HMAC-SHA256,
-AES-256-GCM на одноразовых message keys, 13 тестов, wire-формат
+AES-256-GCM на одноразовых message keys, 13 тестов + 3 сериализационных (feature serde), wire-формат
 to_wire/from_wire — a43102d). Skip-store реализован (d033eeb):
 внеочередные сообщения расшифровываются через буфер одноразовых message keys
 (MAX_SKIP=2000/MAX_SKIPPED_KEYS=500, превышение → OutOfOrder), replay отклоняется.
 Ограничения честно: в клиенты не интегрирован — wire-формат заголовков готов
 (a43102d: header 40 || nonce 12 || ciphertext); napi-биндинги JsRatchetState
 для Node готовы (2bb38f2, src/node.rs, feature napi-bind), UniFFI для
-Swift/Kotlin и интеграция в клиенты — далее.
+Swift/Kotlin и интеграция в клиенты — далее. Сериализация состояния
+(feature serde, bincode-совместимая; JSON не подходит — ключи skip-store
+нестроковые) — персистентность сессий между запусками готова (3 теста:
+roundtrip диалога после восстановления, skip-store переживает сериализацию,
+blob содержит секреты — только secure storage); следующий шаг — биндинги
+save/restore (napi/UniFFI) и склейка с клиентами.
 Реализация в Rust-ядре: X25519 + Double Ratchet, серверный key-registry.
 Верификация fingerprint-кодов: РЕАЛИЗОВАНА в мобильном клиенте
 (347bc9d + ec1a0de: safety number — 60 цифр из SHA-512 по набору ключей чата,

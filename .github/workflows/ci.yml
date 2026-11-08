@@ -214,11 +214,13 @@ jobs:
 
       # Шаг 2: юнит-тесты логики ядра (lib, ratchet, контрактные векторы)
       # — без napi-биндингов: тестовый бинарник линкуется чисто, потому что
-      # napi/napi-derive исключены feature-гейтом (--no-default-features).
-      - name: Run core unit tests (without napi bindings)
+      # napi/napi-derive исключены feature-гейтом (--no-default-features);
+      # feature serde добавляет сериализационные тесты персистентности
+      # RatchetState (этап 7 ROADMAP).
+      - name: Run core unit tests (without napi bindings, with serde tests)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo test --no-default-features; } 2>&1 | tee -a ../../ci-rust.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo test --no-default-features --features serde; } 2>&1 | tee -a ../../ci-rust.log
 
       - name: Publish failure logs to the repo
         if: failure()

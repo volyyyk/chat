@@ -105,6 +105,7 @@ impl std::error::Error for CoreError {}
 /// Пара ключей устройства. Секретный ключ НИКОГДА не покидает устройство —
 /// наружу отдаётся только public_key (см. E2E-контракт, модель UserKey).
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyPair {
     pub public_key: [u8; KEY_SIZE],
     pub secret_key: [u8; KEY_SIZE],
