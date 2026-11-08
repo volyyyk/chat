@@ -100,6 +100,15 @@ const MessageBubble = ({
     <View style={bubbleStyle}>
       <Text style={textStyle}>{message.content}</Text>
       <View style={styles.messageFooter}>
+        {message.isEncrypted && (
+          <View style={styles.encryptionBadge}>
+            <MaterialIcons
+              name="lock"
+              size={12}
+              color={isMyMessage ? colors.text.primaryInverse : colors.text.tertiary}
+            />
+          </View>
+        )}
         {showTime && (
           <Text style={timeStyle}>
             {formatMessageTime(message.createdAt)}
@@ -159,6 +168,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: spacing[1],
+  },
+  
+  encryptionBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing[1],
   },
   
   myMessageTime: {
