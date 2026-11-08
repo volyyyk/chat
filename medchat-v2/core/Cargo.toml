@@ -15,7 +15,7 @@ description = "MedChat crypto core: X25519 + NaCl box envelope primitives (E2E-c
 rust-version = "1.77"
 
 # cdylib — .node-аддон для Node.js (napi-rs), rlib — cargo test и внутренние
-# пользователей ядра (тесты, будущие UniFFI-оболочки).
+# пользователи ядра (тесты, будущие UniFFI-оболочки).
 [lib]
 crate-type = ["cdylib", "rlib"]
 
@@ -40,6 +40,11 @@ x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 hmac = "0.12"
 sha2 = "0.10"
 aes-gcm = "0.10"
+# bcrypt (src/lib.rs::bcrypt_verify): проверка паролей в формате OpenBSD
+# ($2a$/$2b$/$2y$, любой cost) — паритет с сервером (нативный bcrypt-пакет,
+# cost 12 в authService). Pure Rust (крейт blowfish), НЕ гейтится за
+# feature napi-bind: включён и в --no-default-features-сборках.
+bcrypt = "0.15"
 # napi-rs (src/node.rs, feature napi-bind): Node.js-биндинги (этап 2).
 # compat-mode — совместимость со старыми Node/Electron; default-features =
 # false — минимальный рантайм (без tokio: наши обёртки синхронные).

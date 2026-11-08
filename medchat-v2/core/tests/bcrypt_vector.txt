@@ -1,0 +1,18 @@
+# Контрактные векторы bcrypt для medchat-core и сервера (этап 2
+# ROADMAP_NATIVE.md). KAT-векторы из тестов OpenBSD/crypt_blowfish
+# (Solar Designer, public domain: openwall.info, wrapper.c). Формат:
+# ключ = значение; значение — всё после первого знака = с пробелом,
+# БЕЗ тримминга (пароль v4 содержит пробелы внутри). Обе стороны обязаны
+# верифицировать все векторы одинаково: Rust core/tests/bcrypt_vector.rs
+# (крейт bcrypt) и server/tests/bcryptInterop.test.js (нативный bcrypt,
+# в authService хэширование с cost 12). Только ASCII-пароли: векторы с
+# 8-битными символами ($2x$, баг 2a) осознанно исключены — реализации
+# на них расходятся.
+v1_password = U*U
+v1_hash = $2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW
+v2_password = U*U*
+v2_hash = $2a$05$CCCCCCCCCCCCCCCCCCCCC.VGOzA784oUp/Z0DY336zx7pLYAy0lwK
+v3_password = U*U*U
+v3_hash = $2a$05$XXXXXXXXXXXXXXXXXXXXXOAcXxm9kjPGEMsLznoKqmqw7tc8WCx4a
+v4_password = 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789chars after 72 are ignored
+v4_hash = $2a$05$abcdefghijklmnopqrstuu5s2v8.iXieOjg/.AySBTTZIIVFJeBui

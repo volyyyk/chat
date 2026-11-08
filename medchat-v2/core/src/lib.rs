@@ -11,6 +11,11 @@
 //! тот же алгоритм, что у tweetnacl nacl.box) — конверты, запечатанные здесь,
 //! открываются мобильным клиентом, и наоборот.
 //!
+//! bcrypt_verify — проверка пароля против хэша формата OpenBSD
+//! ($2a$/$2b$/$2y$, любой cost): контрактный паритет с сервером (нативный
+//! bcrypt-пакет, cost 12 в authService), KAT-векторы (tests/bcrypt_vector.txt,
+//! OpenBSD/crypt_blowfish) обязаны верифицироваться одинаково ядром и сервером.
+//!
 //! Double Ratchet (forward secrecy) — модуль ratchet (этап 7 ROADMAP_NATIVE,
 //! прототип: skip-store внеочередных сообщений реализован; wire-формат
 //! RatchetMessage определён — to_wire/from_wire: header || nonce || ciphertext).
@@ -54,6 +59,8 @@ pub enum CoreError {
     OutOfOrder,
     /// Ratchet: заголовок неверной длины.
     BadHeader,
+    /// Неверный формат bcrypt-хэша (bcrypt_verify).
+    BadHash,
 }
 
 impl From<crypto_box::aead::Error> for CoreError {
@@ -74,6 +81,7 @@ impl std::fmt::Display for CoreError {
             }
             CoreError::OutOfOrder => write!(f, "ratchet message out of order"),
             CoreError::BadHeader => write!(f, "ratchet header has invalid length"),
+            CoreError::BadHash => write!(f, "invalid bcrypt hash string"),
         }
     }
 }
@@ -167,6 +175,18 @@ pub fn open_sealed(
     }
 
     Err(CoreError::NoBoxForRecipient)
+}
+
+/// Проверить пароль против bcrypt-хэша формата OpenBSD ($2a$/$2b$/$2y$,
+/// любой cost). Контракт этапа 2 ROADMAP_NATIVE: сервер хэширует пароли
+/// нативным bcrypt-пакетом с cost 12 (authService), ядро даёт ту же
+/// verify-семантику для нативных клиентов и горячих путей. KAT-векторы
+/// (tests/bcrypt_vector.txt, OpenBSD/crypt_blowfish, public domain) обязаны
+/// верифицироваться одинаково обеими реализациями: core/tests/
+/// bcrypt_vector.rs и server/tests/bcryptInterop.test.js.
+/// Возвращает Ok(false) при неверном пароле, Err(BadHash) на битом хэше.
+pub fn bcrypt_verify(password: &str, hash: &str) -> Result<bool, CoreError> {
+    bcrypt::verify(password, hash).map_err(|_| CoreError::BadHash)
 }
 
 #[cfg(test)]
