@@ -1,71 +1,71 @@
-=== run 42507470647 job server-tests Sun Nov  8 17:58:41 UTC 2026 ===
+=== run 42508380552 job server-tests Sun Nov  8 18:08:52 UTC 2026 ===
 
 > medchat-server@2.0.0 test
 > jest --ci --runInBand
 
 PASS tests/integration/auth.test.js
   POST /api/auth/login
-    ✓ rejects an invalid body with 400 (validation layer) (28 ms)
-    ✓ logs in an active patient and returns tokens (11 ms)
-    ✓ returns 401 for a wrong password (7 ms)
+    ✓ rejects an invalid body with 400 (validation layer) (27 ms)
+    ✓ logs in an active patient and returns tokens (15 ms)
+    ✓ returns 401 for a wrong password (5 ms)
     ✓ returns 401 for an unknown email (no user enumeration) (3 ms)
-    ✓ blocks a doctor whose clinic has not verified them yet (7 ms)
-    ✓ blocks an inactive account (5 ms)
+    ✓ blocks a doctor whose clinic has not verified them yet (5 ms)
+    ✓ blocks an inactive account (4 ms)
   POST /api/auth/register
-    ✓ registers a patient and returns tokens (201) (293 ms)
-    ✓ rejects a doctor registration without a clinic code (400) (4 ms)
-    ✓ rejects a doctor registration with an unknown clinic code (400) (4 ms)
-    ✓ rejects a weak password (400) (4 ms)
+    ✓ registers a patient and returns tokens (201) (213 ms)
+    ✓ rejects a doctor registration without a clinic code (400) (3 ms)
+    ✓ rejects a doctor registration with an unknown clinic code (400) (3 ms)
+    ✓ rejects a weak password (400) (3 ms)
   POST /api/auth/phone/* (идентификация 149-ФЗ ст. 10.1)
-    ✓ rejects a request without an access token (401) (8 ms)
-    ✓ requests a code for a new phone number and returns devCode in test mode (14 ms)
-    ✓ rejects a request when no phone is provided and none is stored (400) (12 ms)
-    ✓ verifies a valid code and marks the phone verified (10 ms)
-    ✓ rejects a wrong code (400) (10 ms)
-    ✓ rejects an expired code (400) (9 ms)
-    ✓ rejects a non-6-digit code body (400, validation layer) (9 ms)
+    ✓ rejects a request without an access token (401) (7 ms)
+    ✓ requests a code for a new phone number and returns devCode in test mode (9 ms)
+    ✓ rejects a request when no phone is provided and none is stored (400) (7 ms)
+    ✓ verifies a valid code and marks the phone verified (8 ms)
+    ✓ rejects a wrong code (400) (7 ms)
+    ✓ rejects an expired code (400) (7 ms)
+    ✓ rejects a non-6-digit code body (400, validation layer) (7 ms)
   unknown routes
-    ✓ falls through to the 404 handler with structured JSON (3 ms)
+    ✓ falls through to the 404 handler with structured JSON (2 ms)
 
 PASS tests/security/transactionsIdor.test.js
   Transaction IDOR (controllers/transactionController.js)
-    ✓ refund of a foreign transaction is forbidden (403) (10 ms)
-    ✓ cancel of a foreign transaction is forbidden (403) (4 ms)
-    ✓ reading a foreign transaction is forbidden (403) (3 ms)
-    ✓ refund of your own completed transaction succeeds (200) (3 ms)
-    ✓ test-balance deposit rejects a negative amount (400) (3 ms)
+    ✓ refund of a foreign transaction is forbidden (403) (6 ms)
+    ✓ cancel of a foreign transaction is forbidden (403) (2 ms)
+    ✓ reading a foreign transaction is forbidden (403) (2 ms)
+    ✓ refund of your own completed transaction succeeds (200) (2 ms)
+    ✓ test-balance deposit rejects a negative amount (400) (5 ms)
   canAccessChat (utils/chatAccess.js)
-    ✓ a stranger gets false (1 ms)
+    ✓ a stranger gets false
     ✓ an explicit participant gets true
-    ✓ the doctor of the chat gets true
+    ✓ the doctor of the chat gets true (1 ms)
     ✓ the clinic admin of the chat clinic gets true
-    ✓ a clinic admin of another clinic gets false (1 ms)
+    ✓ a clinic admin of another clinic gets false
     ✓ a system admin gets true without any DB checks
 
 PASS tests/paymentService.test.js
   PaymentService
     findChat
-      ✓ resolves a chat by UUID primary key (1 ms)
-      ✓ resolves a chat by public chatId string without touching findByPk
+      ✓ resolves a chat by UUID primary key
+      ✓ resolves a chat by public chatId string without touching findByPk (1 ms)
     resolveMessageFree
-      ✓ doctor messages are always free (doctor_initiated) (5 ms)
+      ✓ doctor messages are always free (doctor_initiated)
       ✓ first message in a chat is free
-      ✓ completed appointment within the window makes messages free
+      ✓ completed appointment within the window makes messages free (1 ms)
       ✓ without appointment in the window the message is paid
     chargeMessagePayment
-      ✓ returns failure when the patient has insufficient balance (1 ms)
+      ✓ returns failure when the patient has insufficient balance
       ✓ charges the default price and creates a completed transaction (1 ms)
-      ✓ credits the doctor share after a successful charge (1 ms)
+      ✓ credits the doctor share after a successful charge
     isMessageFree
-      ✓ returns paid for an unknown chat without throwing
+      ✓ returns paid for an unknown chat without throwing (1 ms)
 
 PASS tests/errorHandler.test.js
   errorHandler middleware
     notFound
-      ✓ returns 404 with structured JSON and endpoint info (2 ms)
+      ✓ returns 404 with structured JSON and endpoint info (1 ms)
     errorHandler
       ✓ uses the error status and code when provided
-      ✓ logs the error with request context (method, url, code, status) (11 ms)
+      ✓ logs the error with request context (method, url, code, status) (7 ms)
       ✓ includes the stack trace in the log for 500 errors
       ✓ defaults to 500 INTERNAL_ERROR for unknown errors (1 ms)
       ✓ hides internal error messages from clients in production (1 ms)
@@ -77,107 +77,107 @@ PASS tests/errorHandler.test.js
 PASS tests/security/paymentsSecurity.test.js
   Server-side price pinning (services/paymentService.js)
     ✓ a message payment cannot be made cheaper by the client (1 ms)
-    ✓ a file payment cannot be made cheaper by the client
+    ✓ a file payment cannot be made cheaper by the client (1 ms)
     ✓ subscription prices are fixed (monthly=500, yearly=5000)
-    ✓ chargeMessagePayment ignores the amount option (1 ms)
+    ✓ chargeMessagePayment ignores the amount option
   Payment schema validation
-    ✓ rejects zero, negative, string amounts and invalid types (5 ms)
-    ✓ test-balance deposit is capped at 100000 (1 ms)
+    ✓ rejects zero, negative, string amounts and invalid types (2 ms)
+    ✓ test-balance deposit is capped at 100000
   HTTP hardening
-    ✓ oversized JSON bodies are rejected with 413 (default 100kb limit) (8 ms)
+    ✓ oversized JSON bodies are rejected with 413 (default 100kb limit) (5 ms)
 
 PASS tests/security/registerSecurity.test.js
   Privilege escalation via role (validators/auth.js)
-    ✓ rejects self-registration as clinic_admin (10 ms)
+    ✓ rejects self-registration as clinic_admin (4 ms)
     ✓ rejects self-registration as system_admin (2 ms)
-    ✓ a normal patient registration still works (201) (267 ms)
+    ✓ a normal patient registration still works (201) (198 ms)
   Mass assignment / unknown fields
-    ✓ unknown fields (isAdmin, status) never reach User.create (260 ms)
+    ✓ unknown fields (isAdmin, status) never reach User.create (190 ms)
   Prototype pollution via __proto__
-    ✓ a __proto__ payload neither poisons Object.prototype nor crashes (no 500) (259 ms)
+    ✓ a __proto__ payload neither poisons Object.prototype nor crashes (no 500) (190 ms)
 
 FAIL tests/backupIntegrity.test.js
   ● Test suite failed to run
 
-    Cannot find module '../models' from 'tests/backupIntegrity.test.js'
+    Cannot find module '../utils/logger' from 'tests/backupIntegrity.test.js'
 
-    [0m [90m 11 |[39m [36mconst[39m crypto [33m=[39m require([32m'crypto'[39m)[33m;[39m
-     [90m 12 |[39m
-    [31m[1m>[22m[39m[90m 13 |[39m jest[33m.[39mmock([32m'../models'[39m[33m,[39m () [33m=>[39m ({
+    [0m [90m 16 |[39m   sequelize[33m:[39m { query[33m:[39m jest[33m.[39mfn() }[33m,[39m
+     [90m 17 |[39m }))[33m;[39m
+    [31m[1m>[22m[39m[90m 18 |[39m jest[33m.[39mmock([32m'../utils/logger'[39m[33m,[39m () [33m=>[39m ({
      [90m    |[39m      [31m[1m^[22m[39m
-     [90m 14 |[39m   [33mUser[39m[33m:[39m { findByPk[33m:[39m jest[33m.[39mfn() }[33m,[39m
-     [90m 15 |[39m   [33mBackup[39m[33m:[39m { findByPk[33m:[39m jest[33m.[39mfn()[33m,[39m create[33m:[39m jest[33m.[39mfn()[33m,[39m findAll[33m:[39m jest[33m.[39mfn()[33m,[39m count[33m:[39m jest[33m.[39mfn() }[33m,[39m
-     [90m 16 |[39m   sequelize[33m:[39m { query[33m:[39m jest[33m.[39mfn() }[33m,[39m[0m
+     [90m 19 |[39m   error[33m:[39m jest[33m.[39mfn()[33m,[39m
+     [90m 20 |[39m   warn[33m:[39m jest[33m.[39mfn()[33m,[39m
+     [90m 21 |[39m   info[33m:[39m jest[33m.[39mfn()[33m,[39m[0m
 
       at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
-      at Object.mock (tests/backupIntegrity.test.js:13:6)
+      at Object.mock (tests/backupIntegrity.test.js:18:6)
 
 PASS tests/coreAesGcm.test.js
   E2E cross-platform contract (AES-256-GCM known-answer vectors)
-    ✓ фикстура — векторы ожидаемой формы (размеры полей) (2 ms)
+    ✓ фикстура — векторы ожидаемой формы (размеры полей) (1 ms)
     ✓ Node crypto воспроизводит ct и tag вектора v1 (1 ms)
-    ✓ Node crypto воспроизводит ct и tag вектора v2 (1 ms)
+    ✓ Node crypto воспроизводит ct и tag вектора v2
     ✓ Node crypto воспроизводит ct и tag вектора v3
     ✓ Node crypto расшифровывает эталонный вектор v1
-    ✓ Node crypto расшифровывает эталонный вектор v2 (1 ms)
+    ✓ Node crypto расшифровывает эталонный вектор v2
     ✓ Node crypto расшифровывает эталонный вектор v3
-    ✓ подделанный тег отклоняется AEAD (4 ms)
+    ✓ подделанный тег отклоняется AEAD (3 ms)
 
 PASS tests/security/jwtSecurity.test.js
   JWT security (middleware/auth.js)
-    ✓ accepts a valid HS256 token (6 ms)
-    ✓ rejects a forged alg:none token (2 ms)
-    ✓ rejects a token signed with the wrong secret (4 ms)
+    ✓ accepts a valid HS256 token (3 ms)
+    ✓ rejects a forged alg:none token (1 ms)
+    ✓ rejects a token signed with the wrong secret (2 ms)
     ✓ rejects an expired token (2 ms)
-    ✓ rejects a tampered payload (signature mismatch) (3 ms)
-    ✓ rejects a missing or malformed Authorization header (3 ms)
+    ✓ rejects a tampered payload (signature mismatch) (1 ms)
+    ✓ rejects a missing or malformed Authorization header (1 ms)
 
 PASS tests/e2eEnvelope.test.js
   validateE2EEnvelope
-    ✓ accepts a well-formed envelope (1 ms)
+    ✓ accepts a well-formed envelope
     ✓ accepts multiple recipients up to the limit
-    ✓ rejects non-object, null and undefined envelopes (1 ms)
+    ✓ rejects non-object, null and undefined envelopes
     ✓ rejects wrong version or algorithm
     ✓ rejects malformed ephemeral public key
     ✓ rejects malformed nonce (1 ms)
-    ✓ rejects missing, empty or oversized boxes (1 ms)
+    ✓ rejects missing, empty or oversized boxes
     ✓ rejects an envelope larger than the total limit (1 ms)
 
 PASS tests/cryptoService.test.js
   CryptoService
-    ✓ generates a valid X25519 key pair (33 ms)
-    ✓ both sides derive the same shared secret (ECDH) (75 ms)
-    ✓ encrypts and decrypts a message (2 ms)
-    ✓ rejects decryption with a wrong key (10 ms)
-    ✓ encrypts and decrypts objects (JSON) (1 ms)
+    ✓ generates a valid X25519 key pair (16 ms)
+    ✓ both sides derive the same shared secret (ECDH) (40 ms)
+    ✓ encrypts and decrypts a message (1 ms)
+    ✓ rejects decryption with a wrong key (6 ms)
+    ✓ encrypts and decrypts objects (JSON)
     ✓ encrypts and decrypts file buffers (1 ms)
-    ✓ hash functions are deterministic (1 ms)
+    ✓ hash functions are deterministic
     ✓ HMAC verify works and rejects tampering
 
 PASS tests/coreInterop.test.js
   E2E cross-platform contract (canonical NaCl crypto_box vector)
-    ✓ фикстура — канонический вектор NaCl (размеры полей) (2 ms)
-    ✓ tweetnacl воспроизводит эталонный шифртекст байт-в-байт (27 ms)
-    ✓ tweetnacl открывает эталонный бокс ключом получателя Bob (19 ms)
+    ✓ фикстура — канонический вектор NaCl (размеры полей) (1 ms)
+    ✓ tweetnacl воспроизводит эталонный шифртекст байт-в-байт (16 ms)
+    ✓ tweetnacl открывает эталонный бокс ключом получателя Bob (10 ms)
 
 PASS tests/checksum.test.js
   checksum hot-path (этап 6)
     ✓ backend экспортируется: native | fallback (1 ms)
     ✓ KAT FIPS 180-4: SHA-256("abc") и пустой буфер
     ✓ parity с node:crypto на произвольном буфере
-    ✓ sha256Verify: совпадение (в т.ч. uppercase/пробелы), несовпадение (1 ms)
-    ✓ честно: если native-аддон доступен — parity с node:crypto и на нём
+    ✓ sha256Verify: совпадение (в т.ч. uppercase/пробелы), несовпадение
+    ✓ честно: если native-аддон доступен — parity с node:crypto и на нём (1 ms)
 
 PASS tests/bcryptInterop.test.js
   Контрактные векторы bcrypt (OpenBSD KAT, фикстура core/tests)
-    ✓ вектор v1: серверный bcrypt верифицирует KAT (2 ms)
-    ✓ вектор v2: серверный bcrypt верифицирует KAT (2 ms)
-    ✓ вектор v3: серверный bcrypt верифицирует KAT (3 ms)
-    ✓ вектор v4: серверный bcrypt верифицирует KAT (2 ms)
+    ✓ вектор v1: серверный bcrypt верифицирует KAT (1 ms)
+    ✓ вектор v2: серверный bcrypt верифицирует KAT (1 ms)
+    ✓ вектор v3: серверный bcrypt верифицирует KAT (2 ms)
+    ✓ вектор v4: серверный bcrypt верифицирует KAT (1 ms)
     ✓ неверный пароль отклоняется (2 ms)
 
 Test Suites: 1 failed, 13 passed, 14 total
 Tests:       103 passed, 103 total
 Snapshots:   0 total
-Time:        3.774 s
+Time:        2.362 s
 Ran all test suites.
