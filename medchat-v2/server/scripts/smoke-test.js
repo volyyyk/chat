@@ -496,6 +496,16 @@ async function main() {
 
   if (failures > 0) {
     console.error('SMOKE TEST FAILED');
+    // Diagnostics: show WHY the server answered 5xx. Winston error logs go
+    // to stdout; without these tails a failed check is undiagnosable in CI.
+    if (serverStderrTail) {
+      console.error('---- server stderr (tail) ----');
+      console.error(serverStderrTail);
+    }
+    if (serverStdoutTail) {
+      console.error('--- SERVER STDOUT TAIL (winston error logs go here) ---');
+      console.error(serverStdoutTail);
+    }
     process.exitCode = 1;
   } else {
     console.log('SMOKE TEST PASSED');

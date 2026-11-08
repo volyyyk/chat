@@ -283,11 +283,7 @@ class AppointmentController {
 
       const appointment = await models.Appointment.findOne({
         where: { id },
-        include: [
-          { ...DOCTOR_INCLUDE, include: [models.Specialty] },
-          PATIENT_INCLUDE,
-          CLINIC_INCLUDE,
-        ],
+        include: [DOCTOR_INCLUDE, PATIENT_INCLUDE, CLINIC_INCLUDE],
       });
 
       if (!appointment) {

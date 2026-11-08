@@ -91,9 +91,9 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id: eprescription.id },
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
-          { model: models.Patient },
-          { model: models.Appointment },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient' },
+          { model: models.Appointment, as: 'appointment' },
         ],
       });
 
@@ -179,9 +179,9 @@ class EPrescriptionController {
       const eprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
-          { model: models.Patient },
-          { model: models.Appointment },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient' },
+          { model: models.Appointment, as: 'appointment' },
         ],
       });
 
@@ -268,9 +268,9 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
-          { model: models.Patient },
-          { model: models.Appointment },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient' },
+          { model: models.Appointment, as: 'appointment' },
         ],
       });
 
@@ -325,9 +325,9 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
-          { model: models.Patient },
-          { model: models.Appointment },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient' },
+          { model: models.Appointment, as: 'appointment' },
         ],
       });
 
@@ -396,9 +396,9 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
-          { model: models.Patient },
-          { model: models.Appointment },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient' },
+          { model: models.Appointment, as: 'appointment' },
         ],
       });
 
@@ -462,9 +462,9 @@ class EPrescriptionController {
       const eprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
-          { model: models.Patient },
-          { model: models.Appointment },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient' },
+          { model: models.Appointment, as: 'appointment' },
         ],
       });
 
@@ -506,9 +506,9 @@ class EPrescriptionController {
       const eprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
-          { model: models.Patient },
-          { model: models.Appointment },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient' },
+          { model: models.Appointment, as: 'appointment' },
         ],
       });
 
@@ -600,9 +600,9 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
-          { model: models.Patient },
-          { model: models.Appointment },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient' },
+          { model: models.Appointment, as: 'appointment' },
         ],
       });
 
@@ -711,7 +711,7 @@ class EPrescriptionController {
       const { count, rows } = await models.EPrescription.findAndCountAll({
         where,
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
           { model: models.Patient, as: 'patient', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
           { model: models.Appointment, attributes: ['id', 'startTime'] },
         ],
@@ -804,7 +804,7 @@ class EPrescriptionController {
       const fullEprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
-          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }, models.Specialty] },
+          { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
           { model: models.Patient, as: 'patient', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
           { model: models.Appointment, as: 'appointment' },
         ],

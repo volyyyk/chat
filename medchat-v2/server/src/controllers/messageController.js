@@ -239,9 +239,13 @@ class MessageController {
       const unreadCount = await models.Message.count({
         where: {
           chatId: chatIds,
-          readBy: { [models.Sequelize.Op.notContains]: [userId] },
           senderId: { [models.Sequelize.Op.ne]: userId },
           status: { [models.Sequelize.Op.ne]: 'deleted' },
+          // NOT (read_by @> [userId]). Op.notContains emits "read_by NOT @>"
+          // which is invalid PostgreSQL syntax (500 on every call).
+          [models.Sequelize.Op.not]: [
+            { readBy: { [models.Sequelize.Op.contains]: [userId] } },
+          ],
         },
       });
 
