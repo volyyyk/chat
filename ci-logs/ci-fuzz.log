@@ -3,75 +3,75 @@
 [1m[92m      Adding[0m generic-array v0.14.7 [1m[33m(available: v0.14.9)[0m
 [1m[92m Downloading[0m crates ...
 [1m[92m  Downloaded[0m aead v0.5.2
-[1m[92m  Downloaded[0m aes v0.8.4
-[1m[92m  Downloaded[0m base64 v0.22.1
-[1m[92m  Downloaded[0m arbitrary v1.5.0
-[1m[92m  Downloaded[0m quote v1.0.47
-[1m[92m  Downloaded[0m aes-gcm v0.10.3
-[1m[92m  Downloaded[0m block-buffer v0.10.4
-[1m[92m  Downloaded[0m byteorder v1.5.0
-[1m[92m  Downloaded[0m cfg-if v1.0.5
-[1m[92m  Downloaded[0m sha2 v0.10.9
-[1m[92m  Downloaded[0m subtle v2.6.1
-[1m[92m  Downloaded[0m zeroize v1.9.1
-[1m[92m  Downloaded[0m serde v1.0.229
-[1m[92m  Downloaded[0m version_check v0.9.5
-[1m[92m  Downloaded[0m curve25519-dalek-derive v0.1.1
-[1m[92m  Downloaded[0m shlex v2.0.1
-[1m[92m  Downloaded[0m universal-hash v0.5.1
-[1m[92m  Downloaded[0m blowfish v0.9.1
-[1m[92m  Downloaded[0m rand_core v0.6.4
-[1m[92m  Downloaded[0m poly1305 v0.8.0
-[1m[92m  Downloaded[0m salsa20 v0.10.2
-[1m[92m  Downloaded[0m zeroize_derive v1.5.0
-[1m[92m  Downloaded[0m crypto-common v0.1.7
-[1m[92m  Downloaded[0m crypto_secretbox v0.1.1
-[1m[92m  Downloaded[0m generic-array v0.14.7
-[1m[92m  Downloaded[0m opaque-debug v0.3.1
-[1m[92m  Downloaded[0m ghash v0.5.1
 [1m[92m  Downloaded[0m bcrypt v0.15.1
+[1m[92m  Downloaded[0m blowfish v0.9.1
+[1m[92m  Downloaded[0m base64 v0.22.1
+[1m[92m  Downloaded[0m zeroize_derive v1.5.0
 [1m[92m  Downloaded[0m inout v0.1.4
 [1m[92m  Downloaded[0m napi-build v2.6.0
+[1m[92m  Downloaded[0m opaque-debug v0.3.1
+[1m[92m  Downloaded[0m universal-hash v0.5.1
+[1m[92m  Downloaded[0m cfg-if v1.0.5
+[1m[92m  Downloaded[0m crypto-common v0.1.7
+[1m[92m  Downloaded[0m ghash v0.5.1
+[1m[92m  Downloaded[0m salsa20 v0.10.2
+[1m[92m  Downloaded[0m version_check v0.9.5
+[1m[92m  Downloaded[0m block-buffer v0.10.4
+[1m[92m  Downloaded[0m curve25519-dalek-derive v0.1.1
 [1m[92m  Downloaded[0m cpufeatures v0.2.17
-[1m[92m  Downloaded[0m ctr v0.9.2
-[1m[92m  Downloaded[0m digest v0.10.7
-[1m[92m  Downloaded[0m hmac v0.12.1
+[1m[92m  Downloaded[0m subtle v2.6.1
+[1m[92m  Downloaded[0m byteorder v1.5.0
 [1m[92m  Downloaded[0m polyval v0.6.2
-[1m[92m  Downloaded[0m unicode-ident v1.0.27
-[1m[92m  Downloaded[0m cipher v0.4.4
-[1m[92m  Downloaded[0m getrandom v0.2.17
+[1m[92m  Downloaded[0m quote v1.0.47
+[1m[92m  Downloaded[0m rand_core v0.6.4
+[1m[92m  Downloaded[0m zeroize v1.9.1
+[1m[92m  Downloaded[0m crypto_secretbox v0.1.1
 [1m[92m  Downloaded[0m jobserver v0.1.35
-[1m[92m  Downloaded[0m serde_derive v1.0.229
+[1m[92m  Downloaded[0m sha2 v0.10.9
+[1m[92m  Downloaded[0m shlex v2.0.1
+[1m[92m  Downloaded[0m cipher v0.4.4
+[1m[92m  Downloaded[0m ctr v0.9.2
+[1m[92m  Downloaded[0m generic-array v0.14.7
 [1m[92m  Downloaded[0m crypto_box v0.9.1
+[1m[92m  Downloaded[0m digest v0.10.7
+[1m[92m  Downloaded[0m arbitrary v1.5.0
+[1m[92m  Downloaded[0m poly1305 v0.8.0
+[1m[92m  Downloaded[0m getrandom v0.2.17
+[1m[92m  Downloaded[0m hmac v0.12.1
+[1m[92m  Downloaded[0m unicode-ident v1.0.27
 [1m[92m  Downloaded[0m find-msvc-tools v0.1.15
 [1m[92m  Downloaded[0m serde_core v1.0.229
 [1m[92m  Downloaded[0m proc-macro2 v1.0.107
-[1m[92m  Downloaded[0m syn v2.0.119
+[1m[92m  Downloaded[0m serde_derive v1.0.229
+[1m[92m  Downloaded[0m serde v1.0.229
 [1m[92m  Downloaded[0m x25519-dalek v2.0.1
 [1m[92m  Downloaded[0m typenum v1.20.1
-[1m[92m  Downloaded[0m cc v1.11.1
 [1m[92m  Downloaded[0m libfuzzer-sys v0.4.13
+[1m[92m  Downloaded[0m aes v0.8.4
+[1m[92m  Downloaded[0m aes-gcm v0.10.3
+[1m[92m  Downloaded[0m cc v1.11.1
+[1m[92m  Downloaded[0m syn v2.0.119
 [1m[92m  Downloaded[0m syn v3.0.9
 [1m[92m  Downloaded[0m curve25519-dalek v4.1.3
 [1m[92m  Downloaded[0m libc v0.2.191
 [1m[92m   Compiling[0m proc-macro2 v1.0.107
-[1m[92m   Compiling[0m unicode-ident v1.0.27
 [1m[92m   Compiling[0m quote v1.0.47
-[1m[92m   Compiling[0m version_check v0.9.5
+[1m[92m   Compiling[0m unicode-ident v1.0.27
 [1m[92m   Compiling[0m libc v0.2.191
+[1m[92m   Compiling[0m version_check v0.9.5
 [1m[92m   Compiling[0m cfg-if v1.0.5
 [1m[92m   Compiling[0m typenum v1.20.1
 [1m[92m   Compiling[0m generic-array v0.14.7
 [1m[92m   Compiling[0m subtle v2.6.1
 [1m[92m   Compiling[0m cpufeatures v0.2.17
-[1m[92m   Compiling[0m opaque-debug v0.3.1
 [1m[92m   Compiling[0m semver v1.0.28
+[1m[92m   Compiling[0m opaque-debug v0.3.1
 [1m[92m   Compiling[0m syn v2.0.119
 [1m[92m   Compiling[0m rustc_version v0.4.1
-[1m[92m   Compiling[0m curve25519-dalek v4.1.3
 [1m[92m   Compiling[0m getrandom v0.2.17
-[1m[92m   Compiling[0m shlex v2.0.1
+[1m[92m   Compiling[0m curve25519-dalek v4.1.3
 [1m[92m   Compiling[0m rand_core v0.6.4
+[1m[92m   Compiling[0m shlex v2.0.1
 [1m[92m   Compiling[0m find-msvc-tools v0.1.15
 [1m[92m   Compiling[0m napi-build v2.6.0
 [1m[92m   Compiling[0m byteorder v1.5.0
@@ -82,6 +82,7 @@
 [1m[92m   Compiling[0m cc v1.11.1
 [1m[92m   Compiling[0m libfuzzer-sys v0.4.13
 [1m[92m   Compiling[0m zeroize_derive v1.5.0
+[1m[92m   Compiling[0m curve25519-dalek-derive v0.1.1
 [1m[92m   Compiling[0m zeroize v1.9.1
 [1m[92m   Compiling[0m crypto-common v0.1.7
 [1m[92m   Compiling[0m inout v0.1.4
@@ -89,30 +90,29 @@
 [1m[92m   Compiling[0m universal-hash v0.5.1
 [1m[92m   Compiling[0m aead v0.5.2
 [1m[92m   Compiling[0m block-buffer v0.10.4
-[1m[92m   Compiling[0m curve25519-dalek-derive v0.1.1
 [1m[92m   Compiling[0m digest v0.10.7
-[1m[92m   Compiling[0m polyval v0.6.2
 [1m[92m   Compiling[0m poly1305 v0.8.0
+[1m[92m   Compiling[0m polyval v0.6.2
 [1m[92m   Compiling[0m salsa20 v0.10.2
 [1m[92m   Compiling[0m crypto_secretbox v0.1.1
 [1m[92m   Compiling[0m ghash v0.5.1
-[1m[92m   Compiling[0m ctr v0.9.2
 [1m[92m   Compiling[0m blowfish v0.9.1
+[1m[92m   Compiling[0m ctr v0.9.2
 [1m[92m   Compiling[0m aes v0.8.4
 [1m[92m   Compiling[0m aes-gcm v0.10.3
 [1m[92m   Compiling[0m bcrypt v0.15.1
 [1m[92m   Compiling[0m crypto_box v0.9.1
-[1m[92m   Compiling[0m hmac v0.12.1
-[1m[92m   Compiling[0m sha2 v0.10.9
 [1m[92m   Compiling[0m x25519-dalek v2.0.1
+[1m[92m   Compiling[0m sha2 v0.10.9
+[1m[92m   Compiling[0m hmac v0.12.1
 [1m[92m   Compiling[0m medchat-core-fuzz v0.0.0 (/home/runner/work/chat/chat/medchat-v2/core/fuzz)
-[1m[92m    Finished[0m `release` profile [optimized + debuginfo] target(s) in 31.77s
-[1m[92m    Finished[0m `release` profile [optimized + debuginfo] target(s) in 0.03s
+[1m[92m    Finished[0m `release` profile [optimized + debuginfo] target(s) in 38.02s
+[1m[92m    Finished[0m `release` profile [optimized + debuginfo] target(s) in 0.02s
 [1m[92m     Running[0m `fuzz/target/x86_64-unknown-linux-gnu/release/open_sealed_fuzz -artifact_prefix=/home/runner/work/chat/chat/medchat-v2/core/fuzz/artifacts/open_sealed_fuzz/ -runs=5000 /home/runner/work/chat/chat/medchat-v2/core/fuzz/corpus/open_sealed_fuzz`
 INFO: Running with entropic power schedule (0xFF, 100).
-INFO: Seed: 897046057
-INFO: Loaded 1 modules   (3225 inline 8-bit counters): 3225 [0x62de5df2dfb0, 0x62de5df2ec49), 
-INFO: Loaded 1 PC tables (3225 PCs): 3225 [0x62de5df2ec50,0x62de5df3b5e0), 
+INFO: Seed: 4138639700
+INFO: Loaded 1 modules   (3225 inline 8-bit counters): 3225 [0x6477dd788fb0, 0x6477dd789c49), 
+INFO: Loaded 1 PC tables (3225 PCs): 3225 [0x6477dd789c50,0x6477dd7965e0), 
 INFO:        0 files found in /home/runner/work/chat/chat/medchat-v2/core/fuzz/corpus/open_sealed_fuzz
 INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
 INFO: A corpus is not provided, starting from an empty corpus
@@ -124,60 +124,60 @@ Done 5000 runs in 0 second(s)
 [1m[92m    Finished[0m `release` profile [optimized + debuginfo] target(s) in 0.02s
 [1m[92m     Running[0m `fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_wire_fuzz -artifact_prefix=/home/runner/work/chat/chat/medchat-v2/core/fuzz/artifacts/ratchet_wire_fuzz/ -runs=5000 /home/runner/work/chat/chat/medchat-v2/core/fuzz/corpus/ratchet_wire_fuzz`
 INFO: Running with entropic power schedule (0xFF, 100).
-INFO: Seed: 1304268979
-INFO: Loaded 1 modules   (4606 inline 8-bit counters): 4606 [0x5c3ef2c955b0, 0x5c3ef2c967ae), 
-INFO: Loaded 1 PC tables (4606 PCs): 4606 [0x5c3ef2c967b0,0x5c3ef2ca8790), 
+INFO: Seed: 227218535
+INFO: Loaded 1 modules   (4606 inline 8-bit counters): 4606 [0x5ac19c3b05b0, 0x5ac19c3b17ae), 
+INFO: Loaded 1 PC tables (4606 PCs): 4606 [0x5ac19c3b17b0,0x5ac19c3c3790), 
 INFO:        0 files found in /home/runner/work/chat/chat/medchat-v2/core/fuzz/corpus/ratchet_wire_fuzz
 INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
 INFO: A corpus is not provided, starting from an empty corpus
-#2	INITED cov: 22 ft: 23 corp: 1/1b exec/s: 0 rss: 33Mb
-#5000	DONE   cov: 22 ft: 23 corp: 1/1b lim: 53 exec/s: 0 rss: 43Mb
+#2	INITED cov: 22 ft: 23 corp: 1/1b exec/s: 0 rss: 34Mb
+#5000	DONE   cov: 22 ft: 23 corp: 1/1b lim: 53 exec/s: 0 rss: 44Mb
 Done 5000 runs in 0 second(s)
 [1m[92m   Compiling[0m medchat-core-fuzz v0.0.0 (/home/runner/work/chat/chat/medchat-v2/core/fuzz)
-[1m[92m    Finished[0m `release` profile [optimized + debuginfo] target(s) in 0.26s
+[1m[92m    Finished[0m `release` profile [optimized + debuginfo] target(s) in 0.24s
 [1m[92m    Finished[0m `release` profile [optimized + debuginfo] target(s) in 0.02s
 [1m[92m     Running[0m `fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz -artifact_prefix=/home/runner/work/chat/chat/medchat-v2/core/fuzz/artifacts/ratchet_roundtrip_fuzz/ -runs=5000 /home/runner/work/chat/chat/medchat-v2/core/fuzz/corpus/ratchet_roundtrip_fuzz`
 INFO: Running with entropic power schedule (0xFF, 100).
-INFO: Seed: 1753240453
-INFO: Loaded 1 modules   (4889 inline 8-bit counters): 4889 [0x58b65fa80d50, 0x58b65fa82069), 
-INFO: Loaded 1 PC tables (4889 PCs): 4889 [0x58b65fa82070,0x58b65fa95200), 
+INFO: Seed: 631065426
+INFO: Loaded 1 modules   (4889 inline 8-bit counters): 4889 [0x610d66fadd50, 0x610d66faf069), 
+INFO: Loaded 1 PC tables (4889 PCs): 4889 [0x610d66faf070,0x610d66fc2200), 
 INFO:        0 files found in /home/runner/work/chat/chat/medchat-v2/core/fuzz/corpus/ratchet_roundtrip_fuzz
 INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
 
-thread '<unnamed>' (4407) panicked at fuzz_targets/ratchet_roundtrip_fuzz.rs:22:37:
+thread '<unnamed>' (4488) panicked at fuzz_targets/ratchet_roundtrip_fuzz.rs:22:37:
 roundtrip decrypt: Aead
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-==4407== ERROR: libFuzzer: deadly signal
-    #0 0x58b65f8815c1  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1585c1) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #1 0x58b65fa1325b  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x2ea25b) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #2 0x58b65f99cf95  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x273f95) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #3 0x76acbcc47e0f  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x47e0f) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
-    #4 0x76acbccae14b  (/usr/lib/x86_64-linux-gnu/libc.so.6+0xae14b) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
-    #5 0x76acbcc47cdd  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x47cdd) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
-    #6 0x76acbcc288eb  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x288eb) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
-    #7 0x58b65fa4d959  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x324959) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #8 0x58b65fa4c628  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x323628) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #9 0x58b65f8ea784  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1c1784) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #10 0x58b65fa4c8b1  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x3238b1) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #11 0x58b65fa3ae41  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x311e41) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #12 0x58b65fa35308  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x30c308) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #13 0x58b65fa3b54c  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x31254c) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #14 0x58b65fa5ff3b  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x336f3b) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #15 0x58b65fa60f61  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x337f61) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #16 0x58b65f8a8b5f  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x17fb5f) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #17 0x58b65f8a972d  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x18072d) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #18 0x58b65f8ab97c  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x18297c) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #19 0x58b65f8ea314  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1c1314) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #20 0x58b65f8eb0f8  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1c20f8) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #21 0x58b65f8e9a0d  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1c0a0d) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #22 0x58b65f99de92  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x274e92) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #23 0x58b65f9b9d42  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x290d42) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #24 0x58b65f9bbf04  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x292f04) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #25 0x58b65f9267cf  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1fd7cf) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #26 0x58b65f8eb1a2  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1c21a2) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
-    #27 0x76acbcc2a8c0  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x2a8c0) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
-    #28 0x76acbcc2a9d7  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x2a9d7) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
-    #29 0x58b65f7e22a4  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0xb92a4) (BuildId: 6136c1af708f6367ebae2e0c366df461fad249a9)
+==4488== ERROR: libFuzzer: deadly signal
+    #0 0x610d66dae5c1  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1585c1) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #1 0x610d66f4025b  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x2ea25b) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #2 0x610d66ec9f95  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x273f95) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #3 0x7dbfb2c47e0f  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x47e0f) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
+    #4 0x7dbfb2cae14b  (/usr/lib/x86_64-linux-gnu/libc.so.6+0xae14b) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
+    #5 0x7dbfb2c47cdd  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x47cdd) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
+    #6 0x7dbfb2c288eb  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x288eb) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
+    #7 0x610d66f7a959  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x324959) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #8 0x610d66f79628  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x323628) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #9 0x610d66e17784  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1c1784) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #10 0x610d66f798b1  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x3238b1) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #11 0x610d66f67e41  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x311e41) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #12 0x610d66f62308  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x30c308) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #13 0x610d66f6854c  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x31254c) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #14 0x610d66f8cf3b  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x336f3b) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #15 0x610d66f8df61  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x337f61) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #16 0x610d66dd5b5f  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x17fb5f) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #17 0x610d66dd672d  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x18072d) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #18 0x610d66dd897c  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x18297c) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #19 0x610d66e17314  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1c1314) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #20 0x610d66e180f8  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1c20f8) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #21 0x610d66e16a0d  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1c0a0d) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #22 0x610d66ecae92  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x274e92) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #23 0x610d66ee6d42  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x290d42) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #24 0x610d66ee8f04  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x292f04) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #25 0x610d66e537cf  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1fd7cf) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #26 0x610d66e181a2  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0x1c21a2) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
+    #27 0x7dbfb2c2a8c0  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x2a8c0) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
+    #28 0x7dbfb2c2a9d7  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x2a9d7) (BuildId: 4ec69afdf3da96ce7388640dcd27c6d0c1b256ef)
+    #29 0x610d66d0f2a4  (/home/runner/work/chat/chat/medchat-v2/core/fuzz/target/x86_64-unknown-linux-gnu/release/ratchet_roundtrip_fuzz+0xb92a4) (BuildId: cbfd0bb207021263a45ed9f428182394b6826933)
 
 NOTE: libFuzzer has rudimentary signal handlers.
       Combine libFuzzer with AddressSanitizer or similar for better crash reports.
