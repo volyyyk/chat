@@ -18,16 +18,16 @@
 
 | Блок | Сейчас | Цель | Обоснование |
 |---|---|---|---|
-| Криптография at-rest (cryptoService) | Node (AES-GCM через crypto) | **Rust**: `libmedchat_core` + napi-rs | Memory safety, единая реализация на сервере и всех клиентах, готовность к аудиту |
+| Криптография at-rest (cryptoService) | Node (AES-GCM через crypto) | **Rust**: \`libmedchat_core\` + napi-rs | Memory safety, единая реализация на сервере и всех клиентах, готовность к аудиту |
 | E2E X25519-box | реализовано (tweetnacl в мобильном, Rust-ядро совместимо; контракт — readme_for_AI §5) | остаётся в клиентах | Рабочий E2E-контур: сервер хранит только шифротекст |
 | Double Ratchet (forward secrecy) | прототип в medchat-core (src/ratchet.rs, 6aff983 + skip-store d033eeb + wire-формат a43102d) | **Rust** в ядре + napi-rs/UniFFI биндинги | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
 | Хэширование чексумм файлов, сжатие бэкапов | Node streams | **Rust** (napi-rs) | CPU-bound, разгружает event-loop сервера |
 | Realtime gateway (fan-out тысяч соединений) | Node Socket.IO | Этап A: Node + Redis pub/sub; Этап B: **Rust** (tokio) при >10k соединений | Node справляется до тысяч; переписывать раньше времени — риск без выгоды |
-| Поиск по сообщениям | Postgres LIKE | Сначала pg_trgm + GIN; затем **Rust** (Tantivy) при полнотексте | Дешёлая оптимизация раньше тяжёлой |
+| Поиск по сообщениям | Postgres LIKE | Сначала pg_trgm + GIN; затем **Rust** (Tantivy) при полнотексте | Дешёвая оптимизация раньше тяжёлой |
 | iOS-клиент | Expo (JS) | **Swift + SwiftUI** + Rust-ядро (UniFFI) | Требования App Store, производительность, Keychain для ключей, нативные push (APNs) |
 | Android-клиент | Expo (JS) | **Kotlin + Jetpack Compose** + Rust-ядро (JNI) | Play Store, Android Keystore, FCM-фоновая доставка |
 | Windows-клиент (exe) | — | **Tauri 2 (Rust)**, общий UI с Linux | ~10–15 МБ вместо Electron-сотен, system webview, подпись Authenticode |
-| Linux Ubuntu-клиент | — | **Tauri 2** → `.deb` + AppImage | Та же кодовая база, что и Windows |
+| Linux Ubuntu-клиент | — | **Tauri 2** → \`.deb\` + AppImage | Та же кодовая база, что и Windows |
 | Серверный API | Node/Express | остаётся Node; горячие пути → napi-rs | Стабильность, экосистема Sequelize, CI уже зелёный |
 | ГОСТ-криптография (если УЗ-1 сертификация) | — | **C/C++**: сертифицированные СКЗИ (КриптоПро CSP и т.п.) как native-зависимости | Использовать только готовые сертифицированные библиотеки; свой код в C/C++ не пишем |
 | Интеграции с WinAPI/офисом клиники | — | **C#/.NET 8** (WinUI/WPF) — точечно | Если появится deep-Windows фича (MSIX, 1С-мосты); не базовый путь |
@@ -46,23 +46,34 @@
 **DoD:** contract-тесты гоняются против API-сервера в CI; мобильный клиент
 использует ядро без изменения UX.
 
-### Этап 2. Rust-ядро `libmedchat_core`
+### Этап 2. Rust-ядро \`libmedchat_core\`
 Криптография (AES-256-GCM, Argon2/bcrypt-verify), кодек протокола, checksums.
 Биндинги: **napi-rs** (Node), **UniFFI** (Swift/Kotlin).
 **DoD:** тест-векторы совпадают с текущей Node-реализацией байт-в-байт;
 cargo-fuzz без падений 24 ч; бенчмарк ≥ x10 к Node на крипто-пути.
 **Прогресс (ноябрь 2026):** пункт DoD «тест-векторы байт-в-байт» закрыт для
-примитива NaCl box (1ce9516): канонический вектор из дистрибуции NaCl
+примитива NaCl box (1ce9516): канонический вектор из дистрибути NaCl
 (public domain) проверяется сразу в двух реализациях на общей фикстуре
 core/tests/nacl_box_vector.hex — Rust-ядро (SalsaBox, crypto_box 0.9,
 core/tests/interop_vectors.rs, джоба CI core-tests) и tweetnacl, библиотека
 мобильного клиента (server/tests/coreInterop.test.js, джоба server-tests).
-napi-rs-биндинги для Node реализованы (754f677 → 2bb38f2: src/node.rs —
-конвертные примитивы + класс JsRatchetState для Double Ratchet; состояние
-не сериализуется — персистентность на вызывающей стороне; .node-артефакт
-через napi-cli, CI проверяет компиляцию биндингов и юнит-тесты).
-Осталось: векторы AES-GCM/bcrypt-путей, cargo-fuzz, бенчмарки, сборка
-.node-артефакта в CI.
+Вектор AES-256-GCM закрыт тем же паттерном (e7879a7): три KAT-вектора из
+BoringSSL (public domain) на общей фикстуре core/tests/aes_gcm_vector.hex —
+Rust (aes-gcm 0.10, core/tests/aes_gcm_vector.rs) и Node crypto
+(server/tests/coreAesGcm.test.js) воспроизводят ct||tag байт-в-байт.
+napi-rs-биндинги для Node реализованы (754f677 → 2bb38f2 → e411a54:
+src/node.rs — конвертные примитивы + класс JsRatchetState для Double Ratchet;
+состояние не сериализуется — персистентность на вызывающей стороне; биндинги
+вынесены за feature napi-bind: cargo test линкует исполняемый тестовый
+бинарник, а napi_*-символы в рантайме даёт только процесс Node
+(napi-rs issue #1099, libnode.so не поставляется), поэтому CI гоняет
+cargo check --tests (компиляция биндингов и их тестов) +
+cargo test --no-default-features (тесты логики); .node-артефакт через napi-cli).
+MSRV поднят до 1.77 (30c3f5e: napi-build 2.6 эмитит инструкции билд-скрипта
+синтаксисом cargo::, старый rust-version 1.65 заставлял cargo отвергать
+билд-скрипт).
+Осталось: векторы bcrypt-пути, cargo-fuzz, бенчмарки, сборка .node-артефакта
+в CI (тогда же — прогон юнит-тестов самих napi-обёрток в Node-интеграции).
 
 ### Этап 3. Нативный iOS (Swift/SwiftUI)
 SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudio), рецепты, приёмы;
@@ -77,8 +88,8 @@ FCM-пуши, фоновая доставка сообщений.
 
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
 **Tauri 2** (Rust + системный webview): один UI на обе платформы.
-Windows: подписанный `.exe`/MSIX (Authenticode), автoupdate.
-Ubuntu: `.deb` + AppImage, systemd-автостарт по желанию.
+Windows: подписанный \`.exe\`/MSIX (Authenticode), автoupdate.
+Ubuntu: \`.deb\` + AppImage, systemd-автостарт по желанию.
 Секреты: **Windows Credential Manager** / **libsecret (GNOME Keyring)**.
 **DoD:** установщики собираются в CI (matrix: windows-latest, ubuntu-latest);
 обновление конфигурации сервера без правки клиента.
@@ -101,8 +112,8 @@ to_wire/from_wire — a43102d). Skip-store реализован (d033eeb):
 (MAX_SKIP=2000/MAX_SKIPPED_KEYS=500, превышение → OutOfOrder), replay отклоняется.
 Ограничения честно: в клиенты не интегрирован — wire-формат заголовков готов
 (a43102d: header 40 || nonce 12 || ciphertext); napi-биндинги JsRatchetState
-для Node готовы (2bb38f2, src/node.rs), UniFFI для Swift/Kotlin и интеграция
-в клиенты — далее.
+для Node готовы (2bb38f2, src/node.rs, feature napi-bind), UniFFI для
+Swift/Kotlin и интеграция в клиенты — далее.
 Реализация в Rust-ядре: X25519 + Double Ratchet, серверный key-registry.
 Верификация fingerprint-кодов: РЕАЛИЗОВАНА в мобильном клиенте
 (347bc9d + ec1a0de: safety number — 60 цифр из SHA-512 по набору ключей чата,
@@ -126,7 +137,7 @@ to_wire/from_wire — a43102d). Skip-store реализован (d033eeb):
   Manager / libsecret), никогда в UserDefaults/shared_prefs/файлах.
 - TLS 1.2+ с пиннингом сертификата сервера; свои сертификаты не отключать.
 - Отсутствие секретов в репозитории; сборочные подписи в GitHub Secrets.
-- Зависимости: `cargo audit` / `cargo deny`, Dependabot; для iOS/Android —
+- Зависимости: \`cargo audit\` / \`cargo deny\`, Dependabot; для iOS/Android —
   регулярное обновление платформы под требования магазинов.
 - Anti-tamper базово: проверка целостности бинаря не требуется MVP, но
   prohibited: хранение ключей в коде.
