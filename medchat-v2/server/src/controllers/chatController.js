@@ -15,6 +15,44 @@ const CHAT_INCLUDE = [
   { model: models.Clinic, as: 'clinic' },
 ];
 
+// E2E envelope sanity limits (defensive; clients send far less)
+const E2E_MAX_BOXES = 10;
+const E2E_MAX_BOX_CHARS = 32 * 1024; // per-recipient ciphertext
+const E2E_MAX_ENVELOPE_CHARS = 256 * 1024;
+
+/**
+ * Validate an E2E envelope (see docs/readme_for_AI.md, "E2E contract").
+ * The envelope contains ONLY ciphertext: { v, alg, epk, nonce, boxes:{userId: base64} }.
+ * The server must never see plaintext for E2E messages.
+ */
+function validateE2EEnvelope(envelope) {
+  if (typeof envelope !== 'object' || envelope === null) return 'envelope must be an object';
+  if (envelope.v !== 1) return 'envelope.v must be 1';
+  if (envelope.alg !== 'x25519-box') return 'envelope.alg must be "x25519-box"';
+  if (typeof envelope.epk !== 'string' || envelope.epk.length < 43 || envelope.epk.length > 44) {
+    return 'envelope.epk must be a base64 X25519 ephemeral public key';
+  }
+  if (typeof envelope.nonce !== 'string' || envelope.nonce.length !== 32) {
+    return 'envelope.nonce must be a base64 24-byte nonce';
+  }
+  if (typeof envelope.boxes !== 'object' || envelope.boxes === null) {
+    return 'envelope.boxes must be an object { userId: base64 ciphertext }';
+  }
+  const userIds = Object.keys(envelope.boxes);
+  if (userIds.length === 0) return 'envelope.boxes must not be empty';
+  if (userIds.length > E2E_MAX_BOXES) return 'envelope.boxes exceeds ' + E2E_MAX_BOXES + ' recipients';
+  for (const uid of userIds) {
+    const ct = envelope.boxes[uid];
+    if (typeof ct !== 'string' || ct.length === 0 || ct.length > E2E_MAX_BOX_CHARS) {
+      return 'envelope.boxes[' + uid + '] must be a non-empty base64 string up to 32KB';
+    }
+  }
+  if (JSON.stringify(envelope).length > E2E_MAX_ENVELOPE_CHARS) {
+    return 'envelope exceeds 256KB';
+  }
+  return null;
+}
+
 class ChatController {
   /**
    * Create new chat
@@ -308,6 +346,12 @@ class ChatController {
    *  2) Otherwise the free/paid status is resolved via PaymentService.
    *     Paid messages are charged atomically from the test balance; if the
    *     balance is insufficient, a 402 PAYMENT_REQUIRED error is returned.
+   *
+   * E2E flow:
+   *  If body.envelope is passed, the message content is END-TO-END ENCRYPTED
+   *  by the sender's device: 'envelope' carries per-recipient ciphertexts
+   *  (see validateE2EEnvelope) and 'content' must be empty. The server stores
+   *  the envelope in metadata.e2e and keeps NO plaintext of the message.
    */
   static async sendMessage(req, res, next) {
     try {
@@ -315,6 +359,7 @@ class ChatController {
       const {
         content, type, priority, attachments, replyToId,
         clientType, clientVersion, paymentTransactionId,
+        envelope,
       } = req.body;
       const userId = req.user.id;
 
@@ -328,6 +373,29 @@ class ChatController {
       const allowed = await canAccessChat(req.user, chat);
       if (!allowed) {
         throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
+      }
+
+      // E2E: the server must never receive plaintext for envelope messages
+      const isE2E = envelope !== undefined && envelope !== null;
+      if (isE2E) {
+        const envelopeError = validateE2EEnvelope(envelope);
+        if (envelopeError) {
+          throw new AppError(envelopeError, 400, 'VALIDATION_ERROR');
+        }
+        if (content && String(content).trim() !== '') {
+          throw new AppError(
+            'content must be empty for E2E messages (send ciphertext in envelope.boxes)',
+            400,
+            'VALIDATION_ERROR'
+          );
+        }
+        if (!envelope.boxes[userId]) {
+          throw new AppError(
+            'E2E envelope must include a box for the sender (own devices/history)',
+            400,
+            'VALIDATION_ERROR'
+          );
+        }
       }
 
       // Determine receiver
@@ -388,18 +456,20 @@ class ChatController {
         }
       }
 
-      // Create message
+      // Create message. For E2E messages content stays empty on the server:
+      // the plaintext exists only on sender and recipient devices.
       const message = await models.Message.create({
         chatId: id,
         senderId: userId,
         receiverId,
-        content: content || '',
+        content: isE2E ? '' : (content || ''),
         type: type || 'text',
         priority: priority || 'normal',
         attachments: attachments || [],
         replyToId,
         status: 'sent',
-        isEncrypted: false,
+        isEncrypted: isE2E,
+        metadata: isE2E ? { e2e: envelope } : {},
         isPaid,
         isFree,
         freeMessageReason,
@@ -423,14 +493,15 @@ class ChatController {
         ).catch(() => {});
       }
 
-      // Update chat last message + unread counters in one atomic update
+      // Update chat last message + unread counters in one atomic update.
+      // For E2E messages the preview stays empty: no plaintext in the DB.
       const unreadUpdate = userId === doctorUserId
         ? { unreadCountPatient: models.Sequelize.literal('unread_count_patient + 1') }
         : { unreadCountDoctor: models.Sequelize.literal('unread_count_doctor + 1') };
 
       await chat.update({
         lastMessageId: message.id,
-        lastMessageText: content || '',
+        lastMessageText: isE2E ? '' : (content || ''),
         lastMessageSenderId: userId,
         lastMessageAt: new Date(),
         totalMessages: models.Sequelize.literal('total_messages + 1'),
