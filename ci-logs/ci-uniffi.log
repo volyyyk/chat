@@ -1,0 +1,6 @@
+=== run 42478467888 job uniffi-bindings Sun Nov  8 12:03:46 UTC 2026 ===
+cargo 1.99.1 (5f94df478 2026-08-27)
+[1m[92m    Updating[0m crates.io index
+[1m[91merror[0m: could not find `uniffi-bindgen` in registry `crates-io` with version `=0.28.3`
+[1m[92m    Updating[0m crates.io index
+[1m[91merror[0m: could not find `uniffi-bindgen` in registry `crates-io` with version `=0.28.3`
