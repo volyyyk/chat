@@ -203,4 +203,27 @@ jobs:
           workspaces: medchat-v2/core
 
       - name: Run cargo tests
-        run: cargo test
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo test; } 2>&1 | tee ../../ci-rust.log
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-rust.log ]; then
+            cp ci-rust.log ci-logs/ci-rust.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"

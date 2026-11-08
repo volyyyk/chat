@@ -7,14 +7,16 @@
 //! { v: 1, alg: "x25519-box", epk: <ephemeral pubkey>, nonce: <24 bytes>,
 //!   boxes: { [userId]: <ciphertext> } }
 //!
+//! Используется SalsaBox = X25519 + XSalsa20-Poly1305 (классический NaCl box,
+//! тот же алгоритм, что у tweetnacl nacl.box) — конверты, запечатанные здесь,
+//! открываются мобильным клиентом, и наоборот.
+//!
 //! Дальнейшие шаги (см. ROADMAP_NATIVE.md): Double Ratchet (forward secrecy),
 //! napi-rs-биндинги для Node-сервера, UniFFI-биндинги для Swift/Kotlin,
 //! опционально ГОСТ СКЗИ для сертифицированного контура.
 
-use crypto_box::aead::Aead;
-use crypto_box::{
-    aead::OsRng, Box as CryptoBox, Generate, Nonce, PublicKey, SecretKey,
-};
+use crypto_box::aead::{Aead, AeadCore, OsRng};
+use crypto_box::{Nonce, PublicKey, SalsaBox, SecretKey};
 
 /// Размер приватного/публичного ключа X25519.
 pub const KEY_SIZE: usize = 32;
@@ -62,7 +64,7 @@ pub struct KeyPair {
 pub fn generate_keypair() -> KeyPair {
     let mut rng = OsRng;
     let secret = SecretKey::generate(&mut rng);
-    let public = PublicKey::from(&secret);
+    let public = secret.public_key();
     let mut kp = KeyPair {
         public_key: [0u8; KEY_SIZE],
         secret_key: [0u8; KEY_SIZE],
@@ -93,8 +95,8 @@ pub fn seal_for_recipients(
 ) -> Result<SealedMessage, CoreError> {
     let mut rng = OsRng;
     let ephemeral_secret = SecretKey::generate(&mut rng);
-    let ephemeral_public = PublicKey::from(&ephemeral_secret);
-    let nonce = crypto_box::generate_nonce(&mut rng);
+    let ephemeral_public = ephemeral_secret.public_key();
+    let nonce = SalsaBox::generate_nonce(&mut rng);
 
     let mut sealed = SealedMessage {
         epk: [0u8; KEY_SIZE],
@@ -106,8 +108,8 @@ pub fn seal_for_recipients(
 
     for recipient in recipient_public_keys {
         let recipient_public = PublicKey::from(*recipient);
-        let box_ = CryptoBox::new(&recipient_public, &ephemeral_secret);
-        sealed.boxes.push(box_.seal(&nonce, plaintext)?);
+        let box_ = SalsaBox::new(&recipient_public, &ephemeral_secret);
+        sealed.boxes.push(box_.encrypt(&nonce, plaintext)?);
     }
 
     Ok(sealed)
@@ -126,9 +128,9 @@ pub fn open_sealed(
     let sender_ephemeral = PublicKey::from(sealed.epk);
     let nonce = Nonce::from(sealed.nonce);
 
-    let box_ = CryptoBox::new(&sender_ephemeral, &my_secret);
+    let box_ = SalsaBox::new(&sender_ephemeral, &my_secret);
     for ciphertext in &sealed.boxes {
-        if let Ok(plaintext) = box_.open(&nonce, ciphertext.as_slice()) {
+        if let Ok(plaintext) = box_.decrypt(&nonce, ciphertext.as_slice()) {
             return Ok(plaintext);
         }
     }
