@@ -32,6 +32,9 @@ cost 12 в authService) верифицируют одинаково.
 Бенчмарки крипто-пути (d2db23e: criterion benches/crypto.rs; f79de00:
 Node-зеркало server/bench/coreBench.js + джоба CI core-bench с публикацией
 лога ci-logs/ci-bench.log для сверки DoD «≥ x10»).
+Fuzz-цели cargo-fuzz (враждебный конверт open_sealed, мусорный wire RatchetMessage +
+decrypt, roundtrip произвольного plaintext; джоба CI fuzz-smoke — smoke-итерации,
+суточный DoD-прогон отдельно).
 
 ---
 
@@ -146,7 +149,10 @@ medchat-v2/
 │                          крипто-пути (d2db23e: конверты x25519-box,
 │                          Double Ratchet, bcrypt cost 5/12);
 │                          napi-smoke.js — Node-интеграция napi-обёрток
-│                          (джоба napi-build: сборка .node + JS-тесты)
+│                          (джоба napi-build: сборка .node + JS-тесты);
+│                          fuzz/ — fuzz-цели cargo-fuzz (враждебный конверт,
+│                          мусорный wire + decrypt, roundtrip произвольного
+│                          plaintext; джоба CI fuzz-smoke)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
 │                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE + этот файл
@@ -610,6 +616,17 @@ Rust быстрее конвертного пути в 11.6–15.2 раза (sea
 encrypt+decrypt: 1.92 µs (в Node реализации нет — сравнивать не с чем).
 bcrypt: обе стороны нативные, Rust-крейт чуть медленнее (cost 5: 1.86 против
 1.64 мс; cost 12: 233 против 206 мс) — DoD на bcrypt-путь не заявлялся.
+**Fuzz-цели cargo-fuzz** (этот коммит): DoD Этапа 2 «устойчивость к мусорным
+данным». Крейт fuzz/ (libfuzzer-sys 0.4, nightly, ASan): open_sealed_fuzz —
+конверт из враждебных байтов (epk+nonce из входа, боксы по 64 байта):
+open_sealed обязан вернуть Ok/Err, не панику; ratchet_wire_fuzz — from_wire
+на произвольных байтах (Err(BadHeader) на границе) + decrypt валидного формата
+отвечающей стороной (ошибки допускаются, паники нет); ratchet_roundtrip_fuzz —
+сессия на фиксированных ключах, произвольный plaintext (включая пустой) обязан
+вернуться байт-в-байт через to_wire/from_wire. bcrypt_verify в fuzz НЕ включена
+осознанно: хэш cost 31 валиден по формату и вешает проверку на минуты (при
+необходимости — отдельная цель с гейтом cost). Джоба CI fuzz-smoke: cargo
+install --locked cargo-fuzz, -runs=5000 на цель, лог ci-logs/ci-fuzz.log.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -631,7 +648,7 @@ node stop.js [--docker]                     # остановить процес�
 
 ## 10. CI (.github/workflows/ci.yml)
 
-Пять джоб на каждый пуш в main:
+Шесть джоб на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
   валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
@@ -666,6 +683,12 @@ node stop.js [--docker]                     # остановить процес�
   rename в medchat-core.linux-x64-gnu.node; node napi-smoke.js — Node-интеграция
   обёрток (то, что cargo test дать не может: линковка napi_*, issue #1099);
   артефакт через actions/upload-artifact@v4; лог падений — ci-logs/ci-napi.log.
+- **fuzz-smoke**: cargo-fuzz (nightly + ASan) — три цели: open_sealed_fuzz
+  (враждебный конверт с сети: Ok/Err без паники), ratchet_wire_fuzz (мусорный
+  wire: Err(BadHeader) на границе формата, decrypt валидного — ошибки допустимы),
+  ratchet_roundtrip_fuzz (произвольный plaintext, включая пустой, обязан вернуться
+  байт-в-байт); -runs=5000 на цель — smoke, суточный DoD-прогон — отдельный запуск
+  по требованию; лог падений — ci-logs/ci-fuzz.log.
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -690,9 +713,10 @@ node stop.js [--docker]                     # остановить процес�
   d2db23e (criterion, benches/crypto.rs) и f79de00 (Node-зеркало + джоба
   core-bench, лог публикуется при любом исходе; первый прогон 42474787549 — DoD
   «≥ x10» закрыт: конвертный x25519-box-путь 11.6–15.2x в пользу Rust). Джоба napi-build — сборка .node-артефакта + Node-интеграция
-  обёрток (napi-smoke.js). Логи
+  обёрток (napi-smoke.js). Джоба fuzz-smoke — cargo-fuzz (три цели,
+  ограниченные итерации). Логи
   падений бот ci-reporter
-  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log; ci-bench.log пишется при любом исходе) — при
+  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log; ci-bench.log пишется при любом исходе) — при
   красном прогоне читать оттуда.
 
 ## 11. Что осталось сделать (roadmap)
@@ -725,7 +749,8 @@ node stop.js [--docker]                     # остановить процес�
     recovery + внеочередная доставка; в клиенты не интегрирован). ~~napi-rs-биндинги
     для Node~~ — сделано (754f677 → 2bb38f2 → e411a54: src/node.rs, конверты +
     JsRatchetState, feature napi-bind — CI зелёный). Дальше: UniFFI для
-    Swift/Kotlin, интеграция ratchet в клиенты, cargo-fuzz, ~~бенчмарки (DoD ≥ x10
+    Swift/Kotlin, интеграция ratchet в клиенты, ~~cargo-fuzz~~ (scaffold: fuzz/ с тремя целями + джоба fuzz-smoke;
+    суточный DoD-прогон — отдельный запуск по требованию), ~~бенчмарки (DoD ≥ x10
     к Node)~~ — сделано (d2db23e + f79de00: criterion + Node-зеркало + джоба
     core-bench; первый прогон 42474787549: конвертный путь 11.6–15.2x — DoD закрыт),
     ~~сборка .node-артефакта в CI + Node-интеграция юнит-тестов обёрток~~ —

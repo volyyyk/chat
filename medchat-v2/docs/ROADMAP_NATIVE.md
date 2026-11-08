@@ -104,7 +104,12 @@ Rust-крейт чуть медленнее (cost 5: 1.86 против 1.64 мс
 (JS-зеркало #[cfg(test)]-тестов node.rs: конверты, ratchet/wire,
 skip-store, негативные кейсы) в настоящем Node-процессе, чего cargo
 test дать не может (issue #1099).
-Осталось: cargo-fuzz.
+cargo-fuzz scaffold готов: крейт fuzz/ с тремя целями (open_sealed на
+враждебных конвертах, from_wire+decrypt на мусорном wire, roundtrip
+произвольного plaintext) + джоба CI fuzz-smoke (nightly, ASan, -runs=5000).
+DoD «cargo-fuzz без падений 24 ч» — суточный прогон отдельным запуском по
+требованию, не в CI (smoke в CI гейтит сборку целей и отсутствие крашей на
+коротком прогоне). Осталось из Этапа 2: UniFFI-биндинги (Swift/Kotlin).
 
 ### Этап 3. Нативный iOS (Swift/SwiftUI)
 SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudio), рецепты, приёмы;

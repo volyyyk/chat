@@ -369,3 +369,67 @@ jobs:
           git fetch origin main
           git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
           git push origin HEAD:main || echo "push failed (non-fatal)"
+
+  fuzz-smoke:
+    name: Fuzz smoke (cargo-fuzz, nightly + ASan, ограниченные итерации)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # cargo-fuzz требует nightly: -Zsanitizer-флаги и sancov.
+      - name: Setup Rust (nightly)
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            medchat-v2/core
+            medchat-v2/core/fuzz
+
+      - name: Install cargo-fuzz
+        run: cargo install --locked cargo-fuzz
+
+      # Smoke-режим: фиксированное число итераций на цель. DoD этапа 2
+      # «cargo-fuzz без падений 24 ч» — суточный прогон отдельным запуском
+      # по требованию; в CI гейтится сборка целей и отсутствие крашей на
+      # коротком прогоне (ASan-инструментация ловит memory-баги).
+      - name: fuzz: open_sealed_fuzz (враждебный конверт)
+        run: |
+          set -o pipefail
+          cargo fuzz run open_sealed_fuzz -runs=5000 2>&1 | tee ../../ci-fuzz.log
+
+      - name: fuzz: ratchet_wire_fuzz (мусорный wire + decrypt)
+        run: |
+          set -o pipefail
+          cargo fuzz run ratchet_wire_fuzz -runs=5000 2>&1 | tee -a ../../ci-fuzz.log
+
+      - name: fuzz: ratchet_roundtrip_fuzz (произвольный plaintext)
+        run: |
+          set -o pipefail
+          cargo fuzz run ratchet_roundtrip_fuzz -runs=5000 2>&1 | tee -a ../../ci-fuzz.log
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-fuzz.log ]; then
+            cp ci-fuzz.log ci-logs/ci-fuzz.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"

@@ -1,0 +1,41 @@
+[package]
+name = "medchat-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+# Точка входа cargo-fuzz: по этому метаданные он отличает fuzz-крейт
+# от обычного (структура ровно как у cargo fuzz init).
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+# Ядро без napi-bind: fuzz-линковка не тянет Node-биндинги (для них
+# нужен процесс Node), тестируется чистая логика lib + ratchet.
+[dependencies.medchat-core]
+path = ".."
+default-features = false
+
+# Стандартные флаги fuzz-целей: не участвуют в cargo test/doc/bench.
+[[bin]]
+name = "open_sealed_fuzz"
+path = "fuzz_targets/open_sealed_fuzz.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ratchet_wire_fuzz"
+path = "fuzz_targets/ratchet_wire_fuzz.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ratchet_roundtrip_fuzz"
+path = "fuzz_targets/ratchet_roundtrip_fuzz.rs"
+test = false
+doc = false
+bench = false
