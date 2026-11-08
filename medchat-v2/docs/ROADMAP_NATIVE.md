@@ -18,7 +18,7 @@
 
 | Блок | Сейчас | Цель | Обоснование |
 |---|---|---|---|
-| Криптография at-rest (cryptoService) | Node (AES-GCM через crypto) | **Rust**: \`libmedchat_core\` + napi-rs | Memory safety, единая реализация на сервере и всех клиентах, готовность к аудиту |
+| Криптография at-rest (cryptoService) | Node (AES-GCM через crypto) | **Rust**: `libmedchat_core` + napi-rs | Memory safety, единая реализация на сервере и всех клиентах, готовность к аудиту |
 | E2E X25519-box | реализовано (tweetnacl в мобильном, Rust-ядро совместимо; контракт — readme_for_AI §5) | остаётся в клиентах | Рабочий E2E-контур: сервер хранит только шифротекст |
 | Double Ratchet (forward secrecy) | прототип в medchat-core (src/ratchet.rs, 6aff983 + skip-store d033eeb + wire-формат a43102d) | **Rust** в ядре + napi-rs/UniFFI биндинги | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
 | Хэширование чексумм файлов, сжатие бэкапов | Node streams | **Rust** (napi-rs) | CPU-bound, разгружает event-loop сервера |
@@ -27,7 +27,7 @@
 | iOS-клиент | Expo (JS) | **Swift + SwiftUI** + Rust-ядро (UniFFI) | Требования App Store, производительность, Keychain для ключей, нативные push (APNs) |
 | Android-клиент | Expo (JS) | **Kotlin + Jetpack Compose** + Rust-ядро (JNI) | Play Store, Android Keystore, FCM-фоновая доставка |
 | Windows-клиент (exe) | — | **Tauri 2 (Rust)**, общий UI с Linux | ~10–15 МБ вместо Electron-сотен, system webview, подпись Authenticode |
-| Linux Ubuntu-клиент | — | **Tauri 2** → \`.deb\` + AppImage | Та же кодовая база, что и Windows |
+| Linux Ubuntu-клиент | — | **Tauri 2** → `.deb` + AppImage | Та же кодовая база, что и Windows |
 | Серверный API | Node/Express | остаётся Node; горячие пути → napi-rs | Стабильность, экосистема Sequelize, CI уже зелёный |
 | ГОСТ-криптография (если УЗ-1 сертификация) | — | **C/C++**: сертифицированные СКЗИ (КриптоПро CSP и т.п.) как native-зависимости | Использовать только готовые сертифицированные библиотеки; свой код в C/C++ не пишем |
 | Интеграции с WinAPI/офисом клиники | — | **C#/.NET 8** (WinUI/WPF) — точечно | Если появится deep-Windows фича (MSIX, 1С-мосты); не базовый путь |
@@ -46,7 +46,7 @@
 **DoD:** contract-тесты гоняются против API-сервера в CI; мобильный клиент
 использует ядро без изменения UX.
 
-### Этап 2. Rust-ядро \`libmedchat_core\`
+### Этап 2. Rust-ядро `libmedchat_core`
 Криптография (AES-256-GCM, Argon2/bcrypt-verify), кодек протокола, checksums.
 Биндинги: **napi-rs** (Node), **UniFFI** (Swift/Kotlin).
 **DoD:** тест-векторы совпадают с текущей Node-реализацией байт-в-байт;
@@ -88,8 +88,8 @@ FCM-пуши, фоновая доставка сообщений.
 
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
 **Tauri 2** (Rust + системный webview): один UI на обе платформы.
-Windows: подписанный \`.exe\`/MSIX (Authenticode), автoupdate.
-Ubuntu: \`.deb\` + AppImage, systemd-автостарт по желанию.
+Windows: подписанный `.exe`/MSIX (Authenticode), автoupdate.
+Ubuntu: `.deb` + AppImage, systemd-автостарт по желанию.
 Секреты: **Windows Credential Manager** / **libsecret (GNOME Keyring)**.
 **DoD:** установщики собираются в CI (matrix: windows-latest, ubuntu-latest);
 обновление конфигурации сервера без правки клиента.
@@ -137,7 +137,7 @@ Swift/Kotlin и интеграция в клиенты — далее.
   Manager / libsecret), никогда в UserDefaults/shared_prefs/файлах.
 - TLS 1.2+ с пиннингом сертификата сервера; свои сертификаты не отключать.
 - Отсутствие секретов в репозитории; сборочные подписи в GitHub Secrets.
-- Зависимости: \`cargo audit\` / \`cargo deny\`, Dependabot; для iOS/Android —
+- Зависимости: `cargo audit` / `cargo deny`, Dependabot; для iOS/Android —
   регулярное обновление платформы под требования магазинов.
 - Anti-tamper базово: проверка целостности бинаря не требуется MVP, но
   prohibited: хранение ключей в коде.
