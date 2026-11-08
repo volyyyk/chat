@@ -445,14 +445,19 @@ function encryptFilePayload(payloadBytes) {
  * carrying the human-readable file name and the wrapped-in-envelope file
  * key. This string is passed through encryptForRecipients like plain text.
  */
-function buildFileMessageContent(name, fileKey) {
+function buildFileMessageContent(name, fileKey, mimeType) {
   if (!fileKey) return null;
-  return JSON.stringify({ mc: 2, t: String(name || 'Файл'), k: bytesToBase64(fileKey) });
+  const payload = { mc: 2, t: String(name || 'Файл'), k: bytesToBase64(fileKey) };
+  // The original MIME type travels INSIDE the encrypted box (the server
+  // only ever sees application/octet-stream for E2E payloads), so the
+  // receiving device can render voice bubbles and pick a file extension.
+  if (mimeType && typeof mimeType === 'string') payload.m = mimeType;
+  return JSON.stringify(payload);
 }
 
 /**
- * Parse a decrypted box payload. Returns { text, fileKey } when it is an
- * E2E file message (mc: 2), otherwise null (ordinary text message).
+ * Parse a decrypted box payload. Returns { text, fileKey, mimeType } when
+ * it is an E2E file message (mc: 2), otherwise null (ordinary text).
  */
 function parseFileMessageContent(plain) {
   if (typeof plain !== 'string' || plain.indexOf('{') !== 0) return null;
@@ -472,7 +477,11 @@ function parseFileMessageContent(plain) {
       fileKey = null;
     }
   }
-  return { text: parsed.t, fileKey };
+  return {
+    text: parsed.t,
+    fileKey,
+    mimeType: typeof parsed.m === 'string' ? parsed.m : null,
+  };
 }
 
 /**
@@ -486,6 +495,24 @@ function decryptFilePayload(wireBytes, fileKey) {
     const nonce = wireBytes.slice(0, nacl.secretbox.nonceLength);
     const ciphertext = wireBytes.slice(nacl.secretbox.nonceLength);
     return nacl.secretbox.open(ciphertext, nonce, fileKey);
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Download the encrypted wire bytes (nonce || ciphertext) over HTTP and
+ * decrypt them on-device. The download endpoint requires the Authorization
+ * header - pass it via 'headers'. Returns the plaintext bytes or null
+ * (network error, auth failure or corrupted/foreign ciphertext).
+ */
+async function fetchAndDecryptFile(fileUrl, fileKey, headers) {
+  if (!fileUrl || !fileKey) return null;
+  try {
+    const response = await fetch(fileUrl, { headers: headers || {} });
+    if (!response.ok) return null;
+    const buffer = await response.arrayBuffer();
+    return decryptFilePayload(new Uint8Array(buffer), fileKey);
   } catch (e) {
     return null;
   }
@@ -529,6 +556,7 @@ export {
   buildFileMessageContent,
   parseFileMessageContent,
   decryptFilePayload,
+  fetchAndDecryptFile,
   getEnvelope,
   allParticipantsHaveKeys,
 };

@@ -16,10 +16,50 @@ import { formatMessageTime, formatFileSize, formatDoctorInfo, formatFileRetentio
 import { parsePatientIdentifier, isFileExpired } from '../utils/helpers';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { paymentService } from '../services/paymentService';
+import { fetchAndDecryptFile, bytesToBase64 } from '../services/e2eCryptoService';
+
+// Common MIME -> extension map for staging decrypted / downloaded files in
+// the app cache; the extension decides how the OS opens the file.
+const MIME_EXTENSIONS = {
+  'audio/m4a': '.m4a',
+  'audio/mp4': '.m4a',
+  'audio/mpeg': '.mp3',
+  'audio/wav': '.wav',
+  'audio/aac': '.aac',
+  'audio/ogg': '.ogg',
+  'audio/webm': '.weba',
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'application/pdf': '.pdf',
+  'text/plain': '.txt',
+  'text/csv': '.csv',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'video/mp4': '.mp4',
+  'video/quicktime': '.mov',
+};
+
+const extensionFor = (item, file) => {
+  const mime = String(
+    (item && item.fileMimeType) || (file && (file.type || file.mimeType)) || ''
+  )
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (MIME_EXTENSIONS[mime]) return MIME_EXTENSIONS[mime];
+  const name = String((item && item.content) || (file && file.name) || '');
+  const dot = name.lastIndexOf('.');
+  if (dot > 0 && dot > name.length - 8) return name.slice(dot).toLowerCase();
+  return mime.indexOf('audio') === 0 ? '.m4a' : '.bin';
+};
 
 const ChatScreen = ({ navigation, route }) => {
   const { chatId } = route.params || {};
@@ -61,6 +101,9 @@ const ChatScreen = ({ navigation, route }) => {
   const [playingId, setPlayingId] = useState(null);
   const soundRef = useRef(null);
   const recordingTimerRef = useRef(null);
+  // Decrypted / downloaded file cache for the current screen session:
+  // message id -> local file:// URI (avoids re-downloading on every tap).
+  const localFilesRef = useRef({});
 
   const flatListRef = useRef(null);
 
@@ -193,8 +236,68 @@ const ChatScreen = ({ navigation, route }) => {
     }
   }, [recording, sendFile]);
 
-  // Play / stop a voice message
-  const togglePlayVoice = useCallback(async (file) => {
+  // Resolve a message file to a LOCAL file:// URI.
+  // E2E files: download the wire bytes with the auth header, decrypt
+  // on-device and stage the plaintext in the cache. Legacy plaintext files:
+  // download once with the auth header (player / share components cannot
+  // attach Authorization themselves). Results are cached per message.
+  const resolveLocalFileUri = useCallback(async (item) => {
+    const file = item && item.file;
+    if (!file) return null;
+    const remoteUrl = file.url || file.uri;
+    if (!remoteUrl) return null;
+
+    const cacheKey = item.fileKey ? item.id : file.id || remoteUrl;
+    if (localFilesRef.current[cacheKey]) return localFilesRef.current[cacheKey];
+
+    const token = await AsyncStorage.getItem('authToken');
+    const headers = token ? { Authorization: 'Bearer ' + token } : {};
+    const localUri = `${FileSystem.cacheDirectory}e2e-view-${cacheKey}${extensionFor(item, file)}`;
+
+    if (item.fileKey) {
+      const payload = await fetchAndDecryptFile(remoteUrl, item.fileKey, headers);
+      if (!payload) return null;
+      await FileSystem.writeAsStringAsync(localUri, bytesToBase64(payload), {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    } else {
+      const result = await FileSystem.downloadAsync(remoteUrl, localUri, { headers });
+      if (!result || !result.uri) return null;
+    }
+
+    localFilesRef.current[cacheKey] = localUri;
+    return localUri;
+  }, []);
+
+  // Open / share a document message (E2E or legacy)
+  const handleDownloadFile = useCallback(async (item) => {
+    try {
+      const uri = await resolveLocalFileUri(item);
+      if (!uri) {
+        Alert.alert('Ошибка', 'Не удалось получить файл');
+        return;
+      }
+      const mime = String(
+        item.fileMimeType || item.file?.type || item.file?.mimeType || 'application/octet-stream'
+      );
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: mime,
+          dialogTitle: item.content || 'Файл',
+        });
+      } else {
+        Alert.alert('Файл сохранён', 'Файл сохранён в кэш приложения');
+      }
+    } catch (err) {
+      console.error('Error opening file:', err);
+      Alert.alert('Ошибка', 'Не удалось открыть файл');
+    }
+  }, [resolveLocalFileUri]);
+
+  // Play / stop a voice message (E2E audio is decrypted to a local URI first)
+  const togglePlayVoice = useCallback(async (item) => {
+    const file = item && item.file;
+    if (!file) return;
     try {
       if (playingId) {
         await soundRef.current?.unloadAsync();
@@ -203,7 +306,13 @@ const ChatScreen = ({ navigation, route }) => {
         if (playingId === (file.id || file.name)) return;
       }
 
-      const { sound } = await Audio.Sound.createAsync({ uri: file.url || file.uri });
+      const uri = await resolveLocalFileUri(item);
+      if (!uri) {
+        Alert.alert('Ошибка', 'Не удалось расшифровать аудио');
+        return;
+      }
+
+      const { sound } = await Audio.Sound.createAsync({ uri });
       soundRef.current = sound;
       setPlayingId(file.id || file.name);
 
@@ -220,7 +329,7 @@ const ChatScreen = ({ navigation, route }) => {
       console.error('Error playing voice message:', err);
       Alert.alert('Ошибка', 'Не удалось воспроизвести сообщение');
     }
-  }, [playingId]);
+  }, [playingId, resolveLocalFileUri]);
 
   // Pick file
   const pickFile = useCallback(async (type = 'document') => {
@@ -311,8 +420,16 @@ const ChatScreen = ({ navigation, route }) => {
       ? [chatStyles.messageText, chatStyles.messageTextPatient]
       : [chatStyles.messageText, chatStyles.messageTextDoctor];
 
+    // E2E file messages hide the real MIME type from the server (the wire
+    // file is always application/octet-stream); the original type rides
+    // inside the encrypted envelope as item.fileMimeType.
+    const rawFileType = String(item.fileMimeType || item.file?.type || item.file?.mimeType || '');
+
     // Handle file messages (audio is handled by the voice branch below)
-    if (item.file && String(item.file.type || item.file.mimeType || '').indexOf('audio') !== 0) {
+    if (item.file && rawFileType.indexOf('audio') !== 0) {
+      // For E2E files the server-side file name is 'payload.bin'; the real
+      // name was decrypted from the envelope into item.content.
+      const shownName = item.isEncrypted && item.content ? item.content : item.file.name || 'Файл';
       return (
         <View style={bubbleStyle}>
           <View style={styles.fileMessage}>
@@ -323,7 +440,7 @@ const ChatScreen = ({ navigation, route }) => {
             />
             <View style={styles.fileInfo}>
               <Text style={textStyle} numberOfLines={1}>
-                {item.file.name || 'Файл'}
+                {shownName}
               </Text>
               <Text style={[textStyle, styles.fileSize]}>
                 {formatFileSize(item.file.size || 0)}
@@ -331,7 +448,7 @@ const ChatScreen = ({ navigation, route }) => {
             </View>
             <TouchableOpacity
               style={styles.downloadButton}
-              onPress={() => Alert.alert('Скачать', 'Функция скачивания будет доступна скоро')}
+              onPress={() => handleDownloadFile(item)}
             >
               <MaterialIcons
                 name="download"
@@ -347,15 +464,15 @@ const ChatScreen = ({ navigation, route }) => {
       );
     }
 
-    // Handle voice messages
-    const fileType = item.file?.type || item.file?.mimeType || '';
-    if (item.file && fileType.indexOf('audio') === 0) {
+    // Handle voice messages (E2E voice keeps the original audio/* type in
+    // item.fileMimeType, decrypted from the envelope)
+    if (item.file && rawFileType.indexOf('audio') === 0) {
       const isPlaying = playingId === (item.file.id || item.file.name);
       return (
         <View style={bubbleStyle}>
           <TouchableOpacity
             style={styles.voiceMessage}
-            onPress={() => togglePlayVoice(item.file)}
+            onPress={() => togglePlayVoice(item)}
           >
             <MaterialIcons
               name={isPlaying ? 'pause' : 'play-arrow'}
@@ -421,7 +538,7 @@ const ChatScreen = ({ navigation, route }) => {
         </View>
       </View>
     );
-  }, [user, playingId, togglePlayVoice]);
+  }, [user, playingId, togglePlayVoice, handleDownloadFile]);
 
   // Render header
   const renderHeader = useCallback(() => {

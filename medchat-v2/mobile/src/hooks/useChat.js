@@ -122,6 +122,9 @@ const mapMessageWithE2E = async (msg, myUser) => {
     if (fileMsg) {
       mapped.content = fileMsg.text || 'Файл';
       mapped.fileKey = fileMsg.fileKey; // for on-demand payload decryption
+      // Original MIME type from the encrypted box (the wire file is
+      // always application/octet-stream): voice bubbles keep working.
+      mapped.fileMimeType = fileMsg.mimeType || null;
     } else {
       mapped.content = plain;
     }
@@ -483,7 +486,7 @@ export const useChat = (chatId) => {
               name: 'payload.bin',
               type: 'application/octet-stream',
             };
-            contentOverride = buildFileMessageContent(file.name || 'Файл', enc.fileKey);
+            contentOverride = buildFileMessageContent(file.name || 'Файл', enc.fileKey, file.type || '');
           }
         }
       }
