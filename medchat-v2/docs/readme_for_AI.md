@@ -682,7 +682,7 @@ yanked, линейка до 0.32.2). cargo не может разрешить з
 не спасают. Фикс: зависимость крейта и установка CLI переведены на
 git-тег v0.28.3 (внутренние зависимости uniffi — uniffi-macro,
 uniffi-meta — path-депы того же workspace, обращений к отсутствующим
-индекс-записям не остаётся; Cargo.lock в gitignore). УРОКИ:
+индекс-записям не остаётся; Cargo.lock в gitignore). Прогон #109: cargo install --tag v0.28.3 uniffi-bindgen упал «could not find» уже НА git-источнике — имя пакета crates.io НЕ обязано совпадать с именем в git-workspace: CLI на теге v0.28.3 — это пакет uniffi-bindgen-cli (member examples/app/uniffi-bindgen-cli, publish=false, [[bin]] name = uniffi-bindgen); cargo install выбирает пакет по имени, бинарь может называться иначе (фикс: uniffi-bindgen-cli). УРОКИ:
 (1) шаги ДО первого tee невидимы для ci-reporter — потенциально
 капризный шаг обязан писать лог с самого начала (#105: причина была
 недиагностируема, пока лог не стал писаться с первой команды;
@@ -691,7 +691,7 @@ uniffi-meta — path-депы того же workspace, обращений к о�
 crates.io API и sparse-индекс cargo расходятся — при «could not find
 in registry» проверять index.crates.io/<2 буквы>/<2 буквы>/<имя>
 напрямую (NoSuchKey) и держать в голове git-тег как альтернативный
-источник пина версии. Честное ограничение:
+источник пина версии; (3) cargo install из git ищет ПАКЕТ по имени среди workspace-мемберов: имя пакета в реестре может отсутствовать в git-workspace, а бинарь может называться не как пакет (фикс #109: uniffi-bindgen-cli → бинарь uniffi-bindgen). Честное ограничение:
 компиляция сгенерированного кода в Xcode/Gradle — этапы 3/4 (на ubuntu их
 нет); джоба гейтит сборку, тесты обёрток и генерацию.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
@@ -795,7 +795,7 @@ node stop.js [--docker]                     # остановить процес�
   зелёная, все три цели проходят smoke-итерации). Джоба uniffi-bindings —
   генерация Swift/Kotlin-обвязки ядра (этап 2 закрыт; прогоны #105–#107:
   uniffi-крейтов нет в sparse-индексе crates.io — крейт и CLI переведены
-  на git-тег v0.28.3, уроки в §8). Логи
+  на git-тег v0.28.3; #109 — пакет CLI в git-workspace зовётся uniffi-bindgen-cli (бинарь uniffi-bindgen), уроки в §8). Логи
   падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log; ci-bench.log пишется при любом исходе) — при
   красном прогоне читать оттуда.

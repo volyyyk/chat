@@ -120,7 +120,7 @@ test обёрток (в отличие от napi, uniffi-код линкуетс
 uniffi-крейтов отсутствует в sparse-индексе crates.io (прогоны #105–#107 —
 «could not find uniffi-bindgen in registry crates-io»), git-источник
 фиксирует версию и не требует индексных записей (внутренние зависимости —
-path-депы workspace). Склейка сгенерированной обвязки с Xcode/Gradle-проектами — этапы 3/4.
+path-депы workspace). Прогон #109: в workspace тега v0.28.3 пакета uniffi-bindgen нет — CLI-пакет называется uniffi-bindgen-cli (member examples/app/uniffi-bindgen-cli, publish=false, бинарь uniffi-bindgen); cargo install выбирает пакет по имени, поэтому установка идёт как uniffi-bindgen-cli. Склейка сгенерированной обвязки с Xcode/Gradle-проектами — этапы 3/4.
 Этап 2 закрыт по всем заявленным позициям: контракт-векторы (NaCl box,
 AES-256-GCM, bcrypt), бенчмарк ≥ x10 (11.6–15.2x на конвертном пути),
 cargo-fuzz scaffold + smoke в CI, биндинги napi-rs (Node) и UniFFI

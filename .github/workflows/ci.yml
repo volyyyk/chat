@@ -463,10 +463,18 @@ jobs:
       # реестр для них не нужен. Диагностируемость (урок #105): вывод
       # пишется в ci-uniffi.log с первой команды (заголовок прогона для
       # сверки метки времени, cargo --version для контекста).
+      # Прогон #109 (run 42479207992): тег резолвится, но пакета
+      # uniffi-bindgen в workspace v0.28.3 НЕТ — имя пакета crates.io
+      # не обязано совпадать с git-workspace: CLI на этом теге —
+      # пакет uniffi-bindgen-cli (member examples/app/uniffi-bindgen-cli,
+      # publish=false), бинарь называется uniffi-bindgen ([[bin]] name).
+      # cargo install ищет ПАКЕТ по имени среди workspace-мемберов;
+      # ставим uniffi-bindgen-cli — в PATH появляется тот же бинарь
+      # uniffi-bindgen, остальные шаги джобы не меняются.
       - name: Install uniffi-bindgen (v0.28.3 from git)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.28.3 uniffi-bindgen; } 2>&1 | tee ../../ci-uniffi.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.28.3 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-uniffi.log
 
       # cdylib c UniFFI-scaffolding (без napi): setup_scaffolding! эмитит
       # metadata-символы, по которым bindgen строит обвязку в library mode.
