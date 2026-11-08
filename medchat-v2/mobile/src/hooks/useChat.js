@@ -5,12 +5,27 @@
  * All data comes from the MedChat v2 REST API; Socket.IO is used only for
  * real-time updates (newMessage, userTyping) and degrades gracefully to
  * REST-only mode when the socket is unavailable.
+ *
+ * E2E ENCRYPTION
+ * When every participant of the chat (including us) has a registered public
+ * key, outgoing text is encrypted on-device into an 'envelope' (see
+ * e2eCryptoService) and the server receives only ciphertext. Incoming
+ * envelopes are decrypted locally. If ANY participant has no key yet, we
+ * gracefully fall back to the legacy plaintext path so the chat never breaks.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { chatService } from '../services/chatService';
 import config, { API_BASE_URL } from '../config/config';
+import {
+  ensureRegisteredKey,
+  getChatKeys,
+  encryptForRecipients,
+  decryptEnvelope,
+  getEnvelope,
+  allParticipantsHaveKeys,
+} from '../services/e2eCryptoService';
 
 const getToken = async () => (await AsyncStorage.getItem('authToken')) || null;
 
@@ -72,8 +87,27 @@ const mapMessage = (msg, myUser) => {
     status: msg.status || 'delivered',
     isPaid: !!msg.isPaid,
     isFree: msg.isFree !== false,
+    isEncrypted: !!(msg.metadata && msg.metadata.e2e),
     file,
   };
+};
+
+/**
+ * Async wrapper around mapMessage that also decrypts E2E envelopes with the
+ * local private key. Messages we cannot decrypt (sent from a device whose
+ * key we do not own) render as a placeholder instead of breaking the list.
+ */
+const mapMessageWithE2E = async (msg, myUser) => {
+  const mapped = mapMessage(msg, myUser);
+  if (!mapped) return null;
+
+  const envelope = getEnvelope(msg);
+  if (!envelope) return mapped;
+
+  const myId = myUser && myUser.id;
+  const plain = myId ? await decryptEnvelope(envelope, myId) : null;
+  mapped.content = plain || '🔒 Зашифрованное сообщение';
+  return mapped;
 };
 
 /**
@@ -81,6 +115,10 @@ const mapMessage = (msg, myUser) => {
  */
 const mapChatListItem = (c, myUser) => {
   const isDoctor = myUser && myUser.role === 'doctor';
+  // E2E messages keep no plaintext preview on the server (lastMessageText is
+  // empty by design). If a chat HAS a last message but no preview text, it is
+  // almost certainly an encrypted message - show a lock instead.
+  const lastText = c.lastMessageText || (c.lastMessageId ? '🔒 Зашифрованное сообщение' : '');
   return {
     id: c.id,
     chatId: c.chatId,
@@ -91,7 +129,7 @@ const mapChatListItem = (c, myUser) => {
     specialtyName: (c.doctor && (c.doctor.category || c.doctor.specialtyName)) || '',
     patientLogin: (c.patient && (c.patient.patientNumber || (c.patient.user && fullName(c.patient.user)))) || '',
     patientId: c.patientId,
-    lastMessage: { content: c.lastMessageText || '' },
+    lastMessage: { content: lastText },
     unreadCount: isDoctor ? (c.unreadCountDoctor || 0) : (c.unreadCountPatient || 0),
     updatedAt: c.lastMessageAt || c.updatedAt,
   };
@@ -118,6 +156,7 @@ export const useChat = (chatId) => {
   const pageRef = useRef(1);
   const typingTimeoutRef = useRef(null);
   const myUserRef = useRef(null);
+  const e2eRegisteredRef = useRef(false);
 
   // Resolve the current user from storage once
   useEffect(() => {
@@ -125,6 +164,24 @@ export const useChat = (chatId) => {
     getUser().then((u) => {
       if (!cancelled) myUserRef.current = u;
     });
+    return () => { cancelled = true; };
+  }, []);
+
+  // ---- E2E: register this device's PUBLIC key once per session (idempotent) ----
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const u = await getUser();
+        const token = await getToken();
+        if (cancelled || !u || !u.id || !token) return;
+        await ensureRegisteredKey(token, u.id, 'mobile');
+        if (!cancelled) e2eRegisteredRef.current = true;
+      } catch (e) {
+        // Best-effort: without a registered key the chat falls back to
+        // plaintext sending, it never breaks.
+      }
+    })();
     return () => { cancelled = true; };
   }, []);
 
@@ -149,6 +206,45 @@ export const useChat = (chatId) => {
   const errText = (result, fallback) =>
     (result.data && (result.data.error || result.data.message)) || fallback;
 
+  // ---- E2E: participant user ids of the current chat (null on failure) ----
+  const getParticipantUserIds = useCallback(async () => {
+    try {
+      const result = await apiFetch('/api/chats/' + chatId + '/participants');
+      if (!result.ok || !Array.isArray(result.data)) return null;
+      return result.data.map((p) => p && p.userId).filter(Boolean);
+    } catch (e) {
+      return null;
+    }
+  }, [chatId, apiFetch]);
+
+  /**
+   * Try to build an E2E envelope for 'text':
+   * - fetch participant ids and their active public keys,
+   * - require EVERY participant (including us) to have a key,
+   * - encrypt to all keys (so recipients + our own devices can read).
+   * Returns the envelope, or null when E2E is not possible (graceful
+   * fallback to the plaintext path happens in sendMessage).
+   */
+  const buildE2EEnvelope = useCallback(async (text, myUserId) => {
+    try {
+      if (!text || !myUserId || !chatId) return null;
+      const token = await getToken();
+      if (!token) return null;
+
+      const participantIds = await getParticipantUserIds();
+      if (!participantIds || participantIds.length === 0) return null;
+      if (participantIds.indexOf(myUserId) === -1) return null; // we are not a participant (e.g. admin)
+
+      const keys = await getChatKeys(token, chatId);
+      if (!allParticipantsHaveKeys(participantIds, keys)) return null;
+      if (!keys.some((k) => String(k.userId) === String(myUserId))) return null;
+
+      return encryptForRecipients(text, keys);
+    } catch (e) {
+      return null;
+    }
+  }, [chatId, getParticipantUserIds]);
+
   // ---- Load messages (server-first, newest first for the inverted FlatList) ----
   const loadMessages = useCallback(async (reset = true) => {
     if (!chatId) return;
@@ -166,7 +262,7 @@ export const useChat = (chatId) => {
 
       const myUser = myUserRef.current || (await getUser());
       const rows = (result.data && result.data.data) || [];
-      const mapped = rows.map((m) => mapMessage(m, myUser)).filter(Boolean);
+      const mapped = (await Promise.all(rows.map((m) => mapMessageWithE2E(m, myUser)))).filter(Boolean);
 
       // Server returns chronological order; the FlatList is inverted,
       // so the display array must be newest-first.
@@ -218,13 +314,24 @@ export const useChat = (chatId) => {
 
     try {
       const body = {
-        content,
         type: options.type || 'text',
         clientType: 'mobile',
         clientVersion: config.APP_VERSION,
       };
       if (options.attachments) body.attachments = options.attachments;
       if (options.paymentTransactionId) body.paymentTransactionId = options.paymentTransactionId;
+
+      // E2E: when every participant has a key, encrypt on-device and send
+      // only the ciphertext envelope (content stays empty for the server).
+      // If any participant has no key yet, fall back to plaintext so the
+      // chat keeps working - security degrades, availability does not.
+      const envelope = await buildE2EEnvelope(content, myUser && myUser.id);
+      if (envelope) {
+        body.envelope = envelope;
+        body.content = '';
+      } else {
+        body.content = content;
+      }
 
       const result = await apiFetch(`/api/chats/${chatId}/messages`, {
         method: 'POST',
@@ -239,16 +346,21 @@ export const useChat = (chatId) => {
         throw new Error(errText(result, 'Ошибка отправки сообщения'));
       }
 
-      const mapped = mapMessage(result.data, myUser);
-      setMessages((prev) => prev.map((m) => (m.id === tempId ? (mapped || { ...m, status: 'delivered' }) : m)));
-      return mapped || optimistic;
+      const mapped = await mapMessageWithE2E(result.data, myUser);
+      // The server stores no plaintext for E2E messages; for our own message
+      // we already know the text, so restore it locally after mapping.
+      const finalMessage = mapped || { ...optimistic, status: 'delivered' };
+      if (envelope) finalMessage.content = content;
+      finalMessage.status = 'delivered';
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? finalMessage : m)));
+      return finalMessage;
     } catch (err) {
       setError(err.message);
       return null;
     } finally {
       setIsSending(false);
     }
-  }, [chatId, apiFetch]);
+  }, [chatId, apiFetch, buildE2EEnvelope]);
 
   // ---- Chat info ----
   const loadChatInfo = useCallback(async () => {
@@ -501,7 +613,7 @@ export const useChat = (chatId) => {
     let socket = null;
     let joinHandler = null;
 
-    const handleNewMessage = (msg) => {
+    const handleNewMessage = async (msg) => {
       if (!msg) return;
       if (msg.chatId && msg.chatId !== chatId) return;
 
@@ -509,8 +621,8 @@ export const useChat = (chatId) => {
       // Own messages are already added optimistically by sendMessage
       if (myUser && msg.senderId === myUser.id) return;
 
-      const mapped = mapMessage(msg, myUser);
-      if (!mapped) return;
+      const mapped = await mapMessageWithE2E(msg, myUser);
+      if (!mapped || disposed) return;
 
       setMessages((prev) => (prev.some((m) => m.id === mapped.id) ? prev : [mapped, ...prev]));
       markMessagesAsRead();
