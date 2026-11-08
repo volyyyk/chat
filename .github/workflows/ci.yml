@@ -777,7 +777,13 @@ jobs:
           exit 1
 
       - name: Install k6
-        uses: grafana/setup-k6-action@v1
+        run: |
+          set -e
+          K6_VERSION=v0.50.0
+          curl -sSL "https://github.com/grafana/k6/releases/download/${K6_VERSION}/k6-${K6_VERSION}-linux-amd64.tar.gz" -o /tmp/k6.tar.gz
+          tar -xzf /tmp/k6.tar.gz -C /tmp
+          sudo mv /tmp/k6-${K6_VERSION}-linux-amd64/k6 /usr/local/bin/k6
+          k6 version
 
       - name: Run k6 load smoke
         run: |
@@ -798,6 +804,9 @@ jobs:
           mkdir -p ci-logs
           if [ -f ci-k6.log ]; then
             cp ci-k6.log ci-logs/ci-k6.log
+          fi
+          if [ -f medchat-v2/server/k6-server.log ]; then
+            cp medchat-v2/server/k6-server.log ci-logs/ci-k6-server.log
           fi
           git config user.name "ci-reporter"
           git config user.email "ci-reporter@users.noreply.github.com"
