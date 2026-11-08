@@ -394,7 +394,7 @@ async function main() {
 
   const doctorAppts = await request('GET', '/api/appointments?limit=50', { token: doctor.accessToken });
   const doctorApptList = (doctorAppts.json && (doctorAppts.json.data || doctorAppts.json)) || [];
-  log(doctorAppts.status === 200 && doctorApptList.length >= 2, 'врач видит приёмы пациентов', doctorApptsList.length);
+  log(doctorAppts.status === 200 && doctorApptList.length >= 2, 'врач видит приёмы пациентов', doctorApptList.length);
 
   const foreignAppt = await request('GET', '/api/appointments/' + appt.id, { token: patient2.accessToken });
   log(foreignAppt.status === 403 || foreignAppt.status === 404, 'пациент 2 не видит чужой приём', foreignAppt.status);
