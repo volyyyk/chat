@@ -12,6 +12,7 @@
     "test:watch": "jest --watch",
     "test:integration": "jest tests/integration",
     "test:smoke": "node scripts/smoke-test.js",
+    "bench:core": "node bench/coreBench.js",
     "seed:test": "node src/seeds/testData.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:undo": "sequelize-cli db:migrate:undo",

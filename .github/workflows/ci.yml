@@ -240,3 +240,62 @@ jobs:
           git fetch origin main
           git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
           git push origin HEAD:main || echo "push failed (non-fatal)"
+
+
+  core-bench:
+    name: Core benchmarks (Rust criterion vs Node, DoD ≥ x10)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: medchat-v2/core
+
+      # Rust-сторона: criterion, release+LTO (benches/crypto.rs). Джоба
+      # гейтит сборку и прогон бенчмарков; тайминги НЕ сравниваются
+      # автоматикой — числа читаются из ci-bench.log (сверка DoD «≥ x10»
+      # по логу: машины шатательны для автогейта).
+      - name: Run criterion benchmarks (medchat-core)
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo bench --no-default-features; } 2>&1 | tee ../../ci-bench.log
+
+      # Зеркальная Node-сторона: те же payload/cost (bench/coreBench.js).
+      - name: Run Node reference benchmarks
+        working-directory: medchat-v2/server
+        run: |
+          npm install --no-audit --no-fund
+          { echo "=== node reference ${GITHUB_RUN_ID} $(date -u) ==="; npm run bench:core; } 2>&1 | tee -a ../../ci-bench.log
+
+      # Лог бенчмарков публикуется ВСЕГДА (не только при падении): числа
+      # нужны для сверки DoD из репозитория. [skip ci] — пуш GITHUB_TOKEN
+      # не запускает новые прогоны (см. комментарий в шапке workflow).
+      - name: Publish bench log to the repo
+        if: always()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-bench.log ]; then
+            cp ci-bench.log ci-logs/ci-bench.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no bench log to publish"
+            exit 0
+          fi
+          git commit -m "bench(ci): crypto benchmark log from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
