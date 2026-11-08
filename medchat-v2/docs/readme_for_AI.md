@@ -168,7 +168,8 @@ medchat-v2/
 │                          (feature uniffi-bind, джоба CI uniffi-bindings)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
-│                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE + этот файл
+│                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE,
+│                          INTEGRATION_BINDINGS (гайд подключения биндингов ядра) + этот файл
 ├── docker/, docker-compose.yml
 └── .github/workflows/ci.yml — server-tests + e2e-smoke + core-tests
 ```
@@ -321,7 +322,7 @@ E2E-сообщений серверу недоступен (хранится т�
   бинарник не может линковать napi_*-символы — их даёт только процесс Node,
   napi-rs issue #1099; юнит-тесты самих обёрток выполняются джобой napi-build
   в настоящем Node: napi-smoke.js — JS-зеркало тех же проверок).
-  UniFFI-биндинги для Swift/Kotlin реализованы (feature uniffi-bind: src/uniffi_iface.rs — обёртки конвертов, bcrypt_verify, MedRatchetState на Mutex (uniffi-методы иммутабельны), to_wire/from_wire; генерация обвязки — uniffi-bindgen 0.28.3 из git-тега v0.28.3 (library mode; uniffi-крейты отсутствуют в sparse-индексе crates.io, см. §8) в джобе CI uniffi-bindings; персистентность состояния — save()/restore() (feature serde): bincode-буфер в secure storage вызывающей стороны, Keychain/Keystore).
+  UniFFI-биндинги для Swift/Kotlin реализованы (feature uniffi-bind: src/uniffi_iface.rs — обёртки конвертов, bcrypt_verify, MedRatchetState на Mutex (uniffi-методы иммутабельны), to_wire/from_wire; генерация обвязки — uniffi-bindgen 0.28.3 из git-тега v0.28.3 (library mode; uniffi-крейты отсутствуют в sparse-индексе crates.io, см. §8) в джобе CI uniffi-bindings; персистентность состояния — save()/restore() (feature serde): bincode-буфер в secure storage вызывающей стороны, Keychain/Keystore). Гайд подключения ядра к платформам (Node/UniFFI, Xcode/Gradle, персистентность save/restore) — docs/INTEGRATION_BINDINGS.md.
 - **Double Ratchet** (этап 7, прототип): medchat-core/src/ratchet.rs — KDF_RK/KDF_CK на
   HMAC-SHA256 (x25519-dalek 2.0.1 для raw DH, явная feature static_secrets), каждое
   сообщение AES-256-GCM на одноразовом message key, DH-шаг при смене ratchet-ключа
@@ -928,7 +929,7 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     для Node~~ — сделано (754f677 → 2bb38f2 → e411a54: src/node.rs, конверты +
     JsRatchetState, feature napi-bind — CI зелёный). ~~UniFFI для Swift/Kotlin~~ — сделано (feature uniffi-bind: src/uniffi_iface.rs,
     обёртки конвертов + bcrypt + MedRatchetState (Mutex), генерация обвязки —
-    джоба uniffi-bindings; склейка в Xcode/Gradle — этапы 3/4). Дальше:
+    джоба uniffi-bindings; гайд подключения — docs/INTEGRATION_BINDINGS.md; склейка в Xcode/Gradle — этапы 3/4). Дальше:
     интеграция ratchet в клиенты (~~сериализация состояния + биндинги save/restore (napi/UniFFI)~~ — сделано: feature serde + JsRatchetState.save()/restore() (napi) и MedRatchetState.save()/restore() (UniFFI); осталась склейка с клиентским UI/secure storage), ~~cargo-fuzz~~ (scaffold: fuzz/ с тремя целями + джоба fuzz-smoke;
     суточный DoD-прогон — отдельный запуск по требованию), ~~бенчмарки (DoD ≥ x10
     к Node)~~ — сделано (d2db23e + f79de00: criterion + Node-зеркало + джоба

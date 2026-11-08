@@ -134,12 +134,16 @@ cargo-fuzz scaffold + smoke в CI, биндинги napi-rs (Node) и UniFFI
 ### Этап 3. Нативный iOS (Swift/SwiftUI)
 SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudio), рецепты, приёмы;
 ключи в **Keychain**, TLS-pinning, APNs-пуши.
+Механика подключения биндингов (UniFFI-обвязка, xcframework, save/restore
+в Keychain) — docs/INTEGRATION_BINDINGS.md.
 **DoD:** TestFlight-билд проходит smoke-сценарии (те же 50 проверок, адаптированные
 под UI-автотесты XCUITest).
 
 ### Этап 4. Нативный Android (Kotlin/Compose)
 Jetpack Compose-клиент поверх того же ядра: ключи в **Android Keystore**,
 FCM-пуши, фоновая доставка сообщений.
+Механика подключения биндингов (JNA, jniLibs, save/restore в Keystore) —
+docs/INTEGRATION_BINDINGS.md.
 **DoD:** internal testing в Play Console, smoke-сценарии в Espresso.
 
 ### Этап 5. Desktop: Windows (exe) + Ubuntu
