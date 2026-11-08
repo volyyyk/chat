@@ -70,7 +70,8 @@ class BackupService {
    * @returns {Buffer} Encrypted data
    */
   static encrypt(data, key, iv) {
-    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    cons
+t cipher = crypto.createCipheriv(ALGORITHM, key, iv);
     const encrypted = Buffer.concat([iv, cipher.update(data), cipher.final()]);
     return encrypted;
   }
@@ -138,7 +139,8 @@ class BackupService {
    * @param {string} name - Backup name
    * @param {string} description - Backup description
    * @param {string} password - Backup password
-   * @param {Array} dataTypes - Data types to backup
+   * @param {Array} dataTypes - Data types t
+o backup
    * @param {string} format - Backup format (json or zip)
    * @returns {Promise<Object>} Backup result
    */
@@ -206,7 +208,8 @@ class BackupService {
       status: 'completed',
       metadata: {
         salt: salt.toString('hex'),
-        iv: iv.toString('hex'),
+        iv: iv.toString('hex
+'),
       },
     });
 
@@ -275,7 +278,8 @@ class BackupService {
     for (const dataType of types) {
       if (backupData[dataType]) {
         try {
-          restoreResults[dataType] = await this.importData(dataType, backupData[dataType], user.id);
+          restoreResults[dataType] = await this.importData(dataType, backupD
+ata[dataType], user.id);
         } catch (error) {
           logger.error(`Error importing ${dataType}:`, error);
           restoreResults[dataType] = { success: false, error: error.message };
@@ -350,7 +354,8 @@ class BackupService {
     }
 
     // Delete backup file
-    const backupPath = path.join(__dirname, '../../backups', backup.filename);
+    const backupPath = path.join(__dirname, '../../ba
+ckups', backup.filename);
     try {
       await unlink(backupPath);
     } catch (error) {
@@ -395,7 +400,7 @@ class BackupService {
       // Chats where the user participates (via ChatParticipant or as doctor/patient)
       const { QueryTypes } = require('sequelize');
       const chatIds = await models.sequelize.query(
-        'SELECT DISTINCT "chatId" FROM chat_participants WHERE "userId" = $1',
+        'SELECT DISTINCT chat_id AS "chatId" FROM chat_participants WHERE user_id = $1',
         { bind: [userId], type: QueryTypes.SELECT }
       );
       const ids = chatIds.map((c) => c.chatId);
@@ -413,7 +418,8 @@ class BackupService {
       include: this.getIncludeOptions(dataType),
     });
 
-    return data.map((item) => this.sanitizeData(item, dataType));
+    return data.map((item) => this.san
+itizeData(item, dataType));
   }
 
   /**
@@ -485,7 +491,8 @@ class BackupService {
       ],
       patients: [
         { model: models.User, as: 'user' },
-        { model: models.Doctor, as: 'doctor' },
+        { mode
+l: models.Doctor, as: 'doctor' },
         { model: models.Clinic, as: 'clinic' },
       ],
       chats: [
@@ -550,7 +557,8 @@ class BackupService {
     delete sanitized.ipAddress;
     delete sanitized.userAgent;
 
-    return sanitized;
+    return
+ sanitized;
   }
 
   /**
@@ -619,7 +627,8 @@ class BackupService {
       filename,
       path: backupPath,
       size: encryptedData.length,
-      salt: salt.toString('hex'),
+      salt:
+ salt.toString('hex'),
       iv: iv.toString('hex'),
     };
   }
