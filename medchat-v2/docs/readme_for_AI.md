@@ -68,7 +68,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
-| desktop | Tauri 2 (Rust + системный webview): каркас этапа 5; ядро medchat-core напрямую path-депом (Rust→Rust, без FFI) |
+| desktop | Tauri 2 (Rust + системный webview): каркас этапа 5; ядро medchat-core напрямую path-депом (Rust→Rust, без FFI); secure storage keyring 3 (Credential Manager / libsecret) |
 | core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs); uniffi-биндинги Swift/Kotlin (feature uniffi-bind); serde-сериализация RatchetState (feature serde) + биндинги save/restore наружу (napi/UniFFI; персистентность сессий для клиентов) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
@@ -135,7 +135,10 @@ medchat-v2/
 ├── web/src/             — pages (7), services, context
 ├── desktop/            — каркас этапа 5 (Tauri 2): src-tauri/ (Cargo.toml, build.rs,
 │                        tauri.conf.json, src/main.rs — tauri-команды core_probe/
-│                        ratchet_probe поверх medchat-core path-депом),
+│                        ratchet_probe/ratchet_save/ratchet_load/ratchet_delete/
+│                        ratchet_storage_probe (secure storage — keyring 3:
+│                        Credential Manager/libsecret) поверх medchat-core
+│                        path-депом features serde),
 │                        ui/index.html (статическая обвязка для системного webview)
 ├── core/                — Rust-ядро medchat-core (Cargo.toml, src/lib.rs, src/ratchet.rs):
 │                          SalsaBox (X25519 + XSalsa20-Poly1305, crypto_box 0.9),
@@ -767,6 +770,7 @@ stored-deflate блоками по <=65535 байт (4128 у 32x32 — один 
 возможны красные прогоны (компиляция tauri на windows ~20+ мин, dpkg-инструменты,
 NSIS-загрузка) — чинить по ci-desktop-bundle.log.
 **AppImage в CI (этот коммит)**: ubuntu-лег джобы desktop-bundle собирает .deb и AppImage одним вызовом (--bundles deb,appimage; таргет добавлен и в tauri.conf.json — локальная сборка делает то же), артефакт переименован в medchat-desktop-linux (.deb + .AppImage вместе; windows-лег medchat-desktop-nsis не тронут); в Linux build deps добавлен libfuse2 — скачанный бандлером AppImage-тулинг (linuxdeploy/appimagetool) иначе не запускается на свежих Ubuntu. Честно: AppImage в CI только собирается, запуск установщика на чистой VM — за пределами CI (smoke установки вручную).
+**Desktop secure storage (этот коммит)**: обёртка secure_store (крейт keyring 3) над системными хранилищами — Windows Credential Manager (feature windows-native) / libsecret = GNOME Keyring (feature sync-secret-service: dbus-secret-service — чистый Rust на zbus, системных -dev-пакетов не требует; crypto-rust — шифрование секрета в D-Bus-транспорте без системного OpenSSL); депы платформо-специфичны через target-зависимости Cargo.toml — на прочих ОС команды дают явную ошибку. tauri-команды ratchet_save/ratchet_load/ratchet_delete (сервис medchat.ratchet, аккаунт = идентификатор сессии) + ratchet_storage_probe: полный цикл персистентности (init → encrypt → save → drop → load → restore → продолжение диалога) прямо из приложения; medchat-core теперь с feature serde (bincode-сериализация RatchetState — тот же формат, что у napi/UniFFI-биндингов). Blob состояния содержит СЕКРЕТЫ — только системное хранилище, никогда файлы/логи/сервер. Честно: в CI ключи не гоняются (на раннере нет D-Bus-сессии/реестра с ключами) — desktop-check гейтит компиляцию, smoke-probe запускается вручную на целевой ОС.
 **Биндинги save/restore (этот коммит)**: JsRatchetState.save()/restore() (napi,
 feature serde) и MedRatchetState.save()/restore() (UniFFI) — bincode-буфер
 состояния наружу и обратно; оба блока — отдельные cfg-гейтые impl (cfg вырезает
@@ -868,7 +872,7 @@ node stop.js [--docker]                     # остановить процес�
 - **desktop-check**: каркас этапа 5 (Tauri 2) — apt libwebkit2gtk-4.1-dev, cargo
   check --all-targets в medchat-v2/desktop/src-tauri (гейтит валидность
   tauri.conf.json, резолв дерева tauri, типо-совместимость tauri-команд с
-  medchat-core path-депом Rust→Rust); лог падений — ci-logs/ci-desktop.log. Прогон #113
+  medchat-core path-депом Rust→Rust; secure storage — keyring 3: sync-secret-service/dbus-secret-service — чистый Rust на zbus, системных -dev-пакетов не требует); лог падений — ci-logs/ci-desktop.log. Прогон #113
 (run 42481634795): паника generate_context! на дефолтных иконках tauri (bundle.icon отсутствовал в conf —
 tauri подставлял icons/icon.png); пустой "icon": [] (bfe1dad) дефолтный фолбэк НЕ отменил (прогоны
 #114–#116 красные); фикс — генерация icons/icon.png в build.rs (PNG 32x32 RGBA валиден по построению:

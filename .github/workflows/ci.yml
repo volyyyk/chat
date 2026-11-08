@@ -569,9 +569,12 @@ jobs:
 
       # cargo check гейтит: tauri.conf.json валиден (build.rs tauri-build
       # валидирует конфиг), дерево tauri 2 резолвится, команды-пробы
-      # core_probe/ratchet_probe типо-совместимы с medchat-core
-      # (path-деп Rust -> Rust, default-features = false). Сборка
-      # установщиков (.deb/.exe) — джоба desktop-bundle (этап 5).
+      # core_probe/ratchet_probe/ratchet_storage_probe типо-совместимы
+      # с medchat-core (path-деп Rust -> Rust, default-features = false,
+      # features serde: персистентность RatchetState) и с keyring
+      # (secure storage этапа 5; dbus-secret-service — чистый Rust на
+      # zbus, системных -dev-пакетов не требует). Сборка
+      # установщиков (.deb/AppImage/.exe) — джоба desktop-bundle (этап 5).
       - name: Type-check Tauri app + core integration
         run: |
           set -o pipefail

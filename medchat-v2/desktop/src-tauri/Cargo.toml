@@ -15,4 +15,24 @@ tauri = { version = "2", features = [] }
 # клиент MedChat без биндингов (napi — Node, UniFFI — Swift/Kotlin).
 # default-features = false: napi-bind не нужен; CoreError реализует
 # Display + std::error::Error — ок для сообщений tauri-команд.
-medchat-core = { path = "../../core", default-features = false }
+# features serde: сериализация RatchetState (bincode) — персистентность
+# сессии Double Ratchet между запусками (этап 7): blob сохраняется в
+# системном secure storage (ratchet_save/ratchet_load, см. main.rs).
+medchat-core = { path = "../../core", default-features = false, features = ["serde"] }
+# Бинарный формат персистентности RatchetState — тот же bincode 1, что и в
+# ядре (feature serde): save/restore-путь desktop обязан сериализовать
+# состояние так же, как это делают биндинги napi/UniFFI.
+bincode = "1"
+
+# Secure storage этапа 5 (ROADMAP «Секреты: Windows Credential Manager /
+# libsecret (GNOME Keyring)»): крейт keyring 3 поверх системных хранилищ.
+# Платформо-специфичные фичи через target-зависимости: Windows — Credential
+# Manager (windows-native), Linux — libsecret/GNOME Keyring поверх D-Bus
+# (sync-secret-service: dbus-secret-service — чистый Rust на zbus,
+# системных -dev-пакетов не требует; crypto-rust — шифрование секрета
+# в транспорте без системного OpenSSL).
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }

@@ -16,9 +16,11 @@
   <p>Tauri 2, крипто-ядро medchat-core — напрямую path-депом (Rust → Rust, без FFI).</p>
   <p id="status">Готовность проекта MedChat v2 — ~90 %. Этап 5: каркас + сборка
      установщиков в CI (matrix Ubuntu → .deb + AppImage, Windows → NSIS .exe);
-     подписи и автоапдейт — далее.</p>
+     секреты Double Ratchet — в Credential Manager/libsecret; подписи и
+     автоапдейт — далее.</p>
   <button id="probe-core">Проверить конверт x25519-box</button>
   <button id="probe-ratchet">Проверить Double Ratchet</button>
+  <button id="probe-storage">Проверить secure storage</button>
   <pre id="out">нажмите кнопку…</pre>
   <script>
     const out = document.getElementById('out');
@@ -32,6 +34,7 @@
     }
     document.getElementById('probe-core').addEventListener('click', () => run('core_probe'));
     document.getElementById('probe-ratchet').addEventListener('click', () => run('ratchet_probe'));
+    document.getElementById('probe-storage').addEventListener('click', () => run('ratchet_storage_probe'));
   </script>
 </body>
 </html>

@@ -170,8 +170,12 @@ bundle.icon: ["icons/icon.png"]: generate_context! требует существ
 windows-latest → NSIS .exe; tauri CLI из npm, артефакты Actions; иконки
 бандлера генерирует build.rs: 32x32/128x128/128x128@2x PNG + icon.ico BMP —
 плейсхолдер-тил, настоящие иконки лягут бинарным каналом). Подписи
-(Authenticode), автоапдейт, секреты Credential Manager/libsecret —
-следующие шаги этапа.
+(Authenticode) и автоапдейт — следующие шаги этапа. Секреты Credential
+Manager/libsecret реализованы в каркасе: secure_store (крейт keyring 3:
+windows-native / sync-secret-service + crypto-rust), tauri-команды
+ratchet_save/ratchet_load/ratchet_delete + smoke-probe полного цикла
+персистентности (save → restore → продолжение диалога); blob состояния
+Double Ratchet — ТОЛЬКО системное хранилище.
 
 ### Этап 6. Сервер: горячие пути
 napi-rs-плагин для крипто/checksum/сжатия; при росте — вынос websocket-gateway

@@ -100,7 +100,7 @@ npm run dev           # API на :3000
 | Безопасность (E2E, Double Ratchet в ядре, secure storage, идентификация 149-ФЗ) | 95 % | captcha, склейка Double Ratchet в UI клиентов; SMS-гейт/Госуслуги — оператору |
 | Мобильный клиент (Expo) | 88 % | UI-полировка, локализация, виртуализация чатов |
 | Web-клиент | 70 % | доп. экраны, полировка |
-| Нативное ядро + desktop (Rust medchat-core, Tauri 2) | 78 % | iOS/Android-клиенты (этапы 3/4), подписи установщиков, автоапдейт |
+| Нативное ядро + desktop (Rust medchat-core, Tauri 2) | 80 % | iOS/Android-клиенты (этапы 3/4), подписи установщиков, автоапдейт |
 | Тесты | 82 % | покрытие файлов и приёмов, smoke ratchet-склейки |
 | CI/CD | 89 % | автодеплой; установщики .deb/AppImage/.exe собираются в CI (артефакты Actions) |
 | Инфраструктура | 82 % | nginx/TLS, бэкапы по расписанию |
@@ -115,7 +115,7 @@ npm run dev           # API на :3000
    персистентность save/restore, bincode); UniFFI-биндинги для Swift/Kotlin,
    napi-rs для Node — готовы (гайд подключения — `docs/INTEGRATION_BINDINGS.md`).
 3. **iOS (Swift/SwiftUI)** и **Android (Kotlin/Jetpack Compose)** поверх общего ядра.
-4. **Desktop**: Tauri 2 (Rust) — Windows `.exe` и Ubuntu `.deb`/AppImage из одной кодовой базы (каркас готов, установщики `.deb`/AppImage/`.exe` собираются в CI; подписи — далее).
+4. **Desktop**: Tauri 2 (Rust) — Windows `.exe` и Ubuntu `.deb`/AppImage из одной кодовой базы (каркас готов, установщики `.deb`/AppImage/`.exe` собираются в CI; секреты Double Ratchet — в Credential Manager/libsecret; подписи и автоапдейт — далее).
 5. **Серверные горячие пути** на Rust (napi-rs), при росте — отдельный websocket-gateway.
 6. **E2E-шифрование**: базовый уровень (X25519 + NaCl box) и E2E файлов/голосовых
    **реализованы**; Double Ratchet (forward secrecy) готов в Rust-ядре с персистентностью
