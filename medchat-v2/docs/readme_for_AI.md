@@ -835,6 +835,23 @@ envelope:{v:1, alg:"x25519-box", epk, nonce, boxes}} (content обязан бы�
 конверты desktop не шифрует (текстовые боксы — UTF-8, не-UTF-8 — честная ошибка);
 Double Ratchet в desktop не интегрирован. Wire-формат байт-в-байт совместим с
 мобильным клиентом (tweetnacl, вектор 1ce9516).
+**iOS: инструментальная цепочка биндингов в CI (этап 3, ч.1)**: джоба ios-smoke
+(macos-latest — первые macOS-раннеры в CI): uniffi-bindgen 0.28.3 генерирует
+Swift-обвязку, swiftc компилирует её вместе с ios/MedchatCoreSmoke.swift
+(runtime-зеркало napi-smoke.js: конверт roundtrip, бокс отправителя, битые
+длины, Double Ratchet in-order/wire/skip-store/replay/NotInitialized,
+save/restore, bcrypt KAT) против host-cdylib и запускает бинарник;
+кросс-компиляция aarch64-apple-ios + aarch64-apple-ios-sim через cargo rustc
+-- --crate-type staticlib (Cargo.toml ядра не тронут); MedchatCore.xcframework
+(device+sim, заголовки внутри) — артефакт medchat-core-xcframework для
+Xcode-проекта оператора. Честно: компиляция SwiftUI-клиента, TestFlight,
+подписи и APNs — Xcode-проект и аккаунт оператора (как Authenticode в
+desktop, DESKTOP_RELEASE.md); здесь гейтится всё, что не требует секретов.
+Риски первой версии джобы: имя сгенерированного *.swift не фиксируется
+(шаг использует glob и ls по маске *.h), case-имена MedCryptoError в Swift
+взяты по конвенции uniffi (варианты Rust UpperCamelCase) — при расхождении
+джоба покраснеет, читать ci-logs/ci-ios.log и править smoke-файл.
+
 
 ## 9. Лаунчер («запуск по кнопке»)
 
@@ -852,7 +869,7 @@ node stop.js [--docker]                     # остановить процес�
 
 ## 10. CI (.github/workflows/ci.yml)
 
-Девять джоб на каждый пуш в main:
+Одиннадцать джоб на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
   валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
@@ -923,6 +940,7 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
   (if-no-files-found: warn), лог падений — ci-logs/ci-desktop-bundle.log;
   иконки бандлера генерирует build.rs (см. §8); AppImage — с этого же
   коммита (см. §8). Подписи (Authenticode), автоапдейт — далее.
+- **ios-smoke** (этап 3): macOS-раннер — uniffi-bindgen 0.28.3 генерирует Swift-обвязку;  swiftc + ios/MedchatCoreSmoke.swift (runtime-зеркало napi-smoke.js) против host-cdylib;  кросс-компиляция aarch64-apple-ios и aarch64-apple-ios-sim (staticlib) →  MedchatCore.xcframework (артефакт medchat-core-xcframework); лог падений —  ci-logs/ci-ios.log.- **k6-load** (этап 6): нагрузочный k6-профиль против стенда Postgres+Redis+seed  на том же раннере (сервер в фоне), гейты http_req_failed<1% и p95<2500 мс;  лог ci-logs/ci-k6.log публикуется ВСЕГДА (базлайн деградации от прогона к прогону).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -1008,6 +1026,11 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     (e2e_get_or_create_key/e2e_seal/e2e_open в main.rs, ключ устройства в
     secure storage medchat.e2e; UI регистрирует ключ POST /api/keys, шифрует
     и расшифровывает конверты, plaintext-fallback при неполном покрытии).
+    Этап 3 начат (ч.1 — инструментальная цепочка): джоба CI ios-smoke (macos-latest):
+    runtime-smoke Swift-обвязки (ios/MedchatCoreSmoke.swift — зеркало napi-smoke.js
+    на host-cdylib), кросс-компиляция iOS device/sim (staticlib), артефакт
+    MedchatCore.xcframework; SwiftUI-каркас, Keychain-слой и склейка ratchet —
+    следующие шаги; TestFlight/подписи/APNs — оператор (DESKTOP_RELEASE.md-паттерн).
 
 ---
 

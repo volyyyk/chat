@@ -66,7 +66,7 @@ modulemap. Компиляция сгенерированного кода в Xco
     cargo build --release --no-default-features --features uniffi-bind,serde --target <target>
 
 - iOS: aarch64-apple-ios (+ aarch64-apple-ios-sim) → libmedchat_core.a,
-  собирается в xcframework.
+  собирается в xcframework. С ноября 2026 это собирает джоба CI ios-smoke (macos-latest): cargo rustc --crate-type staticlib на оба таргета (dylib в App Store запрещены, Cargo.toml ядра не трогается) → xcodebuild -create-xcframework, артефакт medchat-core-xcframework (Swift-заголовки внутри).
 - Android: cargo-ndk (aarch64-linux-android, armv7-linux-androideabi, ...)
   → libmedchat_core.so → jniLibs/<ABI>/.
 - ВАЖНО: та же версия uniffi-bindgen (0.28.3) и те же features, что в CI —
@@ -92,6 +92,12 @@ modulemap. Компиляция сгенерированного кода в Xco
 - Сгенерированные MedchatCore.swift + MedchatCoreFFI.h + MedchatCore.modulemap
   из артефакта CI; xcframework из libmedchat_core.a (устройство + симулятор);
   модуль подключается через modulemap (без bridging header): import MedchatCore.
+- С ноября 2026 обвязка гейтится рантаймом: джоба CI ios-smoke (macos-latest)
+  генерирует Swift-обвязку (тот же bindgen v0.28.3), компилирует её swiftc
+  вместе с ios/MedchatCoreSmoke.swift (runtime-зеркало napi-smoke.js:
+  конверт roundtrip, бокс отправителя, битые длины, Double Ratchet
+  in-order/wire/skip-store/replay, save/restore, bcrypt KAT) против
+  host-сборки cdylib и запускает бинарник.
 - API: MedRatchetState.initInitiator/initResponder, encrypt/decrypt/
   decryptWire, save() → Data, restore(saved:) → MedRatchetState; конверты
   SealedMessage/KeyPair-обёртки; bcryptVerify.
@@ -112,13 +118,20 @@ modulemap. Компиляция сгенерированного кода в Xco
 
 - medchat-core-linux-x64-gnu (.node) — джоба napi-build;
 - medchat-core-uniffi-bindings (uniffi-out/) — джоба uniffi-bindings;
+- medchat-core-xcframework (device aarch64-apple-ios + simulator, со Swift-заголовками) — джоба ios-smoke (этап 3);
 - ci-logs/*.log — логи падений (метка «=== run <id> job <name>» для сверки
   со свежестью). Артефакты в репо не коммитятся — забирать из Actions.
 
 ## 5. Что дальше (честно)
 
-- Этапы 3/4: компиляция сгенерированной обвязки на реальных Xcode/Gradle
-  НЕ выполнялась (на ubuntu недоступна) — этот гайд описывает механику;
-  DoD этапов требуют фактических TestFlight / internal-testing билдов.
+- Этап 3 (iOS): с ноября 2026 Swift-обвязка компилируется и исполняется в CI
+  (джоба ios-smoke: runtime-smoke на macOS-раннере против host-cdylib,
+  кросс-компиляция device/sim, xcframework-артефакт). Компиляция
+  SwiftUI-приложения в Xcode, TestFlight и подписи требуют Xcode-проекта
+  и аккаунта оператора (Apple Developer, APNs-ключи); DoD этапа 3
+  (TestFlight-билд со smoke-сценариями) закрывается на стороне оператора.
+- Этап 4 (Android): компиляция Kotlin-обвязки в Gradle НЕ выполнялась —
+  этот гайд описывает механику; DoD этапа требует internal-testing
+  в Play Console (аккаунт оператора).
 - Этап 7: склейка ratchet с клиентским UI — одна реализация ядра,
   у клиентов только transport + storage (см. §1 про секреты буфера).

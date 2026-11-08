@@ -538,6 +538,123 @@ jobs:
           git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
           git push origin HEAD:main || echo "push failed (non-fatal)"
 
+  # Этап 3 ROADMAP_NATIVE: iOS-инструментальная цепочка на macOS-раннере
+  # (первая джоба CI на macOS). UniFFI Swift-обвязка компилируется swiftc
+  # вместе с medchat-v2/ios/MedchatCoreSmoke.swift (runtime-зеркало
+  # napi-smoke.js: конверт roundtrip, бокс отправителя, битые длины,
+  # Double Ratchet in-order/wire/skip-store/replay, save/restore, bcrypt
+  # KAT) против host-cdylib и запускается в настоящем Swift-процессе.
+  # Плюс кросс-компиляция aarch64-apple-ios + aarch64-apple-ios-sim
+  # (staticlib — dylib в App Store запрещены) и сборка MedchatCore.xcframework
+  # — артефакт для Xcode-проекта оператора. Компиляция SwiftUI-клиента,
+  # TestFlight и APNs требуют Xcode-проекта и аккаунта оператора (Apple
+  # Developer, сертификаты подписи) — секреты оператора, как Authenticode
+  # в desktop (DESKTOP_RELEASE.md): здесь гейтится всё, что секретов
+  # не требует.
+  ios-smoke:
+    name: iOS smoke (UniFFI Swift, этап 3)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust (stable + iOS targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: medchat-v2/core
+
+      # Тот же git-тег v0.28.3, что в джобе uniffi-bindings и Cargo.toml
+      # ядра: формат metadata привязан к версии крейта и CLI.
+      - name: Install uniffi-bindgen (v0.28.3 from git)
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.28.3 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-ios.log
+
+      # host-cdylib: по нему bindgen читает metadata (library mode) и против
+      # него линкуется runtime-smoke ниже.
+      - name: Build host cdylib with UniFFI scaffolding
+        run: |
+          set -o pipefail
+          { cargo build --release --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-ios.log
+
+      - name: Generate Swift bindings
+        run: |
+          set -o pipefail
+          { uniffi-bindgen generate --library target/release/libmedchat_core.dylib --language swift --out-dir uniffi-out/swift; } 2>&1 | tee -a ../../ci-ios.log
+          ls uniffi-out/swift
+
+      # Имя сгенерированного *.swift не фиксируем (glob), заголовок ищем
+      # по маске *.h: bindgen 0.28 кладёт MedchatCoreFFI.h рядом.
+      - name: Swift smoke (runtime, зеркало napi-smoke.js)
+        run: |
+          set -o pipefail
+          HEADER=$(ls uniffi-out/swift/*.h | head -n 1)
+          { swiftc uniffi-out/swift/*.swift ../ios/MedchatCoreSmoke.swift \
+              -import-objc-header "$HEADER" \
+              -L target/release -lmedchat_core \
+              -Xlinker -rpath -Xlinker "$PWD/target/release" \
+              -o swift-smoke-bin; } 2>&1 | tee -a ../../ci-ios.log
+          { ./swift-smoke-bin; } 2>&1 | tee -a ../../ci-ios.log
+
+      # Кросс-компиляция под устройство и симулятор: staticlib (dylib на
+      # iOS запрещены App Store) — cargo rustc --crate-type override,
+      # Cargo.toml ядра не трогаем. Гейтит сборку против iOS SDK (Xcode на
+      # раннере macos-latest).
+      - name: Cross-compile iOS device + simulator (staticlib)
+        run: |
+          set -o pipefail
+          { cargo rustc --release --no-default-features --features uniffi-bind,serde --target aarch64-apple-ios -- --crate-type staticlib; } 2>&1 | tee -a ../../ci-ios.log
+          { cargo rustc --release --no-default-features --features uniffi-bind,serde --target aarch64-apple-ios-sim -- --crate-type staticlib; } 2>&1 | tee -a ../../ci-ios.log
+          ls -la target/aarch64-apple-ios/release/libmedchat_core.a
+          ls -la target/aarch64-apple-ios-sim/release/libmedchat_core.a
+
+      - name: Assemble MedchatCore.xcframework
+        run: |
+          set -o pipefail
+          mkdir -p xcframework-headers/ios xcframework-headers/sim
+          cp uniffi-out/swift/*.h uniffi-out/swift/*.modulemap xcframework-headers/ios/
+          cp uniffi-out/swift/*.h uniffi-out/swift/*.modulemap xcframework-headers/sim/
+          { xcodebuild -create-xcframework \
+              -library target/aarch64-apple-ios/release/libmedchat_core.a -headers xcframework-headers/ios \
+              -library target/aarch64-apple-ios-sim/release/libmedchat_core.a -headers xcframework-headers/sim \
+              -output MedchatCore.xcframework; } 2>&1 | tee -a ../../ci-ios.log
+
+      - name: Upload MedchatCore.xcframework
+        uses: actions/upload-artifact@v4
+        with:
+          name: medchat-core-xcframework
+          path: medchat-v2/core/MedchatCore.xcframework
+          if-no-files-found: error
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-ios.log ]; then
+            cp ci-ios.log ci-logs/ci-ios.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
+
   desktop-check:
     name: Desktop check (Tauri 2 scaffold, этап 5 ROADMAP_NATIVE)
     runs-on: ubuntu-latest

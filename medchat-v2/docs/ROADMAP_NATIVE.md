@@ -139,6 +139,20 @@ SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudi
 **DoD:** TestFlight-билд проходит smoke-сценарии (те же 50 проверок, адаптированные
 под UI-автотесты XCUITest).
 
+**Прогресс (ноябрь 2026, ч.1 — инструментальная цепочка):** джоба CI ios-smoke
+(macos-latest, первые macOS-раннеры в CI) гейтит бесекретную часть
+iOS-сборки: кросс-компиляция ядра под aarch64-apple-ios и
+aarch64-apple-ios-sim (staticlib — dylib в App Store запрещены), сборка
+MedchatCore.xcframework (артефакт Actions для Xcode-проекта) и
+runtime-smoke сгенерированной Swift-обвязки на host-cdylib
+(medchat-v2/ios/MedchatCoreSmoke.swift — зеркало napi-smoke.js: конверт
+roundtrip, бокс отправителя, битые длины, Double Ratchet
+in-order/wire/skip-store/replay, save/restore, bcrypt KAT). Компиляция
+SwiftUI-клиента, TestFlight и APNs требуют Xcode-проекта и аккаунта
+оператора (Apple Developer, сертификаты подписи — аналог Authenticode
+в desktop, DESKTOP_RELEASE.md): гейтится всё, что секретов не требует.
+Следующий шаг — каркас SwiftUI-источников + Keychain-слой.
+
 ### Этап 4. Нативный Android (Kotlin/Compose)
 Jetpack Compose-клиент поверх того же ядра: ключи в **Android Keystore**,
 FCM-пуши, фоновая доставка сообщений.
