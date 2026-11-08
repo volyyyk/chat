@@ -92,31 +92,34 @@ npm run dev           # API на :3000
 
 Тесты: `npm test` (unit+integration+security, БД мокается), `npm run test:smoke` (e2e по всем ролям).
 
-## 📊 Шкала реализации MedChat v2 (общая готовность ~88 %)
+## 📊 Шкала реализации MedChat v2 (общая готовность ~90 %)
 
 | Направление | Готовность | Что осталось |
 |---|---|---|
-| Сервер (API, чаты, платежи, приёмы, рецепты, ключи E2E) | 90 % | прод-режим, подписи вебхуков |
-| Безопасность (включая E2E сообщений) | 92 % | captcha на public endpoints, secure storage приватных ключей, Double Ratchet |
+| Сервер (API, чаты, платежи, приёмы, рецепты, ключи E2E, поиск pg_trgm) | 92 % | прод-режим, подписи вебхуков |
+| Безопасность (E2E, Double Ratchet в ядре, secure storage, идентификация 149-ФЗ) | 95 % | captcha, склейка Double Ratchet в UI клиентов; SMS-гейт/Госуслуги — оператору |
 | Мобильный клиент (Expo) | 88 % | UI-полировка, локализация, виртуализация чатов |
 | Web-клиент | 70 % | доп. экраны, полировка |
-| Тесты | 80 % | покрытие E2E-конвертов, файлов, приёмов |
-| CI/CD | 85 % | артефакты, автодеплой |
+| Нативное ядро + desktop (Rust medchat-core, Tauri 2) | 75 % | iOS/Android-клиенты (этапы 3/4), подписи установщиков, AppImage, автoupdate |
+| Тесты | 82 % | покрытие файлов и приёмов, smoke ratchet-склейки |
+| CI/CD | 88 % | автодеплой; установщики .deb/.exe уже собираются (артефакты Actions) |
 | Инфраструктура | 82 % | nginx/TLS, бэкапы по расписанию |
-| Документация | 90 % | поддерживать при изменениях |
+| Документация | 92 % | поддерживать при изменениях |
 
 ## 🧭 Дорожная карта: нативные платформы и системные языки
 
 Кратко (полный план — [`medchat-v2/docs/ROADMAP_NATIVE.md`](medchat-v2/docs/ROADMAP_NATIVE.md)):
 
 1. **Общее ядро** — выделение протокола/крипто/синхронизации из UI-клиентов.
-2. **Rust-ядро** (`libmedchat_core`): AES-GCM, хэши, будущий Double Ratchet;
-   UniFFI-биндинги для Swift/Kotlin, napi-rs для Node.
+2. **Rust-ядро** (`libmedchat_core`): AES-GCM, хэши, Double Ratchet (прототип +
+   персистентность save/restore, bincode); UniFFI-биндинги для Swift/Kotlin,
+   napi-rs для Node — готовы (гайд подключения — `docs/INTEGRATION_BINDINGS.md`).
 3. **iOS (Swift/SwiftUI)** и **Android (Kotlin/Jetpack Compose)** поверх общего ядра.
-4. **Desktop**: Tauri 2 (Rust) — Windows `.exe` и Ubuntu `.deb`/AppImage из одной кодовой базы.
+4. **Desktop**: Tauri 2 (Rust) — Windows `.exe` и Ubuntu `.deb`/AppImage из одной кодовой базы (каркас готов, установщики `.deb`/`.exe` собираются в CI; AppImage и подписи — далее).
 5. **Серверные горячие пути** на Rust (napi-rs), при росте — отдельный websocket-gateway.
-6. **E2E-шифрование**: базовый уровень (X25519 + NaCl box) **реализован**; дальше —
-   Double Ratchet (forward secrecy) на Rust-ядре, E2E для файлов, при необходимости ГОСТ СКЗИ.
+6. **E2E-шифрование**: базовый уровень (X25519 + NaCl box) и E2E файлов/голосовых
+   **реализованы**; Double Ratchet (forward secrecy) готов в Rust-ядре с персистентностью
+   (save/restore в napi/UniFFI) — осталась склейка с UI клиентов; при необходимости ГОСТ СКЗИ.
 7. C#/.NET и Java — точечно (WinAPI-интеграции, JVM-интеграции), а не по умолчанию.
 
 ## 🔒 Безопасность и право
@@ -144,6 +147,8 @@ npm run dev           # API на :3000
 | `medchat-v2/mobile` | React Native / Expo (все роли, E2E-криптография) |
 | `medchat-v2/web` | React-клиент клиники/админа |
 | `medchat-v2/launcher` | запуск «по кнопке» (папка самостоятельная и удаляемая) |
+| `medchat-v2/desktop` | Desktop-клиент (Tauri 2, Rust) — этап 5 |
+| `medchat-v2/core` | Rust-криптоядро medchat-core (napi + UniFFI-биндинги) |
 | `medchat-v2/docs` | API, ARCHITECTURE, DEPLOYMENT, LEGAL, roadmap и др. |
 
 ## 🤖 ИИ-агентам и новым разработчикам

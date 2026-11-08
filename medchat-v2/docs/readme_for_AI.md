@@ -752,6 +752,20 @@ proc-макросов; tauri.conf.json указывает "icon": ["icons/icon.p
 (только secure storage). CI: cargo test --no-default-features --features serde.
 Честно: JSON не подходит — ключи skip-store HashMap(([u8;32], u32)) нестроковые;
 формат персистентности — bincode-класс (бинарный).
+**Установщики desktop в CI + иконки бандлера (этот коммит)**: джоба desktop-bundle
+(matrix ubuntu-latest/windows-latest) собирает .deb (Ubuntu) и NSIS .exe (Windows)
+через tauri CLI из npm (npx @tauri-apps/cli@2 — без глобальной установки), артефакты
+upload-artifact, лог падений — ci-logs/ci-desktop-bundle.log. Иконки бандлера
+генерирует build.rs: 32x32.png/128x128.png/128x128@2x.png (deb требует размеры в
+ИМЕНИ файла — hicolor-паттерны) + icon.ico (NSIS; классический BMP-ICO 32bpp,
+PNG-записи в ICO официально валидны только для 256x256 — не рискуем);
+stored-deflate блоками по <=65535 байт (4128 у 32x32 — один блок, 65664 у 128x128 —
+два, 262400 у 256x256 — пять). bundle.active=true, targets [deb, nsis]; AppImage,
+подписи (Authenticode), автоапдейт — далее. Плейсхолдер — сплошной тил #0E7490;
+настоящие иконки должны лечь в репо бинарным каналом: build.rs НЕ перезаписывает
+существующие. Честно: сборка NSIS/.deb в CI выполняется ВПЕРВЫЕ — джоба новая,
+возможны красные прогоны (компиляция tauri на windows ~20+ мин, dpkg-инструменты,
+NSIS-загрузка) — чинить по ci-desktop-bundle.log.
 **Биндинги save/restore (этот коммит)**: JsRatchetState.save()/restore() (napi,
 feature serde) и MedRatchetState.save()/restore() (UniFFI) — bincode-буфер
 состояния наружу и обратно; оба блока — отдельные cfg-гейтые impl (cfg вырезает
@@ -858,6 +872,12 @@ node stop.js [--docker]                     # остановить процес�
 tauri подставлял icons/icon.png); пустой "icon": [] (bfe1dad) дефолтный фолбэк НЕ отменил (прогоны
 #114–#116 красные); фикс — генерация icons/icon.png в build.rs (PNG 32x32 RGBA валиден по построению:
 CRC32/Adler32/stored-deflate собираются кодом) + явный "icon": ["icons/icon.png"].
+- **desktop-bundle** (этап 5, этот коммит): matrix ubuntu-latest (.deb) /
+  windows-latest (NSIS .exe) — tauri CLI из npm (npx @tauri-apps/cli@2),
+  rust-toolchain@stable + rust-cache, артефакты upload-artifact
+  (if-no-files-found: warn), лог падений — ci-logs/ci-desktop-bundle.log;
+  иконки бандлера генерирует build.rs (см. §8). Подписи (Authenticode),
+  AppImage, автоапдейт — далее.
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -938,7 +958,7 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     сделано (джоба napi-build: medchat-core.linux-x64-gnu.node + napi-smoke.js,
     артефакт через upload-artifact). Этап 5 начат: каркас desktop (Tauri 2,
     medchat-v2/desktop) — ядро path-депом без FFI, tauri-команды-пробы, джоба
-    CI desktop-check; установщики/подписи — далее.
+    CI desktop-check; установщики собирает джоба desktop-bundle (matrix ubuntu .deb / windows NSIS .exe, артефакты Actions); подписи, AppImage, автоапдейт — далее.
 
 ---
 
