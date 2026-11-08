@@ -115,7 +115,7 @@ npm run dev           # API на :3000
    персистентность save/restore, bincode); UniFFI-биндинги для Swift/Kotlin,
    napi-rs для Node — готовы (гайд подключения — `docs/INTEGRATION_BINDINGS.md`).
 3. **iOS (Swift/SwiftUI)** и **Android (Kotlin/Jetpack Compose)** поверх общего ядра.
-4. **Desktop**: Tauri 2 (Rust) — Windows `.exe` и Ubuntu `.deb`/AppImage из одной кодовой базы (каркас готов, установщики `.deb`/AppImage/`.exe` собираются в CI; секреты Double Ratchet — в Credential Manager/libsecret; подписи и автоапдейт — далее).
+4. **Desktop**: Tauri 2 (Rust) — Windows `.exe` и Ubuntu `.deb`/AppImage из одной кодовой базы (каркас готов, установщики `.deb`/AppImage/`.exe` собираются в CI; секреты Double Ratchet — в Credential Manager/libsecret; подписи, автоапдейт и чек-лист релиза — гайд medchat-v2/docs/DESKTOP_RELEASE.md).
 5. **Серверные горячие пути** на Rust (napi-rs), при росте — отдельный websocket-gateway.
 6. **E2E-шифрование**: базовый уровень (X25519 + NaCl box) и E2E файлов/голосовых
    **реализованы**; Double Ratchet (forward secrecy) готов в Rust-ядре с персистентностью

@@ -186,7 +186,7 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             core_probe,
-                       ratchet_probe,
+            ratchet_probe,
             ratchet_save,
             ratchet_load,
             ratchet_delete,
