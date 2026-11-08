@@ -9,7 +9,9 @@
 > см. раздел 5, «E2E-контракт»), каркаса Rust-ядра medchat-core с джобой core-tests
 > в CI (3a70911 → ee76670), перевода приватных ключей в Keychain/Keystore (3ab5cf6)
 > и покрытия E2E тестами (02dc969 → 7cb0832: юнит-тесты валидатора конвертов +
-> smoke-секция E2E [12]).
+> smoke-секция E2E [12]) и наведение честности данных (815f6cb → a508fda:
+> маркер E2E-сообщения в smoke — metadata.e2e; честный дефолт
+> Message.isEncrypted=false — легаси true ложно помечал plaintext).
 
 ---
 
@@ -179,6 +181,9 @@ E2E-сообщений серверу недоступен (хранится т�
   ≤10 boxes, ≤32 КБ/бокс, ≤256 КБ конверт, бокс отправителя обязателен, content обязан
   быть пуст. При валидном конверте: `Message.metadata.e2e = конверт`, `content=''`,
   `isEncrypted=true`, `lastMessageText=''` — **plaintext в БД отсутствует**.
+  С a508fda дефолт модели Message.isEncrypted=false (легаси true был написан до E2E
+  и ложно помечал plaintext-сообщения, включая сид и prescription); true ставится
+  только контроллером при валидном конверте.
 - **Без envelope** — старый plaintext-путь (обратная совместимость; smoke-тесты не ломаются).
 - **Мобильный клиент** (services/e2eCryptoService.js + hooks/useChat.js):
   - при монтировании useChat регистрирует свой публичный ключ (идемпотентно, best-effort);
@@ -367,6 +372,12 @@ storage недоступен (expo web); removeLocalKeyPair чистит оба 
 metadata.e2e при пустом content, 400 на plaintext рядом с конвертом и на конверт без бокса
 отправителя, история без plaintext, деактивация ключа). Опечатка doctorApptsList в [8]
 (ReferenceError, красный прогон #58) починена в 7cb0832.
+**Честность данных E2E** (815f6cb + a508fda): прогон #59 остался красным — проверка [12]
+искала E2E-сообщение по isEncrypted, а легаси-дефолт модели true делал подходящими
+сид-plaintext-сообщения без конверта. Маркер заменён на metadata.e2e (единственный
+честный признак конверта), легаси-дефолт Message.isEncrypted заменён на false:
+plaintext-сообщения (сид, prescription из eprescriptionController.send) больше не
+лгут, что зашифрованы. #61 зелёный (63/63).
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -402,7 +413,9 @@ node stop.js [--docker]                     # остановить процес�
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
   ee76670/#52 (все три джобы, включая core-tests), 02dc969/#57 (E2E-конверты под юнит-тестами).
-  623d777/#58 красный (опечатка в smoke, см. историю фиксов), починен 7cb0832. Логи падений бот ci-reporter
+  623d777/#58 красный (опечатка в smoke, см. историю фиксов), починен 7cb0832;
+  #59/#60 красные (легаси-дефолт isEncrypted=true ловил сид-plaintext в проверке [12]),
+  починено 815f6cb (маркер metadata.e2e; #61 зелёный, 63/63) + a508fda (честный дефолт false). Логи падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log) — при
   красном прогоне читать оттуда.
 
