@@ -10,7 +10,10 @@
  * When every participant of the chat (including us) has a registered public
  * key, outgoing text is encrypted on-device into an 'envelope' (see
  * e2eCryptoService) and the server receives only ciphertext. Incoming
- * envelopes are decrypted locally. If ANY participant has no key yet, we
+ * envelopes are decrypted locally. File and voice payloads are E2E-encrypted
+ * with a random symmetric key (secretbox); the key rides inside the same
+ * envelope as the message text, and only ciphertext is uploaded.
+ * If ANY participant has no key yet, we
  * gracefully fall back to the legacy plaintext path so the chat never breaks.
  */
 
@@ -25,7 +28,13 @@ import {
   decryptEnvelope,
   getEnvelope,
   allParticipantsHaveKeys,
+  base64ToBytes,
+  bytesToBase64,
+  encryptFilePayload,
+  buildFileMessageContent,
+  parseFileMessageContent,
 } from '../services/e2eCryptoService';
+import * as FileSystem from 'expo-file-system';
 
 const getToken = async () => (await AsyncStorage.getItem('authToken')) || null;
 
@@ -106,7 +115,19 @@ const mapMessageWithE2E = async (msg, myUser) => {
 
   const myId = myUser && myUser.id;
   const plain = myId ? await decryptEnvelope(envelope, myId) : null;
-  mapped.content = plain || '🔒 Зашифрованное сообщение';
+  if (plain) {
+    // E2E file messages carry a JSON payload { mc: 2, t: <name>, k: <key> }
+    // inside the box instead of plain text (hybrid encryption) - unwrap it.
+    const fileMsg = parseFileMessageContent(plain);
+    if (fileMsg) {
+      mapped.content = fileMsg.text || 'Файл';
+      mapped.fileKey = fileMsg.fileKey; // for on-demand payload decryption
+    } else {
+      mapped.content = plain;
+    }
+  } else {
+    mapped.content = '🔒 Зашифрованное сообщение';
+  }
   return mapped;
 };
 
@@ -225,9 +246,9 @@ export const useChat = (chatId) => {
    * Returns the envelope, or null when E2E is not possible (graceful
    * fallback to the plaintext path happens in sendMessage).
    */
-  const buildE2EEnvelope = useCallback(async (text, myUserId) => {
+  const getE2ERecipientKeys = useCallback(async (myUserId) => {
     try {
-      if (!text || !myUserId || !chatId) return null;
+      if (!myUserId || !chatId) return null;
       const token = await getToken();
       if (!token) return null;
 
@@ -239,11 +260,17 @@ export const useChat = (chatId) => {
       if (!allParticipantsHaveKeys(participantIds, keys)) return null;
       if (!keys.some((k) => String(k.userId) === String(myUserId))) return null;
 
-      return encryptForRecipients(text, keys);
+      return keys;
     } catch (e) {
       return null;
     }
   }, [chatId, getParticipantUserIds]);
+
+  const buildE2EEnvelope = useCallback(async (text, myUserId) => {
+    if (!text) return null;
+    const keys = await getE2ERecipientKeys(myUserId);
+    return keys ? encryptForRecipients(text, keys) : null;
+  }, [getE2ERecipientKeys]);
 
   // ---- Load messages (server-first, newest first for the inverted FlatList) ----
   const loadMessages = useCallback(async (reset = true) => {
@@ -302,7 +329,9 @@ export const useChat = (chatId) => {
     const optimistic = {
       id: tempId,
       chatId,
-      content,
+      // For E2E file messages 'content' is a JSON payload - show the human
+      // name optimistically instead.
+      content: options.optimisticContent || content,
       sender: (myUser && myUser.role) === 'doctor' ? 'doctor' : 'patient',
       createdAt: new Date().toISOString(),
       status: 'sending',
@@ -350,7 +379,7 @@ export const useChat = (chatId) => {
       // The server stores no plaintext for E2E messages; for our own message
       // we already know the text, so restore it locally after mapping.
       const finalMessage = mapped || { ...optimistic, status: 'delivered' };
-      if (envelope) finalMessage.content = content;
+      if (envelope) finalMessage.content = options.optimisticContent || content;
       finalMessage.status = 'delivered';
       setMessages((prev) => prev.map((m) => (m.id === tempId ? finalMessage : m)));
       return finalMessage;
@@ -416,13 +445,50 @@ export const useChat = (chatId) => {
   }, [chatId, apiFetch]);
 
   // ---- Send a file / voice message (upload then message) ----
+  // E2E: when every participant has a key, the payload is encrypted
+  // on-device with a random secretbox key; only ciphertext is uploaded
+  // (wire = nonce || ciphertext), and the key rides inside the message
+  // envelope via buildFileMessageContent. If any participant has no key,
+  // fall back to the legacy plaintext upload so the chat never breaks.
   const sendFile = useCallback(async (file) => {
     if (!chatId || !file) return null;
 
     setIsSending(true);
+    let wireUri = null;
     try {
       const token = await getToken();
-      const upload = await chatService.uploadFile(token, chatId, file);
+      const myUser = myUserRef.current || (await getUser());
+      const myId = myUser && myUser.id;
+
+      let uploadArg = file;
+      let contentOverride = null;
+
+      if (myId && file.uri) {
+        const keys = await getE2ERecipientKeys(myId);
+        if (keys) {
+          // Read the payload fully in memory (fine for voice notes and
+          // documents), encrypt, then stage the ciphertext as a temp file
+          // for the multipart upload (FormData needs a file URI).
+          const payloadB64 = await FileSystem.readAsStringAsync(file.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          const enc = encryptFilePayload(base64ToBytes(payloadB64));
+          if (enc && enc.wire && enc.fileKey) {
+            wireUri = `${FileSystem.cacheDirectory}e2e-${Date.now()}.bin`;
+            await FileSystem.writeAsStringAsync(wireUri, bytesToBase64(enc.wire), {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            uploadArg = {
+              uri: wireUri,
+              name: 'payload.bin',
+              type: 'application/octet-stream',
+            };
+            contentOverride = buildFileMessageContent(file.name || 'Файл', enc.fileKey);
+          }
+        }
+      }
+
+      const upload = await chatService.uploadFile(token, chatId, uploadArg);
 
       if (!upload || upload.success === false) {
         throw new Error((upload && upload.message) || 'Ошибка загрузки файла');
@@ -435,14 +501,18 @@ export const useChat = (chatId) => {
 
       const isAudio = String(file.type || '').indexOf('audio') === 0;
 
-      const message = await sendMessage(file.name || 'Файл', {
+      // The message content (for E2E: the JSON with the file name + key) is
+      // encrypted by sendMessage into the envelope; the optimistic bubble
+      // shows the human-readable file name instead.
+      const message = await sendMessage(contentOverride || file.name || 'Файл', {
         type: isAudio ? 'audio' : 'file',
         attachments: [record.id],
+        optimisticContent: file.name || 'Файл',
         file: {
           id: record.id,
-          name: record.originalFilename || file.name,
-          size: record.size || file.size || 0,
-          type: record.mimeType || file.type || '',
+          name: file.name || 'Файл',
+          size: file.size || 0,
+          type: file.type || '',
           url: `${API_BASE_URL}/api/files/${record.id}/download`,
         },
       });
@@ -454,10 +524,13 @@ export const useChat = (chatId) => {
       setError(err.message);
       return null;
     } finally {
+      if (wireUri) {
+        FileSystem.deleteAsync(wireUri, { idempotent: true }).catch(() => {});
+      }
       setIsSending(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, sendMessage, loadFiles]);
+  }, [chatId, sendMessage, loadFiles, getE2ERecipientKeys]);
 
   // ---- Mark messages as read ----
   const markMessagesAsRead = useCallback(async () => {
