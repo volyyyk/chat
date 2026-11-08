@@ -20,8 +20,8 @@
 //! прототип: skip-store внеочередных сообщений реализован; wire-формат
 //! RatchetMessage определён — to_wire/from_wire: header || nonce || ciphertext).
 //! Node.js-биндинги (napi-rs) — модуль node (src/node.rs): generateKeypair,
-//! sealForRecipients, openSealed, keySize/nonceSize. Дальнейшие шаги:
-//! UniFFI-биндинги для Swift/Kotlin, интеграция Double Ratchet в клиенты,
+//! sealForRecipients, openSealed, keySize/nonceSize. UniFFI-биндинги Swift/Kotlin — модуль uniffi_iface (src/uniffi_iface.rs,
+//! feature uniffi-bind). Дальнейшие шаги: интеграция Double Ratchet в клиенты,
 //! опционально ГОСТ СКЗИ для сертифицированного контура.
 
 use crypto_box::aead::{Aead, AeadCore, OsRng};
@@ -38,6 +38,20 @@ pub use ratchet::{RatchetMessage, RatchetState};
 // кода проверяется отдельным cargo check --tests (type-check без линковки).
 #[cfg(feature = "napi-bind")]
 pub mod node;
+
+// UniFFI-биндинги (Swift/Kotlin, этап 2 ROADMAP_NATIVE.md): модуль
+// uniffi_iface (src/uniffi_iface.rs), опциональная feature uniffi-bind
+// (НЕ default — как и napi-bind, отдельно от обычных прогонов ядра;
+// в отличие от napi, uniffi-обёртки линкуются в тестовый бинарник чисто:
+// metadata-функции — обычный Rust без внешнего рантайма, их гоняет джоба
+// CI uniffi-bindings). setup_scaffolding! обязателен в корне крейта:
+// эмитит metadata-символы, по которым uniffi-bindgen (library mode)
+// генерирует Swift/Kotlin-обвязку.
+#[cfg(feature = "uniffi-bind")]
+uniffi::setup_scaffolding!();
+
+#[cfg(feature = "uniffi-bind")]
+pub mod uniffi_iface;
 
 /// Размер приватного/публичного ключа X25519.
 pub const KEY_SIZE: usize = 32;

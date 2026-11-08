@@ -109,7 +109,20 @@ cargo-fuzz scaffold готов: крейт fuzz/ с тремя целями (ope
 произвольного plaintext) + джоба CI fuzz-smoke (nightly, ASan, -runs=5000).
 DoD «cargo-fuzz без падений 24 ч» — суточный прогон отдельным запуском по
 требованию, не в CI (smoke в CI гейтит сборку целей и отсутствие крашей на
-коротком прогоне). Осталось из Этапа 2: UniFFI-биндинги (Swift/Kotlin).
+коротком прогоне). UniFFI-биндинги Swift/Kotlin реализованы (feature uniffi-bind: src/uniffi_iface.rs
+— обёртки конвертов x25519-box, bcrypt_verify, MedRatchetState (Mutex:
+uniffi-методы Object иммутабельны), ratchet_message to_wire/from_wire,
+константы; MedCryptoError повторяет CoreError + InvalidArgument для длин).
+Джоба CI uniffi-bindings: сборка cdylib с metadata-scaffolding, uniffi-bindgen
+0.28 (library mode) генерирует Kotlin- и Swift-обвязку (артефакт CI), cargo
+test обёрток (в отличие от napi, uniffi-код линкуется в тестовый бинарник
+чисто). Склейка сгенерированной обвязки с Xcode/Gradle-проектами — этапы 3/4.
+Этап 2 закрыт по всем заявленным позициям: контракт-векторы (NaCl box,
+AES-256-GCM, bcrypt), бенчмарк ≥ x10 (11.6–15.2x на конвертном пути),
+cargo-fuzz scaffold + smoke в CI, биндинги napi-rs (Node) и UniFFI
+(Swift/Kotlin); суточный fuzz-прогон — отдельный запуск по требованию.
+Далее: этапы 3/4 (нативные клиенты поверх ядра), интеграция Double Ratchet
+в клиенты (этап 7).
 
 ### Этап 3. Нативный iOS (Swift/SwiftUI)
 SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudio), рецепты, приёмы;

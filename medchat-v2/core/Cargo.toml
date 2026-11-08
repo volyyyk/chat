@@ -31,6 +31,11 @@ crate-type = ["cdylib", "rlib"]
 # (napi build) используют default: napi-bind включён.
 default = ["napi-bind"]
 napi-bind = ["dep:napi", "dep:napi-derive"]
+# UniFFI-биндинги (src/uniffi_iface.rs) — Swift/Kotlin (этап 2). НЕ
+# default: scaffolding/metadata не нужны в обычных прогонах ядра и сборке
+# .node; включается джобой CI uniffi-bindings (cdylib + генерация обвязки
+# + тесты обёрток).
+uniffi-bind = ["dep:uniffi"]
 
 [dependencies]
 crypto_box = "0.9"
@@ -51,6 +56,11 @@ bcrypt = "0.15"
 # optional: тесты ядра собираются без биндингов (см. [features] выше).
 napi = { version = "2", default-features = false, features = ["compat-mode"], optional = true }
 napi-derive = { version = "2", optional = true }
+# UniFFI (src/uniffi_iface.rs, feature uniffi-bind): биндинги Swift/Kotlin
+# (этап 2 ROADMAP_NATIVE). Версия 0.28 закреплена и здесь, и в CI (cargo
+# install uniffi-bindgen --version 0.28): CLI обязан совпадать с крейтом
+# по линии версий — формат metadata меняется между minor-версиями.
+uniffi = { version = "0.28", optional = true }
 
 [build-dependencies]
 napi-build = "2"

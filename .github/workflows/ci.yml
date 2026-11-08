@@ -433,3 +433,81 @@ jobs:
           git fetch origin main
           git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
           git push origin HEAD:main || echo "push failed (non-fatal)"
+
+  uniffi-bindings:
+    name: UniFFI bindings (Swift/Kotlin generation smoke)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: medchat-v2/core
+
+      # CLI обязан совпадать по версии с крейтом uniffi (формат metadata
+      # меняется между minor-версиями): обе стороны закреплены на 0.28.
+      - name: Install uniffi-bindgen (0.28)
+        run: cargo install uniffi-bindgen --version 0.28 --locked
+
+      # cdylib c UniFFI-scaffolding (без napi): setup_scaffolding! эмитит
+      # metadata-символы, по которым bindgen строит обвязку в library mode.
+      - name: Build cdylib with UniFFI scaffolding
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo build --release --no-default-features --features uniffi-bind; } 2>&1 | tee ../../ci-uniffi.log
+
+      # В отличие от napi-обёрток, uniffi-код линкуется в тестовый бинарник
+      # чисто (metadata-функции — обычный Rust) — гоняем юнит-тесты обёрток.
+      - name: Run uniffi wrapper unit tests
+        run: |
+          set -o pipefail
+          { cargo test --no-default-features --features uniffi-bind; } 2>&1 | tee -a ../../ci-uniffi.log
+
+      # Генерация обвязки из метаданных собранного cdylib (library mode):
+      # гейтит консистентность обёрток и саму генерацию. Компиляция
+      # сгенерированного кода в Xcode/Gradle — этапы 3/4 (на ubuntu их нет).
+      - name: Generate Kotlin bindings
+        run: |
+          set -o pipefail
+          { uniffi-bindgen generate --library target/release/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin; } 2>&1 | tee -a ../../ci-uniffi.log
+
+      - name: Generate Swift bindings
+        run: |
+          set -o pipefail
+          { uniffi-bindgen generate --library target/release/libmedchat_core.so --language swift --out-dir uniffi-out/swift; } 2>&1 | tee -a ../../ci-uniffi.log
+
+      - name: Upload uniffi bindings artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: medchat-core-uniffi-bindings
+          path: medchat-v2/core/uniffi-out/
+          if-no-files-found: error
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-uniffi.log ]; then
+            cp ci-uniffi.log ci-logs/ci-uniffi.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"

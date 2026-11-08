@@ -35,6 +35,9 @@ Node-зеркало server/bench/coreBench.js + джоба CI core-bench с пу
 Fuzz-цели cargo-fuzz (враждебный конверт open_sealed, мусорный wire RatchetMessage +
 decrypt, roundtrip произвольного plaintext; джоба CI fuzz-smoke — smoke-итерации,
 суточный DoD-прогон отдельно).
+UniFFI-биндинги Swift/Kotlin (feature uniffi-bind: обёртки конвертов + bcrypt
++ MedRatchetState для Double Ratchet; генерация обвязки — джоба CI
+uniffi-bindings).
 
 ---
 
@@ -62,7 +65,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
-| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs) |
+| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs); uniffi-биндинги Swift/Kotlin (feature uniffi-bind) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
 ## 3. Структура проекта
@@ -152,7 +155,9 @@ medchat-v2/
 │                          (джоба napi-build: сборка .node + JS-тесты);
 │                          fuzz/ — fuzz-цели cargo-fuzz (враждебный конверт,
 │                          мусорный wire + decrypt, roundtrip произвольного
-│                          plaintext; джоба CI fuzz-smoke)
+│                          plaintext; джоба CI fuzz-smoke);
+│                          uniffi_iface.rs — UniFFI-биндинги Swift/Kotlin
+│                          (feature uniffi-bind, джоба CI uniffi-bindings)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
 │                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE + этот файл
@@ -296,7 +301,7 @@ E2E-сообщений серверу недоступен (хранится т�
   бинарник не может линковать napi_*-символы — их даёт только процесс Node,
   napi-rs issue #1099; юнит-тесты самих обёрток выполняются джобой napi-build
   в настоящем Node: napi-smoke.js — JS-зеркало тех же проверок).
-  UniFFI для Swift/Kotlin — следующий шаг.
+  UniFFI-биндинги для Swift/Kotlin реализованы (feature uniffi-bind: src/uniffi_iface.rs — обёртки конвертов, bcrypt_verify, MedRatchetState на Mutex (uniffi-методы иммутабельны), to_wire/from_wire; генерация обвязки — uniffi-bindgen 0.28 (library mode) в джобе CI uniffi-bindings; персистентность состояния — на вызывающей стороне, Keychain/Keystore).
 - **Double Ratchet** (этап 7, прототип): medchat-core/src/ratchet.rs — KDF_RK/KDF_CK на
   HMAC-SHA256 (x25519-dalek 2.0.1 для raw DH, явная feature static_secrets), каждое
   сообщение AES-256-GCM на одноразовом message key, DH-шаг при смене ratchet-ключа
@@ -626,7 +631,34 @@ open_sealed обязан вернуть Ok/Err, не панику; ratchet_wire_
 вернуться байт-в-байт через to_wire/from_wire. bcrypt_verify в fuzz НЕ включена
 осознанно: хэш cost 31 валиден по формату и вешает проверку на минуты (при
 необходимости — отдельная цель с гейтом cost). Джоба CI fuzz-smoke: cargo
-install --locked cargo-fuzz, -runs=5000 на цель, лог ci-logs/ci-fuzz.log.
+install --locked cargo-fuzz, -runs=5000 на цель (libFuzzer-флаги — после «--»),
+лог ci-logs/ci-fuzz.log.
+Прогоны #102 и #103 (42475946800) красные до первого запуска целей:
+(1) #102 — имена шагов «fuzz: ...» содержали «: » — plain-scalar с
+«двоеточие+пробел» невалиден, GitHub отверг весь workflow (Invalid workflow
+file ci.yml#L401), ни одна джоба не стартовала и ci-лог не создавался вовсе —
+статус видно только аннотацией на странице прогона; имена переименованы
+«fuzz <target>» (6a15ca7). (2) #103 — cargo-fuzz парсит -runs=5000 как
+свой аргумент (clap: unexpected argument -r): libFuzzer-флаги передаются
+ПОСЛЕ «--» (cargo fuzz run <target> -- -runs=5000). УРОК: cargo-fuzz-CLI
+и флаги libFuzzer-бинаря разделены «--»; «: » в name шагов GH Actions
+недопустим.
+**UniFFI-биндинги Swift/Kotlin** (этот коммит): последний пункт Этапа 2
+(биндинги). feature uniffi-bind (НЕ default, как napi-bind) + модуль
+src/uniffi_iface.rs: MedKeyPair/MedSealedMessage/MedRatchetMessage (Record),
+MedCryptoError (uniffi::Error: варианты CoreError + InvalidArgument для длин),
+обёртки generate_keypair/seal_for_recipients/open_sealed/bcrypt_verify/
+ratchet_message_to_wire/from_wire + константы (32/24/40/12). Отличие от
+napi: uniffi-методы Object иммутабельны — MedRatchetState держит
+Mutex<RatchetState> (poison обходится into_inner). Джоба CI uniffi-bindings:
+cargo build --release --no-default-features --features uniffi-bind (cdylib с
+setup_scaffolding!-метаданными), uniffi-bindgen 0.28 (library mode) генерирует
+Kotlin- и Swift-обвязку в uniffi-out/ (артефакт upload-artifact), плюс
+cargo test обёрток — в отличие от napi, uniffi-код линкуется в тестовый
+бинарник чисто (metadata — обычный Rust). Версии крейта и CLI закреплены
+на 0.28 (формат metadata меняется между minor). Честное ограничение:
+компиляция сгенерированного кода в Xcode/Gradle — этапы 3/4 (на ubuntu их
+нет); джоба гейтит сборку, тесты обёрток и генерацию.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -648,7 +680,7 @@ node stop.js [--docker]                     # остановить процес�
 
 ## 10. CI (.github/workflows/ci.yml)
 
-Шесть джоб на каждый пуш в main:
+Семь джоб на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
   валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
@@ -689,6 +721,12 @@ node stop.js [--docker]                     # остановить процес�
   ratchet_roundtrip_fuzz (произвольный plaintext, включая пустой, обязан вернуться
   байт-в-байт); -runs=5000 на цель — smoke, суточный DoD-прогон — отдельный запуск
   по требованию; лог падений — ci-logs/ci-fuzz.log.
+- **uniffi-bindings**: UniFFI-биндинги Swift/Kotlin (этап 2): сборка cdylib
+  с scaffolding (--no-default-features --features uniffi-bind) → uniffi-bindgen
+  0.28 (library mode) генерирует Kotlin/Swift-обвязку (uniffi-out/, артефакт);
+  cargo тестов обёрток (uniffi-метаданные — обычный Rust, линкуются чисто,
+  в отличие от napi); лог падений — ci-logs/ci-uniffi.log. Компиляция
+  сгенерированного кода в Xcode/Gradle — этапы 3/4, на ubuntu недоступна.
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -714,9 +752,11 @@ node stop.js [--docker]                     # остановить процес�
   core-bench, лог публикуется при любом исходе; первый прогон 42474787549 — DoD
   «≥ x10» закрыт: конвертный x25519-box-путь 11.6–15.2x в пользу Rust). Джоба napi-build — сборка .node-артефакта + Node-интеграция
   обёрток (napi-smoke.js). Джоба fuzz-smoke — cargo-fuzz (три цели,
-  ограниченные итерации). Логи
+  ограниченные итерации; прогоны #102/#103 красные по мелочи — «: » в именах
+  шагов YAML и libFuzzer-флаги после «--», исправлено). Джоба uniffi-bindings —
+  генерация Swift/Kotlin-обвязки ядра (этап 2 закрыт). Логи
   падений бот ci-reporter
-  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log; ci-bench.log пишется при любом исходе) — при
+  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log; ci-bench.log пишется при любом исходе) — при
   красном прогоне читать оттуда.
 
 ## 11. Что осталось сделать (roadmap)
@@ -748,8 +788,10 @@ node stop.js [--docker]                     # остановить процес�
     (6aff983 + d033eeb: ratchet.rs с skip-store, 13 тестов, forward secrecy + break-in
     recovery + внеочередная доставка; в клиенты не интегрирован). ~~napi-rs-биндинги
     для Node~~ — сделано (754f677 → 2bb38f2 → e411a54: src/node.rs, конверты +
-    JsRatchetState, feature napi-bind — CI зелёный). Дальше: UniFFI для
-    Swift/Kotlin, интеграция ratchet в клиенты, ~~cargo-fuzz~~ (scaffold: fuzz/ с тремя целями + джоба fuzz-smoke;
+    JsRatchetState, feature napi-bind — CI зелёный). ~~UniFFI для Swift/Kotlin~~ — сделано (feature uniffi-bind: src/uniffi_iface.rs,
+    обёртки конвертов + bcrypt + MedRatchetState (Mutex), генерация обвязки —
+    джоба uniffi-bindings; склейка в Xcode/Gradle — этапы 3/4). Дальше:
+    интеграция ratchet в клиенты, ~~cargo-fuzz~~ (scaffold: fuzz/ с тремя целями + джоба fuzz-smoke;
     суточный DoD-прогон — отдельный запуск по требованию), ~~бенчмарки (DoD ≥ x10
     к Node)~~ — сделано (d2db23e + f79de00: criterion + Node-зеркало + джоба
     core-bench; первый прогон 42474787549: конвертный путь 11.6–15.2x — DoD закрыт),
