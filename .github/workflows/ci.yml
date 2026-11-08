@@ -593,11 +593,15 @@ jobs:
 
       # Имя сгенерированного *.swift не фиксируем (glob), заголовок ищем
       # по маске *.h: bindgen 0.28 кладёт MedchatCoreFFI.h рядом.
-      - name: Swift smoke (runtime, зеркало napi-smoke.js)
+      # Прогон #136: swiftc запрещает top-level-выражения вне файла
+      # main.swift (expressions are not allowed at the top level) —
+      # smoke-файл копируется под этим именем перед компиляцией.      - name: Swift smoke (runtime, зеркало napi-smoke.js)
         run: |
           set -o pipefail
           HEADER=$(ls uniffi-out/swift/*.h | head -n 1)
-          { swiftc uniffi-out/swift/*.swift ../ios/MedchatCoreSmoke.swift \
+          mkdir -p smoke-main
+          cp ../ios/MedchatCoreSmoke.swift smoke-main/main.swift
+          { swiftc uniffi-out/swift/*.swift smoke-main/main.swift \
               -import-objc-header "$HEADER" \
               -L target/release -lmedchat_core \
               -Xlinker -rpath -Xlinker "$PWD/target/release" \

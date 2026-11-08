@@ -152,6 +152,9 @@ SwiftUI-клиента, TestFlight и APNs требуют Xcode-проекта �
 оператора (Apple Developer, сертификаты подписи — аналог Authenticode
 в desktop, DESKTOP_RELEASE.md): гейтится всё, что секретов не требует.
 Следующий шаг — каркас SwiftUI-источников + Keychain-слой.
+Фикс после первого прогона (#136): swiftc разрешает top-level-код
+только в файле main.swift — CI копирует smoke-файл под этим именем
+перед компиляцией (имена UniFFI-API при этом были верными).
 
 **Прогресс (ноябрь 2026, ч.2 — каркас SwiftUI-клиента):** medchat-v2/ios/ —
 экраны connect/login/main (зеркало desktop ui/index.html), ApiService (REST +

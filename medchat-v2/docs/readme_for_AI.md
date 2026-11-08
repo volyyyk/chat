@@ -868,6 +868,18 @@ ios-smoke дополнена шагом typecheck: исходники клиен
 что в README_IOS.md для Xcode), гейт компиляции каркаса до появления
 Xcode-проекта.
 
+**iOS: урок swiftc top-level (этап 3, фикс ч.1-джобы после прогона #136)**:
+swiftc запрещает top-level-выражения вне файла с именем main.swift
+(expressions are not allowed at the top level — десятки ошибок в
+MedchatCoreSmoke.swift при ПОЛНОСТЬЮ корректных именах UniFFI-API:
+generateKeypair, sealForRecipients, openSealed, MedRatchetState и
+case-варианты MedCryptoError разрешились — контрактная поверхность
+uniffi-bind 0.28.3 верная). Фикс: шаг Swift smoke копирует
+ios/MedchatCoreSmoke.swift в smoke-main/main.swift и компилирует под
+этим именем (сгенерированная обвязка top-level-кода не содержит).
+Для шага typecheck ч.2 неактуально: исходники клиента — декларации
++ @main, top-level-кода нет.
+
 ## 9. Лаунчер («запуск по кнопке»)
 
 `medchat-v2/launcher/`:
