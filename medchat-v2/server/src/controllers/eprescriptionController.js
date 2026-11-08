@@ -63,8 +63,7 @@ class EPrescriptionController {
       const validUntilDate = validUntil ? new Date(validUntil) : new Date();
       validUntilDate.setDate(validUntilDate.getDate() + 30);
 
-      // Generate unique
- prescription number
+      // Generate unique prescription number
       const prescriptionNumber = `EP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
       // Create e-prescription
@@ -137,8 +136,7 @@ class EPrescriptionController {
 
       if (doctorId) where.doctorId = doctorId;
       if (patientId) where.patientId = patientId;
-      if (appointmentId) where.appo
-intmentId = appointmentId;
+      if (appointmentId) where.appointmentId = appointmentId;
       if (type) where.type = type;
       if (status) where.status = status;
 
@@ -196,7 +194,6 @@ intmentId = appointmentId;
           eprescription.doctorId !== req.user.doctorId &&
           eprescription.patientId !== req.user.patientId) {
         throw new AppError('Cannot access this e-prescription', 403, 'FORBIDDEN');
-
       }
 
       // Parse medications
@@ -258,8 +255,7 @@ intmentId = appointmentId;
         title: title !== undefined ? title : eprescription.title,
         description: description !== undefined ? description : eprescription.description,
         medications: medications !== undefined ? medications : eprescription.medications,
-        dosage: dosage !== undefined ? dosage : eprescripti
-on.dosage,
+        dosage: dosage !== undefined ? dosage : eprescription.dosage,
         duration: duration !== undefined ? duration : eprescription.duration,
         instructions: instructions !== undefined ? instructions : eprescription.instructions,
         diagnosis: diagnosis !== undefined ? diagnosis : eprescription.diagnosis,
@@ -314,8 +310,7 @@ on.dosage,
       }
 
       // Cannot cancel fulfilled or already cancelled prescriptions
-      if (eprescri
-ption.status === 'fulfilled' || eprescription.status === 'cancelled') {
+      if (eprescription.status === 'fulfilled' || eprescription.status === 'cancelled') {
         throw new AppError('Cannot cancel a fulfilled or already cancelled e-prescription', 400, 'VALIDATION_ERROR');
       }
 
@@ -378,8 +373,7 @@ ption.status === 'fulfilled' || eprescription.status === 'cancelled') {
         throw new AppError('Cannot fulfill this e-prescription', 403, 'FORBIDDEN');
       }
 
-      // Cannot fulfill cancelled p
-rescriptions
+      // Cannot fulfill cancelled prescriptions
       if (eprescription.status === 'cancelled') {
         throw new AppError('Cannot fulfill a cancelled e-prescription', 400, 'VALIDATION_ERROR');
       }
@@ -439,8 +433,7 @@ rescriptions
 
       // Access control - only doctor or admin can delete
       if (req.user.role !== 'system_admin' && eprescription.doctorId !== req.user.doctorId) {
-        throw new AppError('Cannot delete this e-prescripti
-on', 403, 'FORBIDDEN');
+        throw new AppError('Cannot delete this e-prescription', 403, 'FORBIDDEN');
       }
 
       // Soft delete
@@ -510,8 +503,7 @@ on', 403, 'FORBIDDEN');
     try {
       const { id } = req.params;
 
-      co
-nst eprescription = await models.EPrescription.findOne({
+      const eprescription = await models.EPrescription.findOne({
         where: { id },
         include: [
           { model: models.Doctor, as: 'doctor', include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
@@ -571,8 +563,7 @@ nst eprescription = await models.EPrescription.findOne({
 
       // In production, this would send via the specified method
       // For now, just mark as sent
-      await eprescription.upd
-ate({
+      await eprescription.update({
         sent: true,
         sentAt: new Date(),
         sentBy: req.user.id,
@@ -637,8 +628,7 @@ ate({
   static async getByDoctor(req, res, next) {
     try {
       const { doctorId } = req.params;
-    
-  const {
+      const {
         status,
         type,
         page = 1,
@@ -707,8 +697,7 @@ ate({
       } = req.query;
 
       // Access control
-      if (patientId !== req.user.patientI
-d && req.user.role !== 'system_admin') {
+      if (patientId !== req.user.patientId && req.user.role !== 'system_admin') {
         throw new AppError('Cannot access other patient e-prescriptions', 403, 'FORBIDDEN');
       }
 
@@ -771,7 +760,6 @@ d && req.user.role !== 'system_admin') {
         throw new AppError('E-Prescription not found', 404, 'NOT_FOUND');
       }
 
-
       // Access control - only the doctor of this prescription or an admin
       if (req.user.role !== 'system_admin' && eprescription.doctorId !== req.user.doctorId) {
         throw new AppError('Cannot sign this e-prescription', 403, 'FORBIDDEN');
@@ -824,8 +812,7 @@ d && req.user.role !== 'system_admin') {
 
       res.json({
         success: true,
-        data: fullEpres
-cription,
+        data: fullEprescription,
         message: 'E-Prescription signed successfully',
       });
     } catch (error) {
@@ -888,8 +875,7 @@ cription,
         where,
         include: [
           { model: models.Doctor, as: 'doctor', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
-          { model: models.Patient, as: 'patient', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: [
-'id', 'firstName', 'lastName', 'fullName'] }] },
+          { model: models.Patient, as: 'patient', attributes: ['id', 'userId'], include: [{ model: models.User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'fullName'] }] },
         ],
         order: [['createdAt', 'DESC']],
         limit: 5,
@@ -972,8 +958,7 @@ startxref
          <table style="width: 100%; border-collapse: collapse;">
            <tr style="background: #f5f5f5;">
              <th style="padding: 8px; border: 1px solid #ddd;">Название</th>
-    
-         <th style="padding: 8px; border: 1px solid #ddd;">Дозировка</th>
+             <th style="padding: 8px; border: 1px solid #ddd;">Дозировка</th>
              <th style="padding: 8px; border: 1px solid #ddd;">Продолжительность</th>
              <th style="padding: 8px; border: 1px solid #ddd;">Инструкции</th>
            </tr>
@@ -1015,8 +1000,7 @@ startxref
   <div class="content">
     <h2>Пациент:</h2>
     <p><strong>ФИО:</strong> ${(eprescription.patient && eprescription.patient.user && (eprescription.patient.user.fullName || [eprescription.patient.user.lastName, eprescription.patient.user.firstName].filter(Boolean).join(' '))) || 'N/A'}</p>
-    <p><strong>Дата рождения:</strong> ${eprescription.patient?.dateOfBirth
- ? new Date(eprescription.patient.dateOfBirth).toLocaleDateString('ru-RU') : 'N/A'}</p>
+    <p><strong>Дата рождения:</strong> ${eprescription.patient?.dateOfBirth ? new Date(eprescription.patient.dateOfBirth).toLocaleDateString('ru-RU') : 'N/A'}</p>
 
     <h2>Врач:</h2>
     <p><strong>ФИО:</strong> ${(eprescription.doctor && eprescription.doctor.user && (eprescription.doctor.user.fullName || [eprescription.doctor.user.lastName, eprescription.doctor.user.firstName].filter(Boolean).join(' '))) || 'N/A'}</p>
@@ -1033,6 +1017,20 @@ startxref
     <h3>Примечания:</h3>
     <p>${eprescription.notes || 'Нет примечаний'}</p>
 
-   
+    <p><strong>Срок действия:</strong> до ${new Date(eprescription.validUntil).toLocaleDateString('ru-RU')}</p>
+  </div>
 
-... [Content truncated]
+  <div class="signature">
+    <p>Подпись врача: _______________________</p>
+  </div>
+
+  <div class="footer">
+    <p>Этот документ является электронным рецептом и имеет юридическую силу в соответствии с законодательством РФ.</p>
+  </div>
+</body>
+</html>
+    `;
+  }
+}
+
+module.exports = EPrescriptionController;

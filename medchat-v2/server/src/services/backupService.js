@@ -70,8 +70,7 @@ class BackupService {
    * @returns {Buffer} Encrypted data
    */
   static encrypt(data, key, iv) {
-    cons
-t cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
     const encrypted = Buffer.concat([iv, cipher.update(data), cipher.final()]);
     return encrypted;
   }
@@ -139,8 +138,7 @@ t cipher = crypto.createCipheriv(ALGORITHM, key, iv);
    * @param {string} name - Backup name
    * @param {string} description - Backup description
    * @param {string} password - Backup password
-   * @param {Array} dataTypes - Data types t
-o backup
+   * @param {Array} dataTypes - Data types to backup
    * @param {string} format - Backup format (json or zip)
    * @returns {Promise<Object>} Backup result
    */
@@ -208,8 +206,7 @@ o backup
       status: 'completed',
       metadata: {
         salt: salt.toString('hex'),
-        iv: iv.toString('hex
-'),
+        iv: iv.toString('hex'),
       },
     });
 
@@ -278,8 +275,7 @@ o backup
     for (const dataType of types) {
       if (backupData[dataType]) {
         try {
-          restoreResults[dataType] = await this.importData(dataType, backupD
-ata[dataType], user.id);
+          restoreResults[dataType] = await this.importData(dataType, backupData[dataType], user.id);
         } catch (error) {
           logger.error(`Error importing ${dataType}:`, error);
           restoreResults[dataType] = { success: false, error: error.message };
@@ -354,8 +350,7 @@ ata[dataType], user.id);
     }
 
     // Delete backup file
-    const backupPath = path.join(__dirname, '../../ba
-ckups', backup.filename);
+    const backupPath = path.join(__dirname, '../../backups', backup.filename);
     try {
       await unlink(backupPath);
     } catch (error) {
@@ -398,6 +393,8 @@ ckups', backup.filename);
 
     if (dataType === 'contacts' || dataType === 'chats') {
       // Chats where the user participates (via ChatParticipant or as doctor/patient)
+      // Schema is globally underscored: real columns are chat_id / user_id.
+      // Alias "chatId" keeps the mapping below working.
       const { QueryTypes } = require('sequelize');
       const chatIds = await models.sequelize.query(
         'SELECT DISTINCT chat_id AS "chatId" FROM chat_participants WHERE user_id = $1',
@@ -418,8 +415,7 @@ ckups', backup.filename);
       include: this.getIncludeOptions(dataType),
     });
 
-    return data.map((item) => this.san
-itizeData(item, dataType));
+    return data.map((item) => this.sanitizeData(item, dataType));
   }
 
   /**
@@ -491,8 +487,7 @@ itizeData(item, dataType));
       ],
       patients: [
         { model: models.User, as: 'user' },
-        { mode
-l: models.Doctor, as: 'doctor' },
+        { model: models.Doctor, as: 'doctor' },
         { model: models.Clinic, as: 'clinic' },
       ],
       chats: [
@@ -557,8 +552,7 @@ l: models.Doctor, as: 'doctor' },
     delete sanitized.ipAddress;
     delete sanitized.userAgent;
 
-    return
- sanitized;
+    return sanitized;
   }
 
   /**
@@ -627,8 +621,7 @@ l: models.Doctor, as: 'doctor' },
       filename,
       path: backupPath,
       size: encryptedData.length,
-      salt:
- salt.toString('hex'),
+      salt: salt.toString('hex'),
       iv: iv.toString('hex'),
     };
   }
