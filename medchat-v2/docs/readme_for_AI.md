@@ -4,17 +4,17 @@
 > Здесь: структура, контракты, бизнес-логика, а главное — честный разбор,
 > что реализовано «по-настоящему», а где временные заплатки и осознанные компромиссы.
 > Обновлён после security-аудита (коммит 1fafeb9), серии фиксов
-> 65ec99c → 5a8eceb (user-API, печатная форма рецептов, чистка мёртвого шифрования мобилки),
-> серии E2E-коммитов d11762c → 596c4a3 (сквозное шифрование содержимого сообщений —
-> см. раздел 5, «E2E-контракт»), каркаса Rust-ядра medchat-core с джобой core-tests
-> в CI (3a70911 → ee76670), перевода приватных ключей в Keychain/Keystore (3ab5cf6)
-> и покрытия E2E тестами (02dc969 → 7cb0832: юнит-тесты валидатора конвертов +
-> smoke-секция E2E [12]) и наведение честности данных (815f6cb → a508fda:
-> маркер E2E-сообщения в smoke — metadata.e2e; честный дефолт
-> Message.isEncrypted=false — легаси true ложно помечал plaintext), skip-store
-> в Double Ratchet (6aff983 → d033eeb: расшифровка внеочередных сообщений) и фикс
-> критической синтаксической ошибки в Message.js, внесённой a508fda (ad575d3 —
-> из-за неё сервер не запускался вовсе). E2E распространено на файлы и
+65ec99c → 5a8eceb (user-API, печатная форма рецептов, чистка мёртвого шифрования мобилки),
+серии E2E-коммитов d11762c → 596c4a3 (сквозное шифрование содержимого сообщений —
+см. раздел 5, «E2E-контракт»), каркаса Rust-ядра medchat-core с джобой core-tests
+в CI (3a70911 → ee76670), перевода приватных ключей в Keychain/Keystore (3ab5cf6)
+и покрытия E2E тестами (02dc969 → 7cb0832: юнит-тесты валидатора конвертов +
+smoke-секция E2E [12]) и наведение честности данных (815f6cb → a508fda:
+маркер E2E-сообщения в smoke — metadata.e2e; честный дефолт
+Message.isEncrypted=false — легаси true ложно помечал plaintext), skip-store
+в Double Ratchet (6aff983 → d033eeb: расшифровка внеочередных сообщений) и фикс
+критической синтаксической ошибки в Message.js, внесённой a508fda (ad575d3 —
+из-за неё сервер не запускался вовсе). E2E распространено на файлы и
 голосовые (42e5a1d → ed9a661: гибридное шифрование payload, ключ файла внутри
 конверта, расшифровка при просмотре) и wire-формат RatchetMessage для
 биндингов (a43102d). Кросс-платформенные контракт-векторы Этапа 2 (1ce9516):
@@ -26,6 +26,9 @@
 BoringSSL на общей фикстуре — Rust и Node crypto байт-в-байт) и стабилизация
 napi-сборки в CI (30c3f5e MSRV 1.77 → a1061cd тесты Buffer без Debug →
 e411a54 feature napi-bind; e411a54 — зелёный во всех трёх джобах).
+Контракт-векторы bcrypt (8776f7c): KAT-векторы OpenBSD/crypt_blowfish на общей
+фикстуре — Rust-ядро (bcrypt_verify) и серверный нативный bcrypt (compareSync,
+cost 12 в authService) верифицируют одинаково.
 
 ---
 
@@ -53,7 +56,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ) |
-| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54) |
+| core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c) |
 | infra | docker-compose (postgres, redis, minio), GitHub Actions |
 
 ## 3. Структура проекта
@@ -92,7 +95,9 @@ medchat-v2/
 │   │                    e2eEnvelope.test.js (валидация E2E-конвертов, 02dc969),
 │   │                    coreInterop.test.js (контрактный вектор NaCl box на
 │   │                    общей фикстуре core/tests, 1ce9516), coreAesGcm.test.js
-│   │                    (контрактные векторы AES-256-GCM на фикстуре core/tests, e7879a7)
+│   │                    (контрактные векторы AES-256-GCM на фикстуре core/tests, e7879a7),
+│   │                    bcryptInterop.test.js (контрактные векторы bcrypt на
+│   │                    фикстуре core/tests, 8776f7c)
 │   ├── integration/auth.test.js
 │   └── security/      — jwtSecurity, registerSecurity, paymentsSecurity, transactionsIdor
 ├── mobile/src/
@@ -124,6 +129,8 @@ medchat-v2/
 │                          box на фикстуре nacl_box_vector.hex (1ce9516);
 │                          tests/aes_gcm_vector.rs + aes_gcm_vector.hex —
 │                          KAT-векторы AES-256-GCM из BoringSSL (e7879a7);
+│                          tests/bcrypt_vector.rs + bcrypt_vector.txt —
+│                          KAT-векторы bcrypt из OpenBSD/crypt_blowfish (8776f7c);
 │                          node.rs — napi-rs-биндинги для Node (754f677 →
 │                          2bb38f2: конвертные примитивы + JsRatchetState; feature
 │                          napi-bind, e411a54); CI: cargo check --tests +
@@ -211,7 +218,7 @@ E2E-сообщений серверу недоступен (хранится т�
 - **Серверная валидация** (validateE2EEnvelope, utils/e2eEnvelope.js — вынесена из
   chatController в 02dc969, покрыта юнит-тестами tests/e2eEnvelope.test.js): структура конверта,
   ≤10 boxes, ≤32 КБ/бокс, ≤256 КБ конверт, бокс отправителя обязателен, content обязан
-  быть пуст. При валидном конверте: `Message.metadata.e2e = конверт`, `content=''`,
+  быть пуст. При валидном конверте: `Message.metadata.e2e = конверт`, `content='',
   `isEncrypted=true`, `lastMessageText=''` — **plaintext в БД отсутствует**.
   С a508fda дефолт модели Message.isEncrypted=false (легаси true был написан до E2E
   и ложно помечал plaintext-сообщения, включая сид и prescription); true ставится
@@ -453,7 +460,7 @@ storage недоступен (expo web); removeLocalKeyPair чистит оба 
 структура, лимиты 10 боксов/32КБ/256КБ, пустые и битые боксы); smoke-секция [12] E2E (13 проверок:
 регистрация и ротация ключей, 400 на невалидный publicKey, 403 на чужие ключи чата, конверт в
 metadata.e2e при пустом content, 400 на plaintext рядом с конвертом и на конверт без бокса
-отправителя, история без plaintext, деактивация ключа). Опечатка doctorApptsList в [8]
+отправителя, история без plaintext, деактивация ключа. Опечатка doctorApptsList в [8]
 (ReferenceError, красный прогон #58) починена в 7cb0832.
 **Честность данных E2E** (815f6cb + a508fda): прогон #59 остался красным — проверка [12]
 искала E2E-сообщение по isEncrypted, а легаси-дефолт модели true делал подходящими
@@ -552,6 +559,20 @@ E0277-класс без линковки) + cargo test --no-default-features (т
 логики). e411a54 — зелёный во всех трёх джобах. УРОК: N-API-крейт нельзя
 полноценно гонять cargo test без Node — feature-гейт планируй с самого
 начала; юнит-тесты обёрток выполнимы только в Node-интеграции с .node.
+**Контракт-векторы bcrypt** (8776f7c): DoD Этапа 2 закрыт и для хэшей паролей —
+4 KAT-вектора из тестов OpenBSD/crypt_blowfish (Solar Designer, public domain;
+cost 5, формат $2a$: U*U, U*U*, U*U*U и 72+-символьный пароль с пробелами) на
+общей фикстуре core/tests/bcrypt_vector.txt (формат «ключ = значение», значение
+БЕЗ тримминга — пароль v4 с внутренними пробелами). Rust-сторона: крейт bcrypt
+0.15 (pure Rust, доступен и без napi-bind) + bcrypt_verify(password, hash) в
+lib.rs с новым вариантом CoreError::BadHash (битый хэш — различимая ошибка, а
+не Ok(false)); core/tests/bcrypt_vector.rs — все 4 вектора Ok(true), неверный
+пароль Ok(false), «not-a-bcrypt-hash» → Err(BadHash). Node-сторона:
+server/tests/bcryptInterop.test.js — нативный bcrypt сервера (compareSync;
+authService хэширует пароли с cost 12) на той же фикстуре. 8-битные векторы
+($2x$, баг 2a) осознанно исключены — реализации расходятся. УРОК: вектор по
+памяти был неверен (E5YPOq... вместо E5YPO9...) — KAT-значения всегда сверять
+по первоисточнику (Openwall wiki), не по памяти.
 **CI**: npm workspaces тянул expo/RN при установке сервера (ERESOLVE) → workspaces удалены;
 несуществующие версии пакетов (yookassa ^3.0.0 убран, rate-limit-redis ^7 → ^4.0.0).
 **Security** (1fafeb9): self-registration clinic_admin; клиентская цена платежа; JWT без
@@ -580,7 +601,10 @@ node stop.js [--docker]                     # остановить процес�
   вектор NaCl crypto_box на фикстуре core/tests/nacl_box_vector.hex — tweetnacl
   обязан совпадать с эталоном и с Rust-ядром байт-в-байт; с e7879a7 —
   tests/coreAesGcm.test.js: KAT-векторы AES-256-GCM из BoringSSL на фикстуре
-  core/tests/aes_gcm_vector.hex — Node crypto обязан совпасть с Rust байт-в-байт).
+  core/tests/aes_gcm_vector.hex — Node crypto обязан совпасть с Rust байт-в-байт.
+  С 8776f7c — tests/bcryptInterop.test.js: KAT-векторы bcrypt из
+  OpenBSD/crypt_blowfish на фикстуре core/tests/bcrypt_vector.txt — серверный
+  нативный bcrypt обязан совпасть с bcrypt_verify ядра.
   При ошибке установки grep npm error выводится в annotations.
 - **e2e-smoke**: services Postgres (db medchat_test) + Redis; `npm run seed:test` +
   `npm run test:smoke` (сервер на :3990, сам поднимается). С 623d777 включает секцию [12] E2E:
@@ -591,7 +615,7 @@ node stop.js [--docker]                     # остановить процес�
   тестовому бинарнику дать некому, их даёт только процесс Node, napi-rs issue
   #1099) и `cargo test --no-default-features` (тесты логики ядра: lib + ratchet
   (Double Ratchet, 13 кейсов с skip-store) + контрактные векторы
-  interop_vectors.rs и aes_gcm_vector.rs). Лог падений публикуется в
+  interop_vectors.rs, aes_gcm_vector.rs и bcrypt_vector.rs). Лог падений публикуется в
   ci-logs/ci-rust.log. 6 юнит-тестов самих napi-обёрток компилируются
   (check), выполнятся в Node-интеграции со сборкой .node (roadmap).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
@@ -613,7 +637,8 @@ node stop.js [--docker]                     # остановить процес�
   причин (MSRV билд-скрипта → Debug у Buffer → линковка napi_*-символов,
   см. историю фиксов): 754f677, 2bb38f2, bfa904f, 30c3f5e, e7879a7,
   a1061cd — красные; e411a54 (feature napi-bind) — зелёный во всех трёх
-  джобах, серия закрыта. Логи падений бот ci-reporter
+  джобах, серия закрыта. Далее eed2ddb/e2e42c3/edc65e2 (доки), 8776f7c добавил
+  векторные тесты bcrypt в server-tests и core-tests (см. выше). Логи падений бот ci-reporter
   коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log) — при
   красном прогоне читать оттуда.
 
@@ -640,8 +665,9 @@ node stop.js [--docker]                     # остановить процес�
 10. Нативные клиенты и Rust-ядро — см. ROADMAP_NATIVE.md (iOS/Android native, Tauri
     desktop Windows/Linux, крипто-ядро на Rust/C++). **Этап 2 начат**: крейт medchat-core
     (3a70911 → ee76670) + джоба core-tests в CI. **Контракт-векторы DoD**: NaCl box
-    (1ce9516) и AES-256-GCM (e7879a7) закрыты; остался bcrypt-путь (хэши
-    серверного bcrypt cost 12). **Double Ratchet: прототип готов**
+    (1ce9516), AES-256-GCM (e7879a7) и bcrypt (8776f7c: KAT-векторы
+    OpenBSD/crypt_blowfish, bcrypt_verify ядра + нативный bcrypt сервера на
+    общей фикстуре) — все три пути закрыты. **Double Ratchet: прототип готов**
     (6aff983 + d033eeb: ratchet.rs с skip-store, 13 тестов, forward secrecy + break-in
     recovery + внеочередная доставка; в клиенты не интегрирован). ~~napi-rs-биндинги
     для Node~~ — сделано (754f677 → 2bb38f2 → e411a54: src/node.rs, конверты +
