@@ -30,7 +30,7 @@ const HEADER_SIZE: usize = KEY_SIZE + 4 + 4;
 type HmacSha256 = Hmac<Sha256>;
 
 fn hmac256(key: &[u8], data: &[u8]) -> [u8; 32] {
-    let mut mac = HmacSha256::new_from_slice(key).expect("HMAC accepts any key size");
+    let mut mac = <HmacSha256 as Mac>::new_from_slice(key).expect("HMAC accepts any key size");
     mac.update(data);
     let out = mac.finalize().into_bytes();
     let mut res = [0u8; 32];
@@ -257,14 +257,14 @@ mod tests {
 
         // несколько сообщений в одну сторону без ratchet
         for i in 0..5u8 {
-            let m = alice.encrypt(&[b"a", i]).unwrap();
-            assert_eq!(bob.decrypt(&m).unwrap(), vec![b"a", i]);
+            let m = alice.encrypt(&[b'a', i]).unwrap();
+            assert_eq!(bob.decrypt(&m).unwrap(), vec![b'a', i]);
         }
 
         // и обратно
         for i in 0..5u8 {
-            let m = bob.encrypt(&[b"b", i]).unwrap();
-            assert_eq!(alice.decrypt(&m).unwrap(), vec![b"b", i]);
+            let m = bob.encrypt(&[b'b', i]).unwrap();
+            assert_eq!(alice.decrypt(&m).unwrap(), vec![b'b', i]);
         }
     }
 
