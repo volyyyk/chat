@@ -52,7 +52,7 @@
 **DoD:** тест-векторы совпадают с текущей Node-реализацией байт-в-байт;
 cargo-fuzz без падений 24 ч; бенчмарк ≥ x10 к Node на крипто-пути.
 **Прогресс (ноябрь 2026):** пункт DoD «тест-векторы байт-в-байт» закрыт для
-примитива NaCl box (1ce9516): канонический вектор из дистрибути NaCl
+примитива NaCl box (1ce9516): канонический вектор из дистрибутива NaCl
 (public domain) проверяется сразу в двух реализациях на общей фикстуре
 core/tests/nacl_box_vector.hex — Rust-ядро (SalsaBox, crypto_box 0.9,
 core/tests/interop_vectors.rs, джоба CI core-tests) и tweetnacl, библиотека
@@ -61,6 +61,13 @@ core/tests/interop_vectors.rs, джоба CI core-tests) и tweetnacl, библ�
 BoringSSL (public domain) на общей фикстуре core/tests/aes_gcm_vector.hex —
 Rust (aes-gcm 0.10, core/tests/aes_gcm_vector.rs) и Node crypto
 (server/tests/coreAesGcm.test.js) воспроизводят ct||tag байт-в-байт.
+Вектор bcrypt закрыт тем же паттерном (8776f7c): 4 KAT-вектора из тестов
+OpenBSD/crypt_blowfish (Solar Designer, public domain) на общей фикстуре
+core/tests/bcrypt_vector.txt — Rust (крейт bcrypt, bcrypt_verify в lib.rs,
+core/tests/bcrypt_vector.rs) и нативный bcrypt сервера
+(server/tests/bcryptInterop.test.js; в authService пароли хэшируются с
+cost 12) верифицируют все векторы одинаково. 8-битные векторы ($2x$,
+баг 2a) осознанно исключены — реализации на них расходятся.
 napi-rs-биндинги для Node реализованы (754f677 → 2bb38f2 → e411a54:
 src/node.rs — конвертные примитивы + класс JsRatchetState для Double Ratchet;
 состояние не сериализуется — персистентность на вызывающей стороне; биндинги
@@ -72,8 +79,8 @@ cargo test --no-default-features (тесты логики); .node-артефак
 MSRV поднят до 1.77 (30c3f5e: napi-build 2.6 эмитит инструкции билд-скрипта
 синтаксисом cargo::, старый rust-version 1.65 заставлял cargo отвергать
 билд-скрипт).
-Осталось: векторы bcrypt-пути, cargo-fuzz, бенчмарки, сборка .node-артефакта
-в CI (тогда же — прогон юнит-тестов самих napi-обёрток в Node-интеграции).
+Осталось: cargo-fuzz, бенчмарки, сборка .node-артефакта в CI (тогда же —
+прогон юнит-тестов самих napi-обёрток в Node-интеграции).
 
 ### Этап 3. Нативный iOS (Swift/SwiftUI)
 SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudio), рецепты, приёмы;
