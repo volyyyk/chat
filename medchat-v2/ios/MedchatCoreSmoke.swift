@@ -204,6 +204,35 @@ expectMedError("restore битого буфера — ошибка, не пан�
     _ = try MedRatchetState.restore(saved: Data())
 }
 
+// ---------- raw X25519-DH (RFC 7748 §6.1): shared secret этапа 7 ----------
+func hexBytes(_ hex: String) -> Data {
+    var out = Data()
+    var index = hex.startIndex
+    while index < hex.endIndex {
+        let next = hex.index(index, offsetBy: 2)
+        let byte = UInt8(hex[index..<next], radix: 16)!
+        out.append(byte)
+        index = next
+    }
+    return out
+}
+let rfcAPriv = "77076d0a7318a57d3c16c17251b26645df4c2e87ebc0992ab177fba51db92c2a"
+let rfcAPub = "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
+let rfcBPriv = "5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb"
+let rfcBPub = "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f"
+let rfcK = "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
+let dhAB = try! x25519Dh(mySecret: hexBytes(rfcAPriv), theirPublic: hexBytes(rfcBPub))
+check(dhAB == hexBytes(rfcK), "x25519Dh KAT (a, B) == K из RFC 7748 §6.1")
+let dhBA = try! x25519Dh(mySecret: hexBytes(rfcBPriv), theirPublic: hexBytes(rfcAPub))
+check(dhBA == hexBytes(rfcK), "x25519Dh KAT (b, A) == K")
+check(try! x25519Dh(mySecret: alice.secretKey, theirPublic: bob.publicKey) ==
+      try! x25519Dh(mySecret: bob.secretKey, theirPublic: alice.publicKey),
+      "x25519Dh симметричен на сгенерированных парах")
+expectMedError("битая длина mySecret — InvalidArgument", match: invalidArgCase) {
+    _ = try x25519Dh(mySecret: Data(repeating: 0, count: 31), theirPublic: bob.publicKey)
+}
+ok("x25519Dh — KAT RFC 7748 §6.1 + симметрия")
+
 // ---------- bcrypt KAT (OpenBSD/crypt_blowfish, вектор U*U) ----------
 let katHash = "$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW"
 check(try! bcryptVerify(password: "U*U", hash: katHash) == true, "bcrypt KAT верный пароль")

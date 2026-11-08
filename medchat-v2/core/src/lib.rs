@@ -197,6 +197,32 @@ pub fn open_sealed(
     Err(CoreError::NoBoxForRecipient)
 }
 
+/// Raw X25519-DH (RFC 7748): общий секрет из приватного ключа этой стороны
+/// и публичного ключа собеседника. Симметричен: x25519_dh(a, B) ==
+/// x25519_dh(b, A). Скаляр клампится явно по RFC 7748 (сброс младших трёх
+/// бит, установка бита 254) — поведение не зависит от семантики
+/// StaticSecret::from крейта x25519-dalek, а клампинг идемпотентен.
+/// Назначение (этап 7): shared secret из identity-ключей реестра UserKey —
+/// вход RatchetState::init_initiator/init_responder при склейке Double
+/// Ratchet с клиентами.
+///
+/// Честно: all-zero выход (малопорядковый публичный ключ) здесь не
+/// отклоняется — ключи реестра генерируются generate_keypair и
+/// малопорядковыми быть не могут; враждебный ключ даст нулевой ss, сессия
+/// на нём честно падает на первом decrypt. Проверка — на границе вызова.
+pub fn x25519_dh(my_secret: &[u8; KEY_SIZE], their_public: &[u8; KEY_SIZE]) -> [u8; KEY_SIZE] {
+    let mut clamped = *my_secret;
+    clamped[0] &= 248;
+    clamped[31] &= 127;
+    clamped[31] |= 64;
+    let secret = x25519_dalek::StaticSecret::from(clamped);
+    let public = x25519_dalek::PublicKey::from(*their_public);
+    let shared = secret.diffie_hellman(&public);
+    let mut out = [0u8; KEY_SIZE];
+    out.copy_from_slice(shared.as_bytes());
+    out
+}
+
 /// Проверить пароль против bcrypt-хэша формата OpenBSD ($2a$/$2b$/$2y$,
 /// любой cost). Контракт этапа 2 ROADMAP_NATIVE: сервер хэширует пароли
 /// нативным bcrypt-пакетом с cost 12 (authService), ядро даёт ту же
@@ -262,6 +288,37 @@ mod tests {
         assert_eq!(
             open_sealed(&sealed, &[0u8; KEY_SIZE], &[0u8; KEY_SIZE]),
             Err(CoreError::NoBoxForRecipient)
+        );
+    }
+
+    /// KAT RFC 7748 §6.1 (DH-вектор Curve25519): публичный ключ стороны
+    /// X25519(priv, basepoint 9) — согласованность с generate_keypair;
+    /// DH-симметрия на сгенерированных парах.
+    #[test]
+    fn x25519_dh_rfc7748_kat_and_symmetry() {
+        fn hex32(s: &str) -> [u8; KEY_SIZE] {
+            let mut out = [0u8; KEY_SIZE];
+            for i in 0..KEY_SIZE {
+                out[i] = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16).unwrap();
+            }
+            out
+        }
+        let a = hex32("77076d0a7318a57d3c16c17251b26645df4c2e87ebc0992ab177fba51db92c2a");
+        let a_pub = hex32("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a");
+        let b = hex32("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb");
+        let b_pub = hex32("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f");
+        let k = hex32("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742");
+        let mut basepoint = [0u8; KEY_SIZE];
+        basepoint[0] = 9;
+        assert_eq!(x25519_dh(&a, &basepoint), a_pub);
+        assert_eq!(x25519_dh(&b, &basepoint), b_pub);
+        assert_eq!(x25519_dh(&a, &b_pub), k);
+        assert_eq!(x25519_dh(&b, &a_pub), k);
+        let ka = generate_keypair();
+        let kb = generate_keypair();
+        assert_eq!(
+            x25519_dh(&ka.secret_key, &kb.public_key),
+            x25519_dh(&kb.secret_key, &ka.public_key)
         );
     }
 }

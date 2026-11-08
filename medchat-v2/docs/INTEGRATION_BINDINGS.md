@@ -11,6 +11,11 @@
 - Конверт x25519-box: generate_keypair / seal_for_recipients / open_sealed;
   ключи 32 байта, nonce 24 байта (XSalsa20, как NaCl box) — бинарно совместим
   с tweetnacl мобильного клиента (контракт-вектор 1ce9516).
+- Raw X25519-DH (этап 7): x25519_dh(my_secret, their_public) — общий
+  секрет из identity-ключей реестра UserKey; вход init_initiator/
+  init_responder Double Ratchet. Клампинг скаляра — RFC 7748; KAT-вектор
+  §6.1 сверяют Rust-тесты и все smoke-зеркала (napi-smoke.js, swift-smoke,
+  kotlin-smoke).
 - Double Ratchet: сессия одной стороны диалога; wire-формат сообщения
   header (40) || nonce (12) || ciphertext (+16 байт GCM tag); skip-store
   расшифровывает внеочередные, replay отклоняется (OutOfOrder).
@@ -37,6 +42,9 @@
   { epk, nonce, boxes }; core.openSealed(epk, nonce, boxes, myPublic,
   mySecret) → Buffer. JSON-конверт для API { v: 1, alg: "x25519-box",
   epk, nonce, boxes } собирает JS (base64 — на JS-стороне).
+- Raw X25519-DH: core.x25519Dh(mySecret, theirPublic) → Buffer (32) —
+  shared secret из identity-ключей (этап 7, KAT RFC 7748 §6.1 в
+  napi-smoke.js).
 - Double Ratchet:
     const a = core.JsRatchetState.initInitiator(sharedSecret, bobRatchetPub);
     const b = core.JsRatchetState.initResponder(sharedSecret, bobRatchetPub, bobRatchetSecret);
@@ -155,4 +163,5 @@ JNA против host-cdylib); полная сборка приложения (X
   механику; DoD этапа требует internal-testing в Play Console
   (аккаунт оператора).
 - Этап 7: склейка ratchet с клиентским UI — одна реализация ядра,
-  у клиентов только transport + storage (см. §1 про секреты буфера).
+  у клиентов только transport + storage (см. §1 про секреты буфера); raw X25519-DH для shared secret
+  экспортирован из ядра (x25519Dh, KAT RFC 7748 §6.1 во всех smoke-зеркалах).

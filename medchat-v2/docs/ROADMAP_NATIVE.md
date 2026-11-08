@@ -335,8 +335,13 @@ UI после логина регистрирует публичный ключ 
 {v:1, alg, epk, nonce, boxes} — бокс на каждого участника (бокс
 отправителя обязателен, сервер проверяет), входящие metadata.e2e
 расшифровывает на устройстве; при неполном покрытии участников
-ключами — честный plaintext-fallback (чат не ломается); осталась
-склейка с мобильными клиентами (UI + secure storage).
+ключами — честный plaintext-fallback (чат не ломается); склейка E2E-конвертов с клиентами завершена (desktop UI после логина,
+iOS ChatView + CryptoService, RN-мобилка; Android — каркас CryptoService,
+UI ч.3); следующая фаза этапа 7 — ratchet-сессии в клиентском пути:
+raw X25519-DH экспортирован из ядра во все три поверхности (x25519_dh
+lib / x25519Dh napi + UniFFI; клампинг RFC 7748) — shared secret из
+identity-ключей реестра UserKey для init_initiator/init_responder,
+KAT-вектор §6.1 сверяют Rust-тесты и все smoke-зеркала.
 Реализация в Rust-ядре: X25519 + Double Ratchet, серверный key-registry.
 Верификация fingerprint-кодов: РЕАЛИЗОВАНА в мобильном клиенте
 (347bc9d + ec1a0de: safety number — 60 цифр из SHA-512 по набору ключей чата,

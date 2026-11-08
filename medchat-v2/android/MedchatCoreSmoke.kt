@@ -96,6 +96,27 @@ fun main() {
             alice.publicKey, alice.secretKey)
     }
 
+    // ---------- raw X25519-DH (RFC 7748 §6.1): shared secret этапа 7 ----------
+    fun hexBytes(hex: String): ByteArray = ByteArray(hex.length / 2) { i ->
+        hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+    }
+    val rfcAPriv = "77076d0a7318a57d3c16c17251b26645df4c2e87ebc0992ab177fba51db92c2a"
+    val rfcAPub = "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
+    val rfcBPriv = "5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb"
+    val rfcBPub = "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f"
+    val rfcK = "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
+    check(x25519Dh(hexBytes(rfcAPriv), hexBytes(rfcBPub)).contentEquals(hexBytes(rfcK)),
+        "x25519Dh KAT (a, B) == K из RFC 7748 §6.1")
+    check(x25519Dh(hexBytes(rfcBPriv), hexBytes(rfcAPub)).contentEquals(hexBytes(rfcK)),
+        "x25519Dh KAT (b, A) == K")
+    check(x25519Dh(alice.secretKey, bob.publicKey)
+        .contentEquals(x25519Dh(bob.secretKey, alice.publicKey)),
+        "x25519Dh симметричен на сгенерированных парах")
+    expectMedError("битая длина mySecret — InvalidArgument",
+        { e -> e is MedCryptoException.InvalidArgument }) {
+        x25519Dh(ByteArray(31), bob.publicKey)
+    }
+
     // ---------- bcrypt KAT (вектор OpenBSD, тот же что в тестах ядра) ----------
     val katHash = "\u00242a\u002405\u0024CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW"
     check(bcryptVerify("U*U", katHash), "bcrypt KAT: верный пароль")

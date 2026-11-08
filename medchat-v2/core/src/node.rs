@@ -1,7 +1,7 @@
 //! Node.js-биндинги ядра (napi-rs, этап 2 ROADMAP_NATIVE.md).
 //!
 //! Тонкие обёртки над примитивами lib.rs. JS-имена camelCase (генерирует
-//! napi-rs): generateKeypair, sealForRecipients, openSealed, keySize,
+//! napi-rs): generateKeypair, sealForRecipients, openSealed, x25519Dh, keySize,
 //! nonceSize; JsKeyPair → { publicKey, secretKey }, JsSealedMessage →
 //! { epk, nonce, boxes }.
 //!
@@ -33,6 +33,7 @@ use napi_derive::napi;
 use crate::{
     open_sealed as core_open, seal_for_recipients as core_seal, CoreError, KeyPair,
     RatchetMessage, RatchetState, SealedMessage, KEY_SIZE, NONCE_SIZE,
+    x25519_dh as core_dh,
 };
 use crate::ratchet::{AEAD_NONCE_SIZE, HEADER_SIZE};
 
@@ -150,6 +151,17 @@ pub fn open_sealed(
     };
     let plaintext = core_open(&sealed, &my_public_arr, &my_secret_arr).map_err(core_err)?;
     Ok(Buffer::from(plaintext))
+}
+
+/// Raw X25519-DH (RFC 7748): общий секрет из секретного ключа этой
+/// стороны и публичного ключа собеседника (32 + 32 байта). Назначение
+/// (этап 7): shared secret из identity-ключей реестра UserKey для
+/// initInitiator/initResponder Double Ratchet; скаляр клампится по RFC 7748.
+#[napi]
+pub fn x25519_dh(my_secret: Buffer, their_public: Buffer) -> Result<Buffer> {
+    let sk = fixed32(&my_secret, "mySecret")?;
+    let pk = fixed32(&their_public, "theirPublic")?;
+    Ok(Buffer::from(core_dh(&sk, &pk).to_vec()))
 }
 
 // ----- Серверные горячие пути (этап 6): checksum для Node ----------
@@ -580,5 +592,31 @@ mod tests {
         // replay m1 после restore — ключ израсходован, OutOfOrder
         let (h, n, c) = parts(&m1);
         assert!(bob2.decrypt(h, n, c).is_err());
+    }
+
+    /// KAT RFC 7748 §6.1 (DH-вектор Curve25519) через обёртку x25519Dh.
+    #[test]
+    fn napi_x25519_dh_rfc7748_kat() {
+        fn hex32(s: &str) -> [u8; KEY_SIZE] {
+            let mut out = [0u8; KEY_SIZE];
+            for i in 0..KEY_SIZE {
+                out[i] = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16).unwrap();
+            }
+            out
+        }
+        let a = hex32("77076d0a7318a57d3c16c17251b26645df4c2e87ebc0992ab177fba51db92c2a");
+        let b_pub = hex32("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f");
+        let k = hex32("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742");
+        let shared = x25519_dh(
+            Buffer::from(a.to_vec()),
+            Buffer::from(b_pub.to_vec()),
+        )
+        .unwrap();
+        assert_eq!(bytes(&shared), k.as_slice());
+        // битая длина — InvalidArg до криптографии
+        let err = x25519_dh(Buffer::from(vec![0u8; 31]), Buffer::from(b_pub.to_vec()))
+            .err()
+            .unwrap();
+        assert!(err.to_string().contains("mySecret must be 32 bytes, got 31"));
     }
 }

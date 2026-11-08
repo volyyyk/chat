@@ -1,5 +1,5 @@
 //! UniFFI-биндинги ядра для нативных клиентов (Swift/Kotlin, этап 2
-//! ROADMAP_NATIVE.md): тонкие обёртки над lib (конверты x25519-box,
+//! ROADMAP_NATIVE.md): тонкие обёртки над lib (конверты x25519-box, raw X25519-DH,
 //! bcrypt_verify) и ratchet (Double Ratchet).
 //!
 //! Отличия от napi-обёрток (src/node.rs):
@@ -26,6 +26,7 @@ use crate::{
     bcrypt_verify as core_bcrypt_verify, generate_keypair as core_generate_keypair,
     open_sealed as core_open_sealed, seal_for_recipients as core_seal_for_recipients,
     CoreError, KeyPair, RatchetMessage, RatchetState, SealedMessage, KEY_SIZE, NONCE_SIZE,
+    x25519_dh as core_x25519_dh,
 };
 
 /// Ошибки для Swift/Kotlin. Отдельный enum (не CoreError напрямую):
@@ -215,6 +216,17 @@ pub fn open_sealed(
         boxes: sealed.boxes,
     };
     Ok(core_open_sealed(&inner, &my_public, &my_secret)?)
+}
+
+/// Raw X25519-DH (RFC 7748): общий секрет из приватного ключа этой стороны
+/// и публичного ключа собеседника (identity-ключи реестра UserKey) — вход
+/// init_initiator/init_responder Double Ratchet (этап 7). Скаляр клампится
+/// по RFC 7748; KAT-вектор §6.1 сверяют все smoke-зеркала.
+#[uniffi::export]
+pub fn x25519_dh(my_secret: Vec<u8>, their_public: Vec<u8>) -> Result<Vec<u8>, MedCryptoError> {
+    let sk = arr32(&my_secret, "my_secret")?;
+    let pk = arr32(&their_public, "their_public")?;
+    Ok(core_x25519_dh(&sk, &pk).to_vec())
 }
 
 /// Проверить пароль против bcrypt-хэша OpenBSD (cost 12 в authService):
@@ -460,5 +472,44 @@ mod tests {
         // replay m1 после restore — ключ израсходован
         let err = bob2.decrypt(m1).unwrap_err();
         assert!(matches!(err, MedCryptoError::OutOfOrder));
+    }
+
+    /// KAT RFC 7748 §6.1 (DH-вектор Curve25519) через обёртку x25519Dh:
+    /// публичный ключ = X25519(priv, basepoint 9), DH-симметрия на
+    /// сгенерированных парах, битая длина — InvalidArgument до криптографии.
+    #[test]
+    fn uniffi_x25519_dh_rfc7748_kat() {
+        fn hex32(s: &str) -> [u8; KEY_SIZE] {
+            let mut out = [0u8; KEY_SIZE];
+            for i in 0..KEY_SIZE {
+                out[i] = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16).unwrap();
+            }
+            out
+        }
+        let a = hex32("77076d0a7318a57d3c16c17251b26645df4c2e87ebc0992ab177fba51db92c2a");
+        let b = hex32("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb");
+        let a_pub = hex32("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a");
+        let b_pub = hex32("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f");
+        let k = hex32("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742");
+        let mut basepoint = [0u8; KEY_SIZE];
+        basepoint[0] = 9;
+        assert_eq!(
+            x25519_dh(a.to_vec(), basepoint.to_vec()).unwrap(),
+            a_pub.to_vec()
+        );
+        assert_eq!(
+            x25519_dh(b.to_vec(), basepoint.to_vec()).unwrap(),
+            b_pub.to_vec()
+        );
+        assert_eq!(x25519_dh(a.to_vec(), b_pub.to_vec()).unwrap(), k.to_vec());
+        assert_eq!(x25519_dh(b.to_vec(), a_pub.to_vec()).unwrap(), k.to_vec());
+        let ka = generate_keypair();
+        let kb = generate_keypair();
+        assert_eq!(
+            x25519_dh(ka.secret_key.clone(), kb.public_key.clone()).unwrap(),
+            x25519_dh(kb.secret_key.clone(), ka.public_key.clone()).unwrap()
+        );
+        let err = x25519_dh(vec![0u8; 31], b_pub.to_vec()).unwrap_err();
+        assert!(matches!(err, MedCryptoError::InvalidArgument { .. }));
     }
 }

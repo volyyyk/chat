@@ -1176,6 +1176,10 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
     (e2e_get_or_create_key/e2e_seal/e2e_open в main.rs, ключ устройства в
     secure storage medchat.e2e; UI регистрирует ключ POST /api/keys, шифрует
     и расшифровывает конверты, plaintext-fallback при неполном покрытии).
+    Raw X25519-DH для склейки Double Ratchet экспортирован из ядра во все
+    три поверхности (x25519_dh / napi x25519Dh / UniFFI): shared secret из
+    identity-ключей реестра UserKey, клампинг по RFC 7748; KAT-вектор §6.1
+    сверяют Rust-тесты, napi-smoke.js, swift-smoke и kotlin-smoke.
     Этап 3 начат (ч.1 — инструментальная цепочка): джоба CI ios-smoke (macos-latest):
     runtime-smoke Swift-обвязки (ios/MedchatCoreSmoke.swift — зеркало napi-smoke.js
     на host-cdylib), кросс-компиляция iOS device/sim (staticlib), артефакт

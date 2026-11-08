@@ -75,6 +75,28 @@ assert.throws(
 );
 ok('битые длины epk/nonce — InvalidArg');
 
+// ---------- raw X25519-DH (RFC 7748 §6.1): shared secret этапа 7 ----------
+function hexBytes(hex) {
+  const out = Buffer.alloc(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+const RFC_A_PRIV = '77076d0a7318a57d3c16c17251b26645df4c2e87ebc0992ab177fba51db92c2a';
+const RFC_A_PUB = '8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a';
+const RFC_B_PRIV = '5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb';
+const RFC_B_PUB = 'de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f';
+const RFC_K = '4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742';
+assert.ok(core.x25519Dh(hexBytes(RFC_A_PRIV), hexBytes(RFC_B_PUB)).equals(hexBytes(RFC_K)));
+assert.ok(core.x25519Dh(hexBytes(RFC_B_PRIV), hexBytes(RFC_A_PUB)).equals(hexBytes(RFC_K)));
+assert.ok(core.x25519Dh(alice.secretKey, bob.publicKey).equals(core.x25519Dh(bob.secretKey, alice.publicKey)));
+assert.throws(
+  () => core.x25519Dh(Buffer.alloc(31), bob.publicKey),
+  /mySecret must be 32 bytes, got 31/
+);
+ok('x25519Dh — KAT RFC 7748 §6.1 + симметрия + InvalidArg');
+
 // ---------- горячие пути (этап 6): SHA-256 checksum ----------
 const nodeCrypto = require('node:crypto');
 const HOT = Buffer.from('MedChat hot path: checksum via napi', 'utf8');

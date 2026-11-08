@@ -16,6 +16,9 @@
 - `seal_for_recipients(plaintext, &[recipient_public])` — эфемерная пара +
   nonce + по боксу на каждого получателя.
 - `open_sealed(sealed, my_public, my_secret)` — расшифровка своего бокса.
+- `x25519_dh(my_secret, their_public)` — raw X25519-DH (RFC 7748): общий
+  секрет из identity-ключей (этап 7, вход Double Ratchet; клампинг RFC 7748,
+  KAT-вектор §6.1 — в тестах ядра и всех smoke-зеркалах).
 
 ## Сборка и тесты
 
