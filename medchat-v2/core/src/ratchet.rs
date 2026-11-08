@@ -8,13 +8,15 @@
 //! - шифрование каждого сообщения AES-256-GCM на одноразовом message key.
 //!
 //! Честные ограничения прототипа (задокументированы намеренно):
-//! - сообщения принимаются строго по порядку (n == nr); skipped-message-keys
-//!   store не реализован — потерянное сообщение делает последующие
-//!   нерасшифровываемыми до следующего DH-шага (в Signal есть skip-store);
+//! - skipped-message-keys store реализован (как в Signal): сообщения
+//!   расшифровываются вне порядка; лимиты против DoS — MAX_SKIP ключей
+//!   за один шаг и MAX_SKIPPED_KEYS одноразовых ключей в хранилище;
 //! - заголовок (dh_pub, pn, n) передаётся открытым текстом — как в Signal;
 //! - НЕ интегрирован в клиенты: мобильный клиент работает на конвертах
 //!   x25519-box, сервер видит только конверты. Интеграция — после
 //!   napi-rs/UniFFI-биндингов и согласования wire-формата.
+
+use std::collections::HashMap;
 
 use crate::{CoreError, KeyPair, KEY_SIZE};
 use aes_gcm::aead::{Aead, AeadCore, KeyInit, OsRng};
@@ -26,6 +28,10 @@ use sha2::Sha256;
 pub const AEAD_NONCE_SIZE: usize = 12;
 /// dh_pub (32) + pn (4) + n (4).
 const HEADER_SIZE: usize = KEY_SIZE + 4 + 4;
+/// Максимум message-ключей, выводимых в skip-store за один шаг (анти-DoS).
+pub const MAX_SKIP: u32 = 2000;
+/// Максимум одноразовых ключей в skip-store одновременно.
+pub const MAX_SKIPPED_KEYS: usize = 500;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -82,6 +88,14 @@ fn parse_header(bytes: &[u8]) -> Result<([u8; KEY_SIZE], u32, u32), CoreError> {
     Ok((dh_pub, pn, n))
 }
 
+/// AEAD-расшифровка одноразовым message key (AES-256-GCM).
+fn aead_decrypt(message_key: &[u8; 32], nonce: &[u8; AEAD_NONCE_SIZE], ciphertext: &[u8]) -> Result<Vec<u8>, CoreError> {
+    let cipher = Aes256Gcm::new_from_slice(message_key).map_err(|_| CoreError::Aead)?;
+    cipher
+        .decrypt(Nonce::from_slice(nonce), ciphertext)
+        .map_err(|_| CoreError::Aead)
+}
+
 /// Сообщение Double Ratchet: открытый заголовок + AEAD-шифротекст.
 /// Заголовок = dh_pub (текущий ratchet-ключ отправителя) || pn || n.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -106,6 +120,8 @@ pub struct RatchetState {
     send_count: u32,
     recv_count: u32,
     prev_send_count: u32,
+    /// Одноразовые ключи пропущенных сообщений: (dh_pub, n) -> message_key.
+    skipped: HashMap<([u8; KEY_SIZE], u32), [u8; 32]>,
 }
 
 impl RatchetState {
@@ -125,6 +141,7 @@ impl RatchetState {
             dh_remote: Some(*remote_ratchet_public),
             chain_send: Some(chain_send),
             chain_recv: None,
+            skipped: HashMap::new(),
             send_count: 0,
             recv_count: 0,
             prev_send_count: 0,
@@ -140,6 +157,7 @@ impl RatchetState {
             dh_remote: None,
             chain_send: None,
             chain_recv: None,
+            skipped: HashMap::new(),
             send_count: 0,
             recv_count: 0,
             prev_send_count: 0,
@@ -183,10 +201,19 @@ impl RatchetState {
     /// текущего ключа собеседника — выполняется DH-ratchet: оба root и
     /// цепочки перевыводятся, счётчики сбрасываются.
     pub fn decrypt(&mut self, msg: &RatchetMessage) -> Result<Vec<u8>, CoreError> {
-        let (dh_pub, _pn, n) = parse_header(&msg.header)?;
+        let (dh_pub, pn, n) = parse_header(&msg.header)?;
 
+        // 1. Ключ пропущенного сообщения (skip-store): одноразовый,
+        //    изымается из хранилища при использовании.
+        if let Some(message_key) = self.skipped.remove(&(dh_pub, n)) {
+            return aead_decrypt(&message_key, &msg.nonce, &msg.ciphertext);
+        }
+
+        // 2. DH-ratchet при смене ключа собеседника: сначала сохраняем
+        //    ключи пропущенных сообщений ЕГО старой цепочки (до pn).
         if self.dh_remote.map_or(true, |r| r != dh_pub) {
-            // DH-ratchet: входящая цепочка от нового ключа собеседника
+            self.skip_message_keys(pn)?;
+
             let dh_out = x25519(&self.dh_self.secret_key, &dh_pub);
             let (root, chain_recv) = kdf_rk(&self.root_key, &dh_out);
             self.root_key = root;
@@ -204,7 +231,12 @@ impl RatchetState {
             self.send_count = 0;
         }
 
-        if n != self.recv_count {
+        // 3. Пропустить ключи до n в текущей входящей цепочке
+        if n > self.recv_count {
+            self.skip_message_keys(n)?;
+        }
+        if n < self.recv_count {
+            // ключ для n уже выведен и использован — повтор = replay
             return Err(CoreError::OutOfOrder);
         }
 
@@ -216,10 +248,35 @@ impl RatchetState {
         *chain = next_chain;
         self.recv_count += 1;
 
-        let cipher = Aes256Gcm::new_from_slice(&message_key).map_err(|_| CoreError::Aead)?;
-        cipher
-            .decrypt(Nonce::from_slice(&msg.nonce), msg.ciphertext.as_slice())
-            .map_err(|_| CoreError::Aead)
+        aead_decrypt(&message_key, &msg.nonce, &msg.ciphertext)
+    }
+
+    /// Вывести и сохранить одноразовые ключи сообщений [recv_count, until)
+    /// текущей входящей цепочки (skip-store, как в Signal). Лимиты: не более
+    /// MAX_SKIP ключей за один шаг и MAX_SKIPPED_KEYS в хранилище (анти-DoS).
+    fn skip_message_keys(&mut self, until: u32) -> Result<(), CoreError> {
+        if self.chain_recv.is_none() {
+            // входящей цепочки ещё нет (первое сообщение) — нечего пропускать
+            return Ok(());
+        }
+        if until.saturating_sub(self.recv_count) > MAX_SKIP {
+            return Err(CoreError::OutOfOrder);
+        }
+        while self.recv_count < until {
+            if self.skipped.len() >= MAX_SKIPPED_KEYS {
+                return Err(CoreError::OutOfOrder);
+            }
+            let chain = self
+                .chain_recv
+                .as_mut()
+                .ok_or(CoreError::NotInitialized)?;
+            let (next_chain, message_key) = kdf_ck(chain);
+            *chain = next_chain;
+            let dh = self.dh_remote.ok_or(CoreError::NotInitialized)?;
+            self.skipped.insert((dh, self.recv_count), message_key);
+            self.recv_count += 1;
+        }
+        Ok(())
     }
 }
 
@@ -289,17 +346,37 @@ mod tests {
     }
 
     #[test]
-    fn out_of_order_rejected_then_recovers() {
+    fn out_of_order_decoded_via_skip_store() {
         let (mut alice, mut bob) = session();
         let m1 = alice.encrypt(b"one").unwrap();
         let m2 = alice.encrypt(b"two").unwrap();
 
-        // m2 без m1 — вне порядка
-        assert_eq!(bob.decrypt(&m2), Err(CoreError::OutOfOrder));
-        // m1 доходит — порядок восстанавливается
-        assert_eq!(bob.decrypt(&m1).unwrap(), b"one".to_vec());
-        // теперь m2 расшифровывается
+        // m2 приходит раньше m1: skip-store выводит ключ n=1 и расшифровывает
         assert_eq!(bob.decrypt(&m2).unwrap(), b"two".to_vec());
+        // m1 доходит позже и расшифровывается из skip-store
+        assert_eq!(bob.decrypt(&m1).unwrap(), b"one".to_vec());
+        // повтор m2: ключ уже израсходован (одноразовость), replay отклонён
+        let replay = RatchetMessage {
+            header: m2.header.clone(),
+            nonce: m2.nonce,
+            ciphertext: m2.ciphertext.clone(),
+        };
+        assert_eq!(bob.decrypt(&replay), Err(CoreError::OutOfOrder));
+    }
+
+    #[test]
+    fn too_many_skipped_rejected() {
+        let (mut alice, mut bob) = session();
+        let m1 = alice.encrypt(b"x").unwrap();
+        // подделанный заголовок с далёким n: skip-store отказывает (анти-DoS)
+        let mut m = RatchetMessage {
+            header: m1.header.clone(),
+            nonce: m1.nonce,
+            ciphertext: m1.ciphertext.clone(),
+        };
+        let n = MAX_SKIP + 5;
+        m.header[KEY_SIZE + 4..HEADER_SIZE].copy_from_slice(&n.to_le_bytes());
+        assert_eq!(bob.decrypt(&m), Err(CoreError::OutOfOrder));
     }
 
     #[test]
