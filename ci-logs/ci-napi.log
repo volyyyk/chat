@@ -1,0 +1,45 @@
+=== run 42523833174 job napi-build Sun Nov  8 21:10:27 UTC 2026 ===
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
+[1m[92m     Locking[0m 165 packages to highest compatible versions
+[1m[92m      Adding[0m aes-gcm v0.10.3 [1m[33m(available: v0.11.1)[0m
+[1m[92m      Adding[0m bcrypt v0.15.1 [1m[33m(available: v0.19.3)[0m
+[1m[92m      Adding[0m bincode v1.3.3 [1m[33m(available: v3.0.0)[0m
+[1m[92m      Adding[0m criterion v0.5.1 [1m[33m(available: v0.8.2)[0m
+[1m[92m      Adding[0m generic-array v0.14.7 [1m[33m(available: v0.14.9)[0m
+[1m[92m      Adding[0m hmac v0.12.1 [1m[33m(available: v0.13.0)[0m
+[1m[92m      Adding[0m napi v2.16.17 [1m[33m(available: v3.16.1)[0m
+[1m[92m      Adding[0m napi-derive v2.16.13 [1m[33m(available: v3.7.0)[0m
+[1m[92m      Adding[0m sha2 v0.10.9 [1m[33m(available: v0.11.1)[0m
+[1m[92m      Adding[0m x25519-dalek v2.0.1 [1m[33m(available: v3.0.0)[0m
+[1m[92m   Compiling[0m medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 3.74s
+[napi-smoke] keySize/nonceSize/generateKeypair — ok
+[napi-smoke] sealForRecipients/openSealed roundtrip (получатель) — ok
+[napi-smoke] бокс отправителя открывается ключом отправителя — ok
+[napi-smoke] пустой конверт — NoBoxForRecipient — ok
+[napi-smoke] чужой ключ — NoBoxForRecipient — ok
+[napi-smoke] битые длины epk/nonce — InvalidArg — ok
+node:assert:399
+    throw err;
+    ^
+
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(core.x25519Dh(hexBytes(RFC_A_PRIV), hexBytes(RFC_B_PUB)).equals(hexBytes(RFC_K)))
+
+    at Object.<anonymous> (/home/runner/work/chat/chat/medchat-v2/core/napi-smoke.js:91:8)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:128:12)
+    at node:internal/main/run_main_module:28:49 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '=='
+}
+
+Node.js v18.20.8
