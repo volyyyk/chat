@@ -98,8 +98,13 @@ seal: 66.5 µs против 1.01 мс). Double Ratchet encrypt+decrypt: 1.92 µs
 Node реализации нет, сравнивать не с чем. bcrypt — обе стороны нативные,
 Rust-крейт чуть медленнее (cost 5: 1.86 против 1.64 мс; cost 12: 233 против
 206 мс) — честно зафиксировано, DoD на bcrypt-путь не заявлялся.
-Осталось: cargo-fuzz, сборка .node-артефакта в CI (тогда же — прогон
-юнит-тестов самих napi-обёрток в Node-интеграции).
+Сборка .node-артефакта в CI настроена (джоба napi-build): cargo build
+--release (cdylib) → rename в medchat-core.linux-x64-gnu.node, артефакт
+через upload-artifact; там же Node-интеграция обёрток — napi-smoke.js
+(JS-зеркало #[cfg(test)]-тестов node.rs: конверты, ratchet/wire,
+skip-store, негативные кейсы) в настоящем Node-процессе, чего cargo
+test дать не может (issue #1099).
+Осталось: cargo-fuzz.
 
 ### Этап 3. Нативный iOS (Swift/SwiftUI)
 SwiftUI-клиент поверх ядра: чаты, голосовые (AVAudio), рецепты, приёмы;

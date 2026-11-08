@@ -299,3 +299,73 @@ jobs:
           git fetch origin main
           git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
           git push origin HEAD:main || echo "push failed (non-fatal)"
+
+  napi-build:
+    name: N-API artifact (.node) + Node-интеграция обёрток
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: medchat-v2/core
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # cdylib с дефолтными фичами (napi-bind) — это и есть .node-артефакт:
+      # napi-rs2-модуль = обычный cdylib (rename-рецепт из документации
+      # napi.rs), build.rs уже настроен (napi_build::setup). napi-cli нужен
+      # только для прод-упаковки с метаданными платформ.
+      - name: Build cdylib into .node artifact
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo build --release; } 2>&1 | tee ../../ci-napi.log
+          cp target/release/libmedchat_core.so medchat-core.linux-x64-gnu.node
+          ls -la medchat-core.linux-x64-gnu.node
+
+      # Юнит-тесты napi-обёрток в настоящем Node-процессе: в core-tests они
+      # существуют лишь как компиляция, т.к. cargo test линкует тестовый
+      # бинарник без napi_*-символов (их даёт только Node, issue #1099).
+      - name: Node-интеграция napi-обёрток (napi-smoke.js)
+        run: |
+          set -o pipefail
+          { node napi-smoke.js; } 2>&1 | tee -a ../../ci-napi.log
+
+      - name: Upload .node artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: medchat-core-linux-x64-gnu
+          path: medchat-v2/core/medchat-core.linux-x64-gnu.node
+          if-no-files-found: error
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-napi.log ]; then
+            cp ci-napi.log ci-logs/ci-napi.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"

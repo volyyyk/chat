@@ -20,9 +20,10 @@
 //! например "no box in envelope decryptable by this keypair"); неверная
 //! длина аргумента → InvalidArg с ожидаемым размером.
 //!
-//! Сборка .node-артефакта — napi-cli (napi build); джоба core-tests в CI
-//! проверяет компиляцию биндингов и юнит-тесты через cargo test
-//! (artifact-сборка .node в CI пока не настроена — задокументировано).
+//! Сборка .node-артефакта — джоба CI napi-build: cargo build --release
+//! (cdylib) → rename в medchat-core.linux-x64-gnu.node + Node-интеграция
+//! обёрток (napi-smoke.js — JS-зеркало тестов ниже) + upload-artifact.
+//! napi-cli (napi build) — опция прод-упаковки с метаданными платформ.
 
 use napi::bindgen_prelude::{Buffer, Result};
 use napi::{Error as NapiError, Status};

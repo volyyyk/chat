@@ -144,7 +144,9 @@ medchat-v2/
 │                          бенчмарки — джоба core-bench);
 │                          benches/crypto.rs — criterion-бенчмарки
 │                          крипто-пути (d2db23e: конверты x25519-box,
-│                          Double Ratchet, bcrypt cost 5/12)
+│                          Double Ratchet, bcrypt cost 5/12);
+│                          napi-smoke.js — Node-интеграция napi-обёрток
+│                          (джоба napi-build: сборка .node + JS-тесты)
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
 │                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE + этот файл
@@ -280,12 +282,15 @@ E2E-сообщений серверу недоступен (хранится т�
   decryptWire, ratchetMessageToWire/FromWire, ratchetHeaderSize(40),
   ratchetNonceSize(12)). CoreError → napi::Error, битые длины → InvalidArg.
   Состояние ratchet наружу НЕ сериализуется — персистентность на вызывающей
-  стороне (secure storage). .node-артефакт собирается napi-cli; в CI биндинги
+  стороне (secure storage). .node-артефакт собирает джоба CI napi-build (cargo build --release →
+  rename cdylib → medchat-core.linux-x64-gnu.node, upload-artifact;
+  прод-упаковка с метаданными платформ — napi-cli); в core-tests биндинги
   проверяются компиляцией (cargo check --tests), тесты логики ядра —
   cargo test --no-default-features (feature napi-bind, e411a54: тестовый
   бинарник не может линковать napi_*-символы — их даёт только процесс Node,
-  napi-rs issue #1099; юнит-тесты самих обёрток — будущая Node-интеграция
-  со сборкой .node). UniFFI для Swift/Kotlin — следующий шаг.
+  napi-rs issue #1099; юнит-тесты самих обёрток выполняются джобой napi-build
+  в настоящем Node: napi-smoke.js — JS-зеркало тех же проверок).
+  UniFFI для Swift/Kotlin — следующий шаг.
 - **Double Ratchet** (этап 7, прототип): medchat-core/src/ratchet.rs — KDF_RK/KDF_CK на
   HMAC-SHA256 (x25519-dalek 2.0.1 для raw DH, явная feature static_secrets), каждое
   сообщение AES-256-GCM на одноразовом message key, DH-шаг при смене ratchet-ключа
@@ -626,7 +631,7 @@ node stop.js [--docker]                     # остановить процес�
 
 ## 10. CI (.github/workflows/ci.yml)
 
-Четыре джобы на каждый пуш в main:
+Пять джоб на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
   валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
@@ -649,13 +654,18 @@ node stop.js [--docker]                     # остановить процес�
   (Double Ratchet, 13 кейсов с skip-store) + контрактные векторы
   interop_vectors.rs, aes_gcm_vector.rs и bcrypt_vector.rs). Лог падений публикуется в
   ci-logs/ci-rust.log. 6 юнит-тестов самих napi-обёрток компилируются
-  (check), выполнятся в Node-интеграции со сборкой .node (roadmap).
+  (check), а в настоящем Node они выполняются джобой napi-build (napi-smoke.js
+  — JS-зеркало тех же проверок против собранного .node-артефакта).
 - **core-bench** (f79de00): cargo bench --no-default-features (criterion,
   release+LTO; benches/crypto.rs — d2db23e) + Node-референс npm run
   bench:core на том же раннере; лог ci-bench.log публикуется в ci-logs/
   ВСЕГДА (числа для сверки DoD «≥ x10»; тайминги машин шатательны — не
   автогейт). Джоба гейтит сборку и прогон бенчмарков (паника в бенче =
   красный прогон).
+- **napi-build**: cargo build --release (cdylib, дефолтные фичи с napi-bind) →
+  rename в medchat-core.linux-x64-gnu.node; node napi-smoke.js — Node-интеграция
+  обёрток (то, что cargo test дать не может: линковка napi_*, issue #1099);
+  артефакт через actions/upload-artifact@v4; лог падений — ci-logs/ci-napi.log.
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -679,9 +689,10 @@ node stop.js [--docker]                     # остановить процес�
   векторные тесты bcrypt в server-tests и core-tests (см. выше). Серия бенчмарков:
   d2db23e (criterion, benches/crypto.rs) и f79de00 (Node-зеркало + джоба
   core-bench, лог публикуется при любом исходе; первый прогон 42474787549 — DoD
-  «≥ x10» закрыт: конвертный x25519-box-путь 11.6–15.2x в пользу Rust). Логи
+  «≥ x10» закрыт: конвертный x25519-box-путь 11.6–15.2x в пользу Rust). Джоба napi-build — сборка .node-артефакта + Node-интеграция
+  обёрток (napi-smoke.js). Логи
   падений бот ci-reporter
-  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log; ci-bench.log пишется при любом исходе) — при
+  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log; ci-bench.log пишется при любом исходе) — при
   красном прогоне читать оттуда.
 
 ## 11. Что осталось сделать (roadmap)
@@ -717,7 +728,9 @@ node stop.js [--docker]                     # остановить процес�
     Swift/Kotlin, интеграция ratchet в клиенты, cargo-fuzz, ~~бенчмарки (DoD ≥ x10
     к Node)~~ — сделано (d2db23e + f79de00: criterion + Node-зеркало + джоба
     core-bench; первый прогон 42474787549: конвертный путь 11.6–15.2x — DoD закрыт),
-    сборка .node-артефакта в CI (+ Node-интеграция юнит-тестов обёрток).
+    ~~сборка .node-артефакта в CI + Node-интеграция юнит-тестов обёрток~~ —
+    сделано (джоба napi-build: medchat-core.linux-x64-gnu.node + napi-smoke.js,
+    артефакт через upload-artifact).
 
 ---
 
