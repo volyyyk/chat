@@ -1151,10 +1151,22 @@ jobs:
 
       # unsigned debug-APK: гейтит Gradle-проект, Compose UI, JNA@aar и
       # компиляцию app-источников вместе с UniFFI-обвязкой.
+      # NB (run 42572808358): Maven Central редиректит большие артефакты
+      # (kotlin-compiler-embeddable) на GitHub Releases CDN, который
+      # транзиентно отдаёт 504 (инцидент 2026-11-08/09) — ретраи по
+      # образцу desktop-bundle; Gradle кэширует уже скачанное, повтор
+      # дёшев. tee -a накапливает лог всех попыток.
       - name: Build debug APK (assembleDebug)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; gradle :app:assembleDebug --no-daemon; } 2>&1 | tee ../../ci-android-build.log
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            echo "[ci-android-build] build attempt $attempt"
+            { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) === attempt $attempt"; gradle :app:assembleDebug --no-daemon; } 2>&1 | tee -a ../../ci-android-build.log && ok=1 && break
+            echo "[ci-android-build] attempt $attempt failed, retry in 25s (транзиентные 504 на Maven Central/GitHub CDN)"
+            sleep 25
+          done
+          if [ "$ok" != "1" ]; then exit 1; fi
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v7
