@@ -1,4 +1,4 @@
-=== run 42523833174 job ios-smoke Sun Nov  8 21:10:32 UTC 2026 ===
+=== run 42561969322 job ios-smoke Mon Nov  9 04:28:17 UTC 2026 ===
 cargo 1.99.1 (5f94df478 2026-08-27)
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Ignored[0m package `uniffi-bindgen-cli v0.1.0 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)` is already installed, use --force to override
@@ -15,23 +15,37 @@ cargo 1.99.1 (5f94df478 2026-08-27)
 [1m[92m      Adding[0m napi-derive v2.16.13 [1m[33m(available: v3.7.0)[0m
 [1m[92m      Adding[0m sha2 v0.10.9 [1m[33m(available: v0.11.1)[0m
 [1m[92m      Adding[0m x25519-dalek v2.0.1 [1m[33m(available: v3.0.0)[0m
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m itoa v1.0.19
+[1m[92m   Compiling[0m itoa v1.0.19
 [1m[92m   Compiling[0m medchat-core v0.1.0 (/Users/runner/work/chat/chat/medchat-v2/core)
-[1m[92m    Finished[0m `release` profile [optimized] target(s) in 9.38s
-[ci-ios] generate swift bindings: start
-[ci-ios] generated files:
-total 160
-drwxr-xr-x  5 runner  staff    160 Nov  8 21:10 .
-drwxr-xr-x  3 runner  staff     96 Nov  8 21:10 ..
--rw-r--r--@ 1 runner  staff  44169 Nov  8 21:10 medchat_core.swift
--rw-r--r--  1 runner  staff  30927 Nov  8 21:10 medchat_coreFFI.h
--rw-r--r--  1 runner  staff     70 Nov  8 21:10 medchat_coreFFI.modulemap
-[ci-ios] swift smoke: start
-[ci-ios] header: uniffi-out/swift/medchat_coreFFI.h
-[ci-ios] compiling swiftc (обвязка + smoke как main.swift)
-smoke-main/main.swift:229:7: error: 'try!' cannot appear to the right of a non-assignment operator
-227 | check(dhBA == hexBytes(rfcK), "x25519Dh KAT (b, A) == K")
-228 | check(try! x25519Dh(mySecret: alice.secretKey, theirPublic: bob.publicKey) ==
-229 |       try! x25519Dh(mySecret: bob.secretKey, theirPublic: alice.publicKey),
-    |       `- error: 'try!' cannot appear to the right of a non-assignment operator
-230 |       "x25519Dh симметричен на сгенерированных парах")
-231 | expectMedError("битая длина mySecret — InvalidArgument", match: invalidArgCase) {
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m cargo_metadata v0.15.4
+[1m[92m   Compiling[0m uniffi v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
+[1m[91merror[0m[1m: mismatched closing delimiter: `}`[0m
+   [1m[94m--> [0msrc/uniffi_iface.rs:224:7
+    [1m[94m|[0m
+[1m[94m224[0m [1m[94m|[0m     Ok(sealeds
+    [1m[94m|[0m       [1m[91m^[0m [1m[91munclosed delimiter[0m
+[1m[94m...[0m
+[1m[94m230[0m [1m[94m|[0m             };
+    [1m[94m|[0m             [1m[91m^[0m [1m[91mmismatched closing delimiter[0m
+
+[1m[91merror[0m[1m: unexpected closing delimiter: `}`[0m
+   [1m[94m--> [0msrc/uniffi_iface.rs:234:13
+    [1m[94m|[0m
+[1m[94m227[0m [1m[94m|[0m             let epk = match arr32(&sealed.epk, "sealed.epk") {
+    [1m[94m|[0m                                                              [1m[94m-[0m [1m[94mthe nearest open delimiter[0m
+[1m[94m228[0m [1m[94m|[0m                 Ok(v) => v,
+[1m[94m229[0m [1m[94m|[0m                 Err(_) => return MedOpenResult { ok: false, plaintext: Vec::new() }),
+    [1m[94m|[0m                                                                                    [1m[94m-[0m [1m[94mmissing open `(` for this delimiter[0m
+[1m[94m230[0m [1m[94m|[0m             };
+[1m[94m231[0m [1m[94m|[0m             let nonce = match arr24(&sealed.nonce, "sealed.nonce") {
+    [1m[94m|[0m                                                                    [1m[94m-[0m [1m[94mthe nearest open delimiter[0m
+[1m[94m232[0m [1m[94m|[0m                 Ok(v) => v,
+[1m[94m233[0m [1m[94m|[0m                 Err(_) => return MedOpenResult { ok: false, plaintext: Vec::new() }),
+    [1m[94m|[0m                                                                                    [1m[94m-[0m [1m[94mmissing open `(` for this delimiter[0m
+[1m[94m234[0m [1m[94m|[0m             };
+    [1m[94m|[0m             [1m[91m^[0m [1m[91munexpected closing delimiter[0m
+
+[1m[91merror[0m: could not compile `medchat-core` (lib) due to 2 previous errors
