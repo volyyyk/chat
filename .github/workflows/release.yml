@@ -52,6 +52,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
+          exec > >(tee -a release-build.log) 2>&1
           RUN_ID=$(gh api -X GET "repos/${{ github.repository }}/actions/runs?branch=main&per_page=30" --jq '[.workflow_runs[] | select(.name == "CI") | select(.conclusion == "success")] | .[0].id')
           if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
             echo "no green CI run on main found" >&2
@@ -68,6 +69,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
+          exec > >(tee -a release-build.log) 2>&1
           RUN_ID="${{ steps.ci.outputs.run_id }}"
           dl() {
             name="$1"; dest="$2"
@@ -95,6 +97,7 @@ jobs:
       - name: Stage release assets
         run: |
           set -e
+          exec > >(tee -a release-build.log) 2>&1
           mkdir -p assets
           # Android: неподписанный debug-APK (release-подпись — оператор)
           cp dist/android/*.apk assets/MedChat-Android-debug-unsigned.apk
@@ -135,3 +138,27 @@ jobs:
           files: assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Лог падения релиза — в ci-logs/ (паттерн CI): API логов джоб
+      # требует прав, которых нет у вызывающей стороны; tee-транскрипт
+      # шагов resolve/download/staging публикуем в ci-logs/ci-release.log.
+      # [skip ci] — пуш GITHUB_TOKEN новых прогонов не запускает.
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          mkdir -p ci-logs
+          if [ -f release-build.log ]; then
+            cp release-build.log ci-logs/ci-release.log
+          fi
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no release log to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): release failure log from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
