@@ -659,7 +659,7 @@ mod tests {
         )
         .unwrap();
         let s2 =
-            seal_for_recipients(Buffer::from(b"only alice".to_vec()), vec![alice.public_key]).unwrap();
+            seal_for_recipients(Buffer::from(b"only alice".to_vec()), vec![alice.public_key.clone()]).unwrap();
         let env = |s: &JsSealedMessage| JsSealedMessage {
             epk: Buffer::from(bytes(&s.epk).to_vec()),
             nonce: Buffer::from(bytes(&s.nonce).to_vec()),

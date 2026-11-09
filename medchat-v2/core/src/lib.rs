@@ -317,11 +317,11 @@ mod tests {
         let s3 = seal_for_recipients(b"not for alice", &[bob.public_key]).unwrap();
         let out = open_sealed_batch(&[s1, s2, s3], &alice.public_key, &alice.secret_key);
         assert_eq!(out.len(), 3);
-        assert_eq!(out[0].as_ref().unwrap(), b"page one".to_vec());
-        assert_eq!(out[1].as_ref().unwrap(), b"page two".to_vec());
+        assert_eq!(out[0].as_ref().unwrap().as_slice(), b"page one");
+        assert_eq!(out[1].as_ref().unwrap().as_slice(), b"page two");
         assert!(out[2].is_err());
         let for_bob = open_sealed_batch(&[s1, s3], &bob.public_key, &bob.secret_key);
-        assert_eq!(for_bob[0].as_ref().unwrap(), b"page one".to_vec());
+        assert_eq!(for_bob[0].as_ref().unwrap().as_slice(), b"page one");
         assert!(for_bob[1].is_err());
     }
 
