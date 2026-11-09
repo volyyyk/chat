@@ -226,11 +226,11 @@ pub fn open_sealed_batch(
         .map(|sealed| {
             let epk = match arr32(&sealed.epk, "sealed.epk") {
                 Ok(v) => v,
-                Err(_) => return MedOpenResult { ok: false, plaintext: Vec::new() }),
+                Err(_) => return MedOpenResult { ok: false, plaintext: Vec::new() },
             };
             let nonce = match arr24(&sealed.nonce, "sealed.nonce") {
                 Ok(v) => v,
-                Err(_) => return MedOpenResult { ok: false, plaintext: Vec::new() }),
+                Err(_) => return MedOpenResult { ok: false, plaintext: Vec::new() },
             };
             let inner = SealedMessage {
                 epk,

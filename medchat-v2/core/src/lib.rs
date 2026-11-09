@@ -320,7 +320,11 @@ mod tests {
         assert_eq!(out[0].as_ref().unwrap().as_slice(), b"page one");
         assert_eq!(out[1].as_ref().unwrap().as_slice(), b"page two");
         assert!(out[2].is_err());
-        let for_bob = open_sealed_batch(&[s1, s3], &bob.public_key, &bob.secret_key);
+        // s1/s3 уже ушли в первый вызов (&[...] мувит элементы) — пересоздаём конверты.
+        let s1b =
+            seal_for_recipients(b"page one", &[alice.public_key, bob.public_key]).unwrap();
+        let s3b = seal_for_recipients(b"not for alice", &[bob.public_key]).unwrap();
+        let for_bob = open_sealed_batch(&[s1b, s3b], &bob.public_key, &bob.secret_key);
         assert_eq!(for_bob[0].as_ref().unwrap().as_slice(), b"page one");
         assert!(for_bob[1].is_err());
     }
