@@ -27,6 +27,18 @@ MedChat v2 — телемедицинская платформа «клиник�
   uniffi, ios-smoke, android-smoke, android-build, desktop-check,
   desktop-bundle, k6-load, core-audit).
 
+- **Пагинация длинных чатов**: курсорная история (?before=) на сервере;
+  окно 300 сообщений в web/desktop, кнопка «Показать более старые»
+  (load-older) в iOS/Android. Батч-расшифровка open_sealed_batch
+  (napi/UniFFI/Tauri-команда) расшифровывает страницу конвертов одним
+  вызовом ядра вместо FFI-вызова на каждое сообщение.
+- **Прод-инфраструктура**: deploy/ — docker-compose (postgres:16,
+  redis:7, minio, server, nginx; healthcheck-и, named-тома, наружу
+  только порт 80), nginx-конфиг (SPA + /api + socket.io, TLS-блок
+  закомментирован), .env.prod.example, backup.sh (pg_dump + ротация
+  14 дней), DB_SSL-тумблер в server/src/config/database.js; пошаговый
+  гайд DEPLOY.md (8 разделов).
+
 ## Честные ограничения (секреты оператора не подключены)
 
 - **Android**: MedChat-Android-debug-unsigned.apk — неподписанный debug-APK.
@@ -47,4 +59,4 @@ MedChat v2 — телемедицинская платформа «клиник�
 Ассеты релиза собраны из артефактов последнего зелёного прогона CI на main;
 SHA256SUMS.txt — контрольные суммы. Документация: medchat-v2/docs/
 (readme_for_AI.md — полная карта для ИИ-агентов, ROADMAP_NATIVE.md — статус
-этапов, E2E_PROTOCOL.md, DESKTOP_RELEASE.md, LEGAL.md).
+этапов, E2E_PROTOCOL.md, DESKTOP_RELEASE.md, DEPLOY.md, LEGAL.md).
