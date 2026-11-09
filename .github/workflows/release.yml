@@ -106,8 +106,11 @@ jobs:
           # артефакта — find устойчив к внутренней раскладке
           find dist/desktop-linux -name "*.deb" -exec cp {} assets/ \;
           find dist/desktop-linux -name "*.AppImage" -exec cp {} assets/ \;
-          # Windows: NSIS-установщик (без Authenticode)
-          cp dist/desktop-nsis/*.exe assets/MedChat-Windows-Setup-unsigned.exe
+          # Windows: NSIS-установщик (без Authenticode); upload-artifact
+          # хранит его в nsis/ внутри артефакта (run 42571769788:
+          # cannot stat dist/desktop-nsis/*.exe) — find устойчив
+          # к внутренней раскладке, как у deb/AppImage
+          find dist/desktop-nsis -name "*.exe" -exec cp {} assets/MedChat-Windows-Setup-unsigned.exe \;
           # Web: статический бандл (deploy за nginx/TLS — оператор)
           (cd dist/web && zip -qr "$GITHUB_WORKSPACE/assets/MedChat-Web-static.zip" .)
           # iOS: xcframework для сборки .ipa/TestFlight оператором.
