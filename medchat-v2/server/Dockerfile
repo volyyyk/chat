@@ -1,7 +1,7 @@
 # Образ сервера MedChat (прод-контур — ../deploy/DEPLOY.md).
-# Node 18 (server/package.json engines), Alpine. Нативный bcrypt собирается
+# Node 22 (server/package.json engines), Alpine. Нативный bcrypt собирается
 # с python3/make/g++ и инструменты удаляются после install (musl-пребилдов нет).
-FROM node:18-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 ENV NODE_ENV=production

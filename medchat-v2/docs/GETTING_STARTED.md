@@ -9,7 +9,7 @@
 
 ## Предварительные требования
 
-- **Node.js 18+** и npm
+- **Node.js 22+** и npm
 - **Docker Desktop** (или установленные вручную PostgreSQL 14+, Redis 7+, MinIO)
 - Для мобильного приложения: приложение **Expo Go** на телефоне (Android/iOS)
 

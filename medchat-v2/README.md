@@ -6,7 +6,7 @@
 
 | Компонент | Технологии | Назначение |
 |---|---|---|
-| `server/` | Node.js 18, Express, PostgreSQL, Redis, MinIO, Socket.IO | REST API, WebSocket, файлы, платежи (тестовые), бэкапы |
+| `server/` | Node.js 22, Express, PostgreSQL, Redis, MinIO, Socket.IO | REST API, WebSocket, файлы, платежи (тестовые), бэкапы |
 | `web/` | React 18 | Рабочее место врача на ПК |
 | `mobile/` | React Native (Expo) | Приложения пациента и врача (Android/iOS) |
 | `docs/` | Markdown | Архитектура, безопасность, законы, инструкция запуска, аудит |

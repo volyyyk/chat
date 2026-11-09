@@ -65,7 +65,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 
 | Часть | Технологии |
 |---|---|
-| server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
+| server | Node 22+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
 | web | React (порт 3002, клиника/админ); E2E x25519-box через tweetnacl (services/e2eCrypto.js): конверты байт-в-байт с мобильным/desktop, honest plaintext-fallback, приватный ключ в localStorage (в браузере нет secure storage — компромисс по прецеденту LEGAL.md §2); ratchet/mc:2 — честные плашки; длинные чаты: курсор-пагинация (before по createdAt) + окно рендера 300 с кнопкой «Показать более старые» |
 | desktop | Tauri 2 (Rust + системный webview): рабочий клиент (этапы 5–7: подключение/логин/чаты/сообщения REST, E2E-конверты, Double Ratchet поверх конверта); ядро medchat-core напрямую path-депом (Rust→Rust, без FFI); secure storage keyring 3 (Credential Manager / libsecret); длинные чаты: окно рендера 300 + подгрузка старших страниц (курсор before) + батч-расшифровка окна конвертов ядром (e2e_open_batch) |

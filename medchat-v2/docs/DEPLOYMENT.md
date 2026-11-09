@@ -2,7 +2,7 @@
 
 ## 1. Состав системы
 
-- **server/** — Node.js 18+, Express, Socket.IO, PostgreSQL, Redis, MinIO
+- **server/** — Node.js 22+, Express, Socket.IO, PostgreSQL, Redis, MinIO
 - **web/** — React 18 (кабинет врача для ПК)
 - **mobile/** — React Native / Expo (пациенты и врачи)
 
