@@ -110,8 +110,21 @@ jobs:
           cp dist/desktop-nsis/*.exe assets/MedChat-Windows-Setup-unsigned.exe
           # Web: статический бандл (deploy за nginx/TLS — оператор)
           (cd dist/web && zip -qr "$GITHUB_WORKSPACE/assets/MedChat-Web-static.zip" .)
-          # iOS: xcframework для сборки .ipa/TestFlight оператором
-          (cd dist/ios && zip -qr "$GITHUB_WORKSPACE/assets/MedChat-iOS-MedchatCore-xcframework.zip" MedchatCore.xcframework)
+          # iOS: xcframework для сборки .ipa/TestFlight оператором.
+          # upload-artifact v4 кладёт СОДЕРЖИМОЕ каталога в корень
+          # артефакта (root = сам MedchatCore.xcframework) — run
+          # 42571270956 упал на «zip: name not matched». Пересобираем
+          # папку MedchatCore.xcframework/ поверх скачанного
+          # содержимого; запасная ветка — если артефакт вдруг со
+          # структурой.
+          if [ -d dist/ios/MedchatCore.xcframework ]; then
+            (cd dist/ios && zip -qr "$GITHUB_WORKSPACE/assets/MedChat-iOS-MedchatCore-xcframework.zip" MedchatCore.xcframework)
+          else
+            mv dist/ios dist/ios-content
+            mkdir -p dist/ios/MedchatCore.xcframework
+            (cd dist/ios-content && cp -R . "$GITHUB_WORKSPACE/dist/ios/MedchatCore.xcframework/")
+            (cd dist/ios && zip -qr "$GITHUB_WORKSPACE/assets/MedChat-iOS-MedchatCore-xcframework.zip" MedchatCore.xcframework)
+          fi
           # Ядро: napi-аддон и UniFFI-обвязка (Swift/Kotlin)
           cp dist/node/medchat-core.linux-x64-gnu.node assets/
           (cd dist/uniffi && zip -qr "$GITHUB_WORKSPACE/assets/medchat-core-uniffi-bindings.zip" .)
@@ -143,24 +156,39 @@ jobs:
       # (паттерн CI): API логов джоб требует прав, которых нет у вызывающей
       # стороны; tee-транскрипт шагов + диагностика рабочего каталога
       # (ls/git status) — даже если падение случилось до первого tee-шага,
-      # файл создаётся здесь. Рабочая копия — release-ветка: коммит
-      # собирается на свежем origin/main (checkout --detach) и пушится
-      # как fast-forward. [skip ci] — новых прогонов пуш не запускает.
+      # файл создаётся здесь.
+      # NB (runs #3-#6: лог релиза не попадал в репо): рабочая копия —
+      # release-ветка, ci-logs/ci-release.log в ней УЖЕ отслежен; после cp
+      # он локально изменён, и чекаут отказывается его затирать («local
+      # changes would be overwritten») — шаг падал до коммита. Лог
+      # копируется в /tmp ДО чекаута, чекаут с -f, затем лог
+      # возвращается; пуш — с рефетчем и ретраями (гонка с
+      # CI-репортерами). [skip ci] — новых прогонов пуш не запускает.
       - name: Publish release build log to the repo
         if: always()
         run: |
           set -e
           { echo "=== release run ${GITHUB_RUN_ID} outcome=${{ job.status }} $(date -u) ==="; ls -la; ls -laR dist 2>/dev/null || true; git status --short || true; } >> release-build.log 2>&1 || true
+          cp release-build.log /tmp/ci-release.log
           git config user.name "ci-reporter"
           git config user.email "ci-reporter@users.noreply.github.com"
-          mkdir -p ci-logs
-          cp release-build.log ci-logs/ci-release.log
           git fetch origin main
-          git checkout --detach origin/main
+          git checkout -f --detach origin/main
+          mkdir -p ci-logs
+          cp /tmp/ci-release.log ci-logs/ci-release.log
           git add ci-logs
           if git diff --cached --quiet; then
             echo "no release log to publish"
             exit 0
           fi
           git commit -m "chore(ci): release log from run ${GITHUB_RUN_ID} [skip ci]"
-          git push origin HEAD:main || echo "push failed (non-fatal)"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "[release] log published (attempt $attempt)"
+              exit 0
+            fi
+            echo "[release] push attempt $attempt failed, refetch and rebase"
+            git fetch origin main
+            git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          done
+          echo "push failed (non-fatal)"
