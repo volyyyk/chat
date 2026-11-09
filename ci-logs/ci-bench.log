@@ -1,4 +1,4 @@
-=== run 42561454875 job core-bench Mon Nov  9 04:22:29 UTC 2026 ===
+=== run 42561969322 job core-bench Mon Nov  9 04:28:13 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Locking[0m 165 packages to highest compatible versions
@@ -19,69 +19,39 @@
 [1m[92m   Compiling[0m serde_json v1.0.154
 [1m[92m   Compiling[0m tinytemplate v1.2.1
 [1m[92m   Compiling[0m criterion v0.5.1
-[1m[91merror[E0277][0m[1m: can't compare `&Vec<u8>` with `Vec<u8>`[0m
-   [1m[94m--> [0msrc/lib.rs:320:9
+[1m[91merror[E0382][0m[1m: use of moved value: `s1`[0m
+   [1m[94m--> [0msrc/lib.rs:323:43
     [1m[94m|[0m
-[1m[94m320[0m [1m[94m|[0m         assert_eq!(out[0].as_ref().unwrap(), b"page one".to_vec());
-    [1m[94m|[0m         [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mno implementation for `&Vec<u8> == Vec<u8>`[0m
+[1m[94m314[0m [1m[94m|[0m         let s1 =
+    [1m[94m|[0m             [1m[94m--[0m [1m[94mmove occurs because `s1` has type `SealedMessage`, which does not implement the `Copy` trait[0m
+[1m[94m...[0m
+[1m[94m318[0m [1m[94m|[0m         let out = open_sealed_batch(&[s1, s2, s3], &alice.public_key, &alice.secret_key);
+    [1m[94m|[0m                                       [1m[94m--[0m [1m[94mvalue moved here[0m
+[1m[94m...[0m
+[1m[94m323[0m [1m[94m|[0m         let for_bob = open_sealed_batch(&[s1, s3], &bob.public_key, &bob.secret_key);
+    [1m[94m|[0m                                           [1m[91m^^[0m [1m[91mvalue used here after move[0m
     [1m[94m|[0m
-    [1m[94m= [0m[1mhelp[0m: the trait `PartialEq<Vec<u8>>` is not implemented for `&Vec<u8>`
-[1m[96mhelp[0m: `Vec<u8>` implements trait `PartialEq<Rhs>`
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/bstr/traits.rs:56:8
+[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
     [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteStr>`
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteString>`
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:537:0
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: in this macro invocation
-   [1m[94m::: [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:681:0
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: in this macro invocation
-    [1m[94m= [0m[1mnote[0m: this error originates in the macro `assert_eq` which comes from the expansion of the macro `impl_partial_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+[1m[94m318[0m [1m[94m| [0m        let out = open_sealed_batch(&[s1[92m.clone()[0m, s2, s3], &alice.public_key, &alice.secret_key);
+    [1m[94m|[0m                                         [92m++++++++[0m
 
-[1m[91merror[E0277][0m[1m: can't compare `&Vec<u8>` with `Vec<u8>`[0m
-   [1m[94m--> [0msrc/lib.rs:321:9
+[1m[91merror[E0382][0m[1m: use of moved value: `s3`[0m
+   [1m[94m--> [0msrc/lib.rs:323:47
     [1m[94m|[0m
-[1m[94m321[0m [1m[94m|[0m         assert_eq!(out[1].as_ref().unwrap(), b"page two".to_vec());
-    [1m[94m|[0m         [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mno implementation for `&Vec<u8> == Vec<u8>`[0m
+[1m[94m317[0m [1m[94m|[0m         let s3 = seal_for_recipients(b"not for alice", &[bob.public_key]).unwrap();
+    [1m[94m|[0m             [1m[94m--[0m [1m[94mmove occurs because `s3` has type `SealedMessage`, which does not implement the `Copy` trait[0m
+[1m[94m318[0m [1m[94m|[0m         let out = open_sealed_batch(&[s1, s2, s3], &alice.public_key, &alice.secret_key);
+    [1m[94m|[0m                                               [1m[94m--[0m [1m[94mvalue moved here[0m
+[1m[94m...[0m
+[1m[94m323[0m [1m[94m|[0m         let for_bob = open_sealed_batch(&[s1, s3], &bob.public_key, &bob.secret_key);
+    [1m[94m|[0m                                               [1m[91m^^[0m [1m[91mvalue used here after move[0m
     [1m[94m|[0m
-    [1m[94m= [0m[1mhelp[0m: the trait `PartialEq<Vec<u8>>` is not implemented for `&Vec<u8>`
-[1m[96mhelp[0m: `Vec<u8>` implements trait `PartialEq<Rhs>`
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/bstr/traits.rs:56:8
+[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
     [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteStr>`
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteString>`
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:537:0
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: in this macro invocation
-   [1m[94m::: [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:681:0
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: in this macro invocation
-    [1m[94m= [0m[1mnote[0m: this error originates in the macro `assert_eq` which comes from the expansion of the macro `impl_partial_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+[1m[94m318[0m [1m[94m| [0m        let out = open_sealed_batch(&[s1, s2, s3[92m.clone()[0m], &alice.public_key, &alice.secret_key);
+    [1m[94m|[0m                                                 [92m++++++++[0m
 
-[1m[91merror[E0277][0m[1m: can't compare `&Vec<u8>` with `Vec<u8>`[0m
-   [1m[94m--> [0msrc/lib.rs:324:9
-    [1m[94m|[0m
-[1m[94m324[0m [1m[94m|[0m         assert_eq!(for_bob[0].as_ref().unwrap(), b"page one".to_vec());
-    [1m[94m|[0m         [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mno implementation for `&Vec<u8> == Vec<u8>`[0m
-    [1m[94m|[0m
-    [1m[94m= [0m[1mhelp[0m: the trait `PartialEq<Vec<u8>>` is not implemented for `&Vec<u8>`
-[1m[96mhelp[0m: `Vec<u8>` implements trait `PartialEq<Rhs>`
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/bstr/traits.rs:56:8
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteStr>`
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteString>`
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:537:0
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: in this macro invocation
-   [1m[94m::: [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:681:0
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: in this macro invocation
-    [1m[94m= [0m[1mnote[0m: this error originates in the macro `assert_eq` which comes from the expansion of the macro `impl_partial_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-[1mFor more information about this error, try `rustc --explain E0277`.[0m
-[1m[91merror[0m: could not compile `medchat-core` (lib test) due to 3 previous errors
+[1mFor more information about this error, try `rustc --explain E0382`.[0m
+[1m[91merror[0m: could not compile `medchat-core` (lib test) due to 2 previous errors
 [1m[33mwarning[0m: build failed, waiting for other jobs to finish...
