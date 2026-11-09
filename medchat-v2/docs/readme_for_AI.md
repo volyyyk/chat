@@ -179,9 +179,13 @@ medchat-v2/
 ├── launcher/            — launch.js, stop.js, README.md — «запуск по кнопке», ПАПКА УДАЛЯЕМАЯ
 ├── docs/                — API, ARCHITECTURE, DEPLOYMENT, GETTING_STARTED, LEGAL, OFFER,
 │                          PRIVACY_POLICY, SECURITY_AUDIT, ROADMAP_NATIVE,
-│                          INTEGRATION_BINDINGS (гайд подключения биндингов ядра) + этот файл
+│                          E2E_PROTOCOL (спецификация E2E-конвертов + Double Ratchet,
+│                          DoD этапа 7), INTEGRATION_BINDINGS (гайд подключения
+│                          биндингов ядра) + этот файл
 ├── docker/, docker-compose.yml
-└── .github/workflows/ci.yml — server-tests + e2e-smoke + core-tests
+└── .github/workflows/ci.yml — 14 джоб: server-tests, e2e-smoke, core-tests,
+    core-bench, napi-build, fuzz-smoke, core-audit, uniffi-bindings, ios-smoke,
+    android-smoke, android-build, desktop-check, desktop-bundle, k6-load
 ```
 
 ## 4. Тестовые данные (`cd server && npm run seed:test`)
@@ -339,8 +343,12 @@ E2E-сообщений серверу недоступен (хранится т�
   собеседника; forward secrecy + break-in recovery. Skip-store реализован (d033eeb): одноразовые
   message keys пропущенных номеров буферизуются (MAX_SKIP=2000, MAX_SKIPPED_KEYS=500,
   превышение → OutOfOrder), replay по-прежнему отклоняется — сообщения доставляются
-  и расшифровываются вне порядка. В клиенты НЕ интегрирован (мобильный клиент работает
-  на конвертах x25519-box) — склейка с клиентским UI/secure storage — следующий шаг (биндинги и персистентность ядра готовы).
+  и расшифровываются вне порядка. Склеен во всех нативных клиентах (desktop/iOS/Android: per-remote сессии
+  ratchet.<chatId>.<remoteKeyId> в secure storage, роль детерминирована keyId,
+  тумблер per-chat + ленивая расшифровка входящих, honest-fallback; RN — честная
+  плашка, сессию не держит): plaintext бокса конверта — payload {"t":"r1",
+  "k":<keyId отправителя>,"w":<wire b64>}, content пуст. Полная спецификация
+  протокола — docs/E2E_PROTOCOL.md (DoD этапа 7).
   Персистентность сессий: feature serde (bincode-совместимая сериализация RatchetState;
   JSON не подходит — ключи skip-store нестроковые); сериализованный blob содержит СЕКРЕТЫ
   (dh_self.secret_key, цепочки) — хранить только в secure storage устройства.
@@ -349,10 +357,10 @@ E2E-сообщений серверу недоступен (хранится т�
 - **Остаточные ограничения** (честно): файлы/голосовые шифруются только при
   полном покрытии ключами (нет ключа у участника → plaintext-fallback,
   LEGAL.md §2); метаданные (в т.ч. размер wire-файла) видимы серверу;
-  Double Ratchet (forward secrecy) пока НЕ интегрирован в клиенты — прототип
-  с skip-store, wire-форматом RatchetMessage и сериализацией состояния
-  (feature serde, персистентность сессий между запусками) готов в medchat-core
-  (этап 7 ROADMAP_NATIVE.md); AsyncStorage остаётся fallback-хранилищем приватного
+  Double Ratchet интегрирован в нативные клиенты (desktop/iOS/Android —
+  forward secrecy на ratchet-сессиях поверх конверта; RN — честная плашка,
+  сессию не держит); спецификация протокола — docs/E2E_PROTOCOL.md (DoD этапа 7);
+  AsyncStorage остаётся fallback-хранилищем приватного
   ключа только на платформах без secure storage (expo web).
 
 ### Файлы, приёмы, рецепты
