@@ -1,4 +1,4 @@
-=== run 42529533384 job core-bench Sun Nov  8 22:18:07 UTC 2026 ===
+=== run 42556174844 job core-bench Mon Nov  9 03:24:01 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Locking[0m 165 packages to highest compatible versions
@@ -12,9 +12,15 @@
 [1m[92m      Adding[0m napi-derive v2.16.13 [1m[33m(available: v3.7.0)[0m
 [1m[92m      Adding[0m sha2 v0.10.9 [1m[33m(available: v0.11.1)[0m
 [1m[92m      Adding[0m x25519-dalek v2.0.1 [1m[33m(available: v3.0.0)[0m
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m itoa v1.0.19
+[1m[92m   Compiling[0m itoa v1.0.19
 [1m[92m   Compiling[0m medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)
-[1m[92m    Finished[0m `bench` profile [optimized] target(s) in 22.25s
-[1m[92m     Running[0m unittests src/lib.rs (target/release/deps/medchat_core-b9597b85df7303d7)
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m tinytemplate v1.2.1
+[1m[92m   Compiling[0m criterion v0.5.1
+[1m[92m    Finished[0m `bench` profile [optimized] target(s) in 30.68s
+[1m[92m     Running[0m unittests src/lib.rs (target/release/deps/medchat_core-f46c66c0eaeca468)
 
 running 22 tests
 test hotpath::tests::gzip_decompress_invalid_is_err ... ignored
@@ -42,100 +48,96 @@ test tests::x25519_dh_rfc7748_kat_and_symmetry ... ignored
 
 test result: ok. 0 passed; 0 failed; 22 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-[1m[92m     Running[0m benches/crypto.rs (target/release/deps/crypto-2f84ae4528735a92)
+[1m[92m     Running[0m benches/crypto.rs (target/release/deps/crypto-e361945049965698)
 Gnuplot not found, using plotters backend
 Benchmarking x25519-box envelope/seal+open/1 recipient
 Benchmarking x25519-box envelope/seal+open/1 recipient: Warming up for 3.0000 s
-Benchmarking x25519-box envelope/seal+open/1 recipient: Collecting 100 samples in estimated 5.3250 s (45k iterations)
+Benchmarking x25519-box envelope/seal+open/1 recipient: Collecting 100 samples in estimated 5.5248 s (40k iterations)
 Benchmarking x25519-box envelope/seal+open/1 recipient: Analyzing
 Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal+open/1 recipient/base/sample.json": No such file or directory (os error 2)
 x25519-box envelope/seal+open/1 recipient
-                        time:   [116.47 µs 116.59 µs 116.78 µs]
-                        thrpt:  [250.88 KiB/s 251.29 KiB/s 251.54 KiB/s]
+                        time:   [136.65 µs 136.70 µs 136.77 µs]
+                        thrpt:  [214.21 KiB/s 214.32 KiB/s 214.40 KiB/s]
 Found 8 outliers among 100 measurements (8.00%)
-  2 (2.00%) high mild
-  6 (6.00%) high severe
+  3 (3.00%) high mild
+  5 (5.00%) high severe
 Benchmarking x25519-box envelope/seal+open/3 recipients
 Benchmarking x25519-box envelope/seal+open/3 recipients: Warming up for 3.0000 s
-Benchmarking x25519-box envelope/seal+open/3 recipients: Collecting 100 samples in estimated 5.5032 s (25k iterations)
+Benchmarking x25519-box envelope/seal+open/3 recipients: Collecting 100 samples in estimated 5.1546 s (20k iterations)
 Benchmarking x25519-box envelope/seal+open/3 recipients: Analyzing
 Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal+open/3 recipients/base/sample.json": No such file or directory (os error 2)
 x25519-box envelope/seal+open/3 recipients
-                        time:   [218.12 µs 218.93 µs 220.07 µs]
-                        thrpt:  [133.13 KiB/s 133.82 KiB/s 134.31 KiB/s]
+                        time:   [255.20 µs 255.66 µs 256.21 µs]
+                        thrpt:  [114.35 KiB/s 114.59 KiB/s 114.80 KiB/s]
 Found 11 outliers among 100 measurements (11.00%)
-  2 (2.00%) high mild
-  9 (9.00%) high severe
+  5 (5.00%) high mild
+  6 (6.00%) high severe
 Benchmarking x25519-box envelope/seal/1 recipient
 Benchmarking x25519-box envelope/seal/1 recipient: Warming up for 3.0000 s
-Benchmarking x25519-box envelope/seal/1 recipient: Collecting 100 samples in estimated 5.0389 s (76k iterations)
+Benchmarking x25519-box envelope/seal/1 recipient: Collecting 100 samples in estimated 5.1001 s (66k iterations)
 Benchmarking x25519-box envelope/seal/1 recipient: Analyzing
 Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal/1 recipient/base/sample.json": No such file or directory (os error 2)
 x25519-box envelope/seal/1 recipient
-                        time:   [66.435 µs 66.476 µs 66.528 µs]
-                        thrpt:  [440.37 KiB/s 440.71 KiB/s 440.98 KiB/s]
-Found 10 outliers among 100 measurements (10.00%)
-  1 (1.00%) low mild
+                        time:   [77.716 µs 78.017 µs 78.385 µs]
+                        thrpt:  [373.75 KiB/s 375.52 KiB/s 376.97 KiB/s]
+Found 13 outliers among 100 measurements (13.00%)
   3 (3.00%) high mild
-  6 (6.00%) high severe
+  10 (10.00%) high severe
 
 Benchmarking double ratchet/encrypt+decrypt/in-order
 Benchmarking double ratchet/encrypt+decrypt/in-order: Warming up for 3.0000 s
-Benchmarking double ratchet/encrypt+decrypt/in-order: Collecting 100 samples in estimated 5.0029 s (2.6M iterations)
+Benchmarking double ratchet/encrypt+decrypt/in-order: Collecting 100 samples in estimated 5.0049 s (2.5M iterations)
 Benchmarking double ratchet/encrypt+decrypt/in-order: Analyzing
 Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/double ratchet/encrypt+decrypt/in-order/base/sample.json": No such file or directory (os error 2)
 double ratchet/encrypt+decrypt/in-order
-                        time:   [1.8982 µs 1.9126 µs 1.9308 µs]
-                        thrpt:  [14.818 MiB/s 14.958 MiB/s 15.072 MiB/s]
-Found 8 outliers among 100 measurements (8.00%)
-  2 (2.00%) low mild
-  1 (1.00%) high mild
+                        time:   [1.9601 µs 1.9618 µs 1.9640 µs]
+                        thrpt:  [14.567 MiB/s 14.583 MiB/s 14.597 MiB/s]
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) high mild
   5 (5.00%) high severe
 Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip
 Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip: Warming up for 3.0000 s
-Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip: Collecting 100 samples in estimated 5.0079 s (2.6M iterations)
+Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip: Collecting 100 samples in estimated 5.0031 s (2.5M iterations)
 Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip: Analyzing
 Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/double ratchet/encrypt+wire+decrypt/roundtrip/base/sample.json": No such file or directory (os error 2)
 double ratchet/encrypt+wire+decrypt/roundtrip
-                        time:   [1.9400 µs 1.9455 µs 1.9554 µs]
-                        thrpt:  [14.631 MiB/s 14.706 MiB/s 14.747 MiB/s]
-Found 10 outliers among 100 measurements (10.00%)
+                        time:   [2.0152 µs 2.0163 µs 2.0177 µs]
+                        thrpt:  [14.179 MiB/s 14.189 MiB/s 14.197 MiB/s]
+Found 9 outliers among 100 measurements (9.00%)
   1 (1.00%) low severe
-  4 (4.00%) high mild
-  5 (5.00%) high severe
+  4 (4.00%) low mild
+  1 (1.00%) high mild
+  3 (3.00%) high severe
 
 Benchmarking bcrypt verify/verify/cost 5 (KAT)
 Benchmarking bcrypt verify/verify/cost 5 (KAT): Warming up for 500.00 ms
-Benchmarking bcrypt verify/verify/cost 5 (KAT): Collecting 10 samples in estimated 2.0486 s (1100 iterations)
+Benchmarking bcrypt verify/verify/cost 5 (KAT): Collecting 10 samples in estimated 2.1090 s (990 iterations)
 Benchmarking bcrypt verify/verify/cost 5 (KAT): Analyzing
 Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/bcrypt verify/verify/cost 5 (KAT)/base/sample.json": No such file or directory (os error 2)
 bcrypt verify/verify/cost 5 (KAT)
-                        time:   [1.8616 ms 1.8633 ms 1.8665 ms]
-Found 2 outliers among 10 measurements (20.00%)
+                        time:   [2.1297 ms 2.1300 ms 2.1305 ms]
+Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
-  1 (10.00%) high severe
 Benchmarking bcrypt verify/verify/cost 12 (production)
 Benchmarking bcrypt verify/verify/cost 12 (production): Warming up for 500.00 ms
 
-Warning: Unable to complete 10 samples in 2.0s. You may wish to increase target time to 2.3s.
-Benchmarking bcrypt verify/verify/cost 12 (production): Collecting 10 samples in estimated 2.3326 s (10 iterations)
+Warning: Unable to complete 10 samples in 2.0s. You may wish to increase target time to 2.7s.
+Benchmarking bcrypt verify/verify/cost 12 (production): Collecting 10 samples in estimated 2.6686 s (10 iterations)
 Benchmarking bcrypt verify/verify/cost 12 (production): Analyzing
 Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/bcrypt verify/verify/cost 12 (production)/base/sample.json": No such file or directory (os error 2)
 bcrypt verify/verify/cost 12 (production)
-                        time:   [233.21 ms 233.26 ms 233.33 ms]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high mild
+                        time:   [266.72 ms 266.78 ms 266.85 ms]
 
-=== node reference 42529533384 Sun Nov  8 22:19:51 UTC 2026 ===
+=== node reference 42556174844 Mon Nov  9 03:26:02 UTC 2026 ===
 
 > medchat-server@2.0.0 bench:core
 > node bench/coreBench.js
 
 node v24.22.2, platform: linux, payload: 30 bytes
-[bench] tweetnacl box seal+open / 1 recipient / 30B: 656 ops/s (1.53 ms/op)
-[bench] tweetnacl box seal+open / 3 recipients / 30B: 395 ops/s (2.53 ms/op)
-[bench] tweetnacl box seal / 1 recipient / 30B: 957 ops/s (1.04 ms/op)
-[bench] node crypto AES-256-GCM encrypt+decrypt / 30B: 136098 ops/s (0.007 ms/op)
-[bench] bcrypt compareSync / cost 5 (KAT): 608 ops/s (1.64 ms/op)
-[bench] bcrypt compareSync / cost 12 (production): 4.83 ops/s (206.99 ms/op)
+[bench] tweetnacl box seal+open / 1 recipient / 30B: 545 ops/s (1.83 ms/op)
+[bench] tweetnacl box seal+open / 3 recipients / 30B: 332 ops/s (3.01 ms/op)
+[bench] tweetnacl box seal / 1 recipient / 30B: 832 ops/s (1.20 ms/op)
+[bench] node crypto AES-256-GCM encrypt+decrypt / 30B: 107015 ops/s (0.009 ms/op)
+[bench] bcrypt compareSync / cost 5 (KAT): 532 ops/s (1.88 ms/op)
+[bench] bcrypt compareSync / cost 12 (production): 4.24 ops/s (235.73 ms/op)
 done.
