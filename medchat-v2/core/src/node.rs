@@ -9,7 +9,7 @@
 //! initInitiator/initResponder и методами encrypt/decrypt/decryptWire;
 //! ratchetMessageToWire/ratchetMessageFromWire, ratchetHeaderSize (40),
 //! ratchetNonceSize (12). Персистентность (feature serde): save()/restore()
-//! JsRatchetState — bincode-буфер состояния для secure storage вызывающей
+//! JsRatchetState — postcard-буфер состояния для secure storage вызывающей
 //! стороны; буфер содержит секреты — не для логов и не для сервера.
 //!
 //! E2E-контракт не меняется: JS собирает JSON-конверт
@@ -317,7 +317,7 @@ pub fn ratchet_message_from_wire(wire: Buffer) -> Result<JsRatchetMessage> {
 
 /// Состояние Double Ratchet одной стороны диалога. Секреты (root key,
 /// цепочки, приватный ratchet-ключ) живут в памяти объекта; save()/restore()
-/// (feature serde) сериализуют состояние в bincode-буфер — персистентность
+/// (feature serde) сериализуют состояние в postcard-буфер — персистентность
 /// сессии на вызывающей стороне (secure storage устройства).
 #[napi]
 pub struct JsRatchetState {
@@ -401,7 +401,7 @@ impl JsRatchetState {
     }
 }
 
-// Персистентность сессии (этап 7, feature serde): bincode-буфер состояния.
+// Персистентность сессии (этап 7, feature serde): postcard-буфер состояния.
 // Отдельный impl-блок под #[cfg] на весь блок: cfg вырезает его ДО
 // раскрытия #[napi] — при выключенной serde методов в API нет начисто.
 // Буфер содержит СЕКРЕТЫ (root key, цепочки, приватный ratchet-ключ):
@@ -410,12 +410,12 @@ impl JsRatchetState {
 #[cfg(feature = "serde")]
 #[napi]
 impl JsRatchetState {
-    /// Сохранить состояние сессии (bincode) — для персистентности между
+    /// Сохранить состояние сессии (postcard) — для персистентности между
     /// запусками. Восстановление — JsRatchetState.restore(saved).
     #[napi]
     pub fn save(&self) -> Result<Buffer> {
-        // bincode 3: bincode::serde::encode_to_vec (feature serde).
-        let buf = bincode::serde::encode_to_vec(&self.inner, bincode::config::standard())
+        // postcard: to_alloc_vec (serde, varint-формат).
+        let buf = postcard::to_alloc_vec(&self.inner)
             .map_err(|e| NapiError::new(Status::GenericFailure, format!("{}", e)))?;
         Ok(Buffer::from(buf))
     }
@@ -424,9 +424,7 @@ impl JsRatchetState {
     /// на месте, диалог продолжается. Битый буфер — GenericFailure.
     #[napi(factory)]
     pub fn restore(saved: Buffer) -> Result<Self> {
-        let inner: RatchetState =
-            bincode::serde::decode_from_slice(bytes(&saved), bincode::config::standard())
-                .map(|(v, _)| v)
+        let inner: RatchetState = postcard::from_bytes(bytes(&saved))
                 .map_err(|e| NapiError::new(Status::GenericFailure, format!("{}", e)))?;
         Ok(JsRatchetState { inner })
     }
@@ -634,7 +632,7 @@ mod tests {
         let pt1 = bob.decrypt(h, n, c).unwrap();
         assert_eq!(bytes(&pt1), b"persist me");
 
-        // «рестарт процесса»: состояние ушло в bincode-буфер и вернулось
+        // «рестарт процесса»: состояние ушло в postcard-буфер и вернулось
         let saved = bob.save().unwrap();
         assert!(saved.len() > 0);
         assert!(JsRatchetState::restore(Buffer::from(vec![0xffu8; 4])).is_err());

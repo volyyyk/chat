@@ -9,7 +9,8 @@ edition = "2021"
 license = "MIT"
 description = "MedChat crypto core: X25519 + NaCl box envelope primitives (E2E-compatible with tweetnacl clients)"
 # MSRV поднят 1.77 → 1.88: napi 3 требует Rust >= 1.88 (гайд v2->v3,
-# napi.rs/docs/more/v2-v3-migration-guide); bincode 3 и bcrypt 0.19 — 1.85.
+# napi.rs/docs/more/v2-v3-migration-guide); bcrypt 0.19 — 1.85; postcard
+# 1.0 (MSRV ниже) на floor не влияет.
 # CI гоняет stable — фактический floor определяется зависимостями.
 rust-version = "1.88"
 
@@ -40,7 +41,7 @@ uniffi-bind = ["dep:uniffi"]
 # состояние в secure storage устройства). НЕ default — как napi-bind/uniffi-bind:
 # serde не нужен сборкам .node/cdylib без персистентности; CI-прогон ядра
 # включает её: cargo test --no-default-features --features serde.
-serde = ["dep:serde", "dep:bincode"]
+serde = ["dep:serde", "dep:postcard"]
 
 [dependencies]
 crypto_box = "0.9"
@@ -89,17 +90,21 @@ uniffi = { git = "https://github.com/mozilla/uniffi-rs", tag = "v0.32.2", option
 # serde (feature serde, src/ratchet.rs): сериализация RatchetState для
 # персистентности Double Ratchet (этап 7). Честно: JSON не подходит —
 # ключи skip-store HashMap(([u8;32], u32)) нестроковые; формат персистентности
-# — бинарный (bincode в тестах). derive: KeyPair (lib.rs) тоже сериализуется
+# — бинарный (postcard в тестах). derive: KeyPair (lib.rs) тоже сериализуется
 # (поле dh_self состояния).
 serde = { version = "1", features = ["derive"], optional = true }
-# bincode 3 (feature serde): бинарный формат персистентности RatchetState.
-# API v3 — модуль bincode::serde (encode_to_vec/decode_from_slice, требует
-# feature serde); классические bincode::serialize/deserialize из 1.x
-# удалены. Формат v3 — varint: буферы save() НЕ читаются старыми blobами
-# bincode 1.x (прототип, пользовательских данных нет). Дублирует
-# dev-зависимость: сериализация нужна и ЛИБ-коду — методам save/restore
-# биндингов (node.rs / uniffi_iface.rs), не только тестам ratchet.rs.
-bincode = { version = "3", optional = true, features = ["serde"] }
+# postcard 1.0 (feature serde): бинарный формат персистентности RatchetState.
+# Бывший bincode прекратил сопровождение: финальный релиз 3.0.0 —
+# tombstone (lib.rs — только compiler error, README «unmaintained»; прогон
+# #206: у крейта нет feature serde). postcard — официальная альтернатива из
+# README bincode: чистый serde (HashMap с нестроковыми ключами ок), формат
+# varint. default-features = false + фича alloc (default её НЕ включает —
+# default = heapless-cas): без heapless/crc-опций; to_alloc_vec требует
+# alloc. Формат НЕ совместим со старыми bincode-буферами (прототип,
+# пользовательских данных нет). Дублирует dev-зависимость: сериализация
+# нужна и ЛИБ-коду — методам save/restore биндингов (node.rs /
+# uniffi_iface.rs), не только тестам ratchet.rs.
+postcard = { version = "1", default-features = false, features = ["alloc"], optional = true }
 
 # napi-build 2.6 — актуальная линия crates.io (мажора 3 в индексе нет,
 # прогон #205: failed to select a version for napi-build = "^3");
@@ -115,10 +120,10 @@ napi-build = "2"
 # прогонами ядра (cargo check --tests / cargo test --no-default-features).
 [dev-dependencies]
 criterion = "0.8"
-# bincode 3 (feature serde — модуль bincode::serde): сериализационные
-# тесты RatchetState (feature serde): бинарный формат с произвольными
-# ключами HashMap (JSON нестроковые ключи не умеет).
-bincode = { version = "3", features = ["serde"] }
+# postcard 1.0 — сериализационные тесты RatchetState (feature serde):
+# бинарный формат с произвольными ключами HashMap (JSON нестроковые
+# ключи не умеет); тот же формат, что в либе ([dependencies]).
+postcard = { version = "1", default-features = false, features = ["alloc"] }
 
 # Бенчмарки запускает только cargo bench --no-default-features (джоба CI
 # core-bench). harness = false: точка входа — criterion, а не libtest.

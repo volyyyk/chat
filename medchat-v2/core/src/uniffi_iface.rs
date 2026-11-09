@@ -16,7 +16,7 @@
 //!     --language kotlin --out-dir uniffi-out/kotlin  (swift — аналогично).
 //!
 //! Как и в napi: персистентность — save()/restore() (feature serde):
-//! bincode-буфер состояния ↔ secure storage вызывающей стороны (Keychain /
+//! postcard-буфер состояния ↔ secure storage вызывающей стороны (Keychain /
 //! Android Keystore); буфер содержит СЕКРЕТЫ — не для логов и не для сервера.
 
 use std::sync::Mutex;
@@ -309,7 +309,7 @@ pub fn ratchet_message_from_wire(wire: Vec<u8>) -> Result<MedRatchetMessage, Med
 
 /// Double Ratchet-сессия (одна — с одним собеседником). Методы uniffi
 /// иммутабельны, состояние мутируется через Mutex. Персистентность —
-/// save()/restore() (feature serde): bincode-буфер состояния ↔ secure
+/// save()/restore() (feature serde): postcard-буфер состояния ↔ secure
 /// storage вызывающей стороны.
 #[derive(uniffi::Object)]
 pub struct MedRatchetState {
@@ -379,7 +379,7 @@ impl MedRatchetState {
     }
 }
 
-// Персистентность сессии (этап 7, feature serde): bincode-буфер состояния.
+// Персистентность сессии (этап 7, feature serde): postcard-буфер состояния.
 // Отдельный impl-блок под #[cfg] на весь блок: cfg вырезает его ДО
 // раскрытия #[uniffi::export] — при выключенной serde методов в обвязке
 // нет начисто. Буфер содержит СЕКРЕТЫ (root key, цепочки, приватный
@@ -388,12 +388,12 @@ impl MedRatchetState {
 #[cfg(feature = "serde")]
 #[uniffi::export]
 impl MedRatchetState {
-    /// Сохранить состояние сессии (bincode) — для персистентности между
+    /// Сохранить состояние сессии (postcard) — для персистентности между
     /// запусками. Восстановление — MedRatchetState.restore(saved).
     pub fn save(&self) -> Result<Vec<u8>, MedCryptoError> {
         let st = lock(&self.inner);
-        // bincode 3: bincode::serde::encode_to_vec (feature serde).
-        bincode::serde::encode_to_vec(&*st, bincode::config::standard()).map_err(|e| {
+        // postcard: to_alloc_vec (serde, varint-формат).
+        postcard::to_alloc_vec(&*st).map_err(|e| {
             MedCryptoError::InvalidArgument {
                 detail: format!("serialization failed: {}", e),
             }
@@ -404,9 +404,7 @@ impl MedRatchetState {
     /// месте, диалог продолжается. Битый буфер — InvalidArgument.
     #[uniffi::constructor]
     pub fn restore(saved: Vec<u8>) -> Result<Self, MedCryptoError> {
-        let st: RatchetState =
-            bincode::serde::decode_from_slice(&saved, bincode::config::standard())
-                .map(|(v, _)| v)
+        let st: RatchetState = postcard::from_bytes(&saved)
                 .map_err(|e| MedCryptoError::InvalidArgument {
                     detail: format!("deserialization failed: {}", e),
                 })?;
@@ -511,7 +509,7 @@ mod tests {
         let m1 = alice.encrypt(b"persist me".to_vec()).unwrap();
         assert_eq!(bob.decrypt(m1.clone()).unwrap(), b"persist me".to_vec());
 
-        // «рестарт»: состояние ушло в bincode-буфер и вернулось
+        // «рестарт»: состояние ушло в postcard-буфер и вернулось
         let saved = bob.save().unwrap();
         assert!(!saved.is_empty());
         assert!(MedRatchetState::restore(vec![0xffu8; 4]).is_err());

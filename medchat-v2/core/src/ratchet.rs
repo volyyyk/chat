@@ -16,7 +16,7 @@
 //!   x25519-box, сервер видит только конверты. Wire-формат сообщения
 //!   определён (to_wire/from_wire: header || nonce || ciphertext,
 //!   pn/n в little-endian); интеграция — после napi-rs/UniFFI-биндингов.
-//! - состояние сериализуется через feature serde (bincode-совместимо):
+//! - состояние сериализуется через feature serde (postcard, varint):
 //!   персистентность сессии между запусками; сериализованный blob содержит
 //!   СЕКРЕТЫ (dh_self.secret_key, цепочки, skip-store) — хранить только
 //!   в secure storage устройства (Keychain/Keystore/Keyring).
@@ -505,13 +505,11 @@ mod tests {
             let m1 = alice.encrypt(b"hello").unwrap();
             assert_eq!(bob.decrypt(&m1).unwrap(), b"hello".to_vec());
 
-            // bincode 3: bincode::serde (encode_to_vec/decode_from_slice).
-            let alice_blob = bincode::serde::encode_to_vec(&alice, bincode::config::standard()).unwrap();
-            let bob_blob = bincode::serde::encode_to_vec(&bob, bincode::config::standard()).unwrap();
-            let mut alice2: RatchetState =
-                bincode::serde::decode_from_slice(&alice_blob, bincode::config::standard()).unwrap().0;
-            let mut bob2: RatchetState =
-                bincode::serde::decode_from_slice(&bob_blob, bincode::config::standard()).unwrap().0;
+            // postcard: to_alloc_vec/from_bytes (serde, varint-формат).
+            let alice_blob = postcard::to_alloc_vec(&alice).unwrap();
+            let bob_blob = postcard::to_alloc_vec(&bob).unwrap();
+            let mut alice2: RatchetState = postcard::from_bytes(&alice_blob).unwrap();
+            let mut bob2: RatchetState = postcard::from_bytes(&bob_blob).unwrap();
 
             let m2 = alice2.encrypt(b"after restart").unwrap();
             assert_eq!(bob2.decrypt(&m2).unwrap(), b"after restart".to_vec());
@@ -528,9 +526,8 @@ mod tests {
             let m2 = alice.encrypt(b"second").unwrap();
             assert_eq!(bob.decrypt(&m2).unwrap(), b"second".to_vec());
 
-            let blob = bincode::serde::encode_to_vec(&bob, bincode::config::standard()).unwrap();
-            let mut bob2: RatchetState =
-                bincode::serde::decode_from_slice(&blob, bincode::config::standard()).unwrap().0;
+            let blob = postcard::to_alloc_vec(&bob).unwrap();
+            let mut bob2: RatchetState = postcard::from_bytes(&blob).unwrap();
             assert_eq!(bob2.decrypt(&m1).unwrap(), b"first".to_vec());
 
             let replay = RatchetMessage {
@@ -547,7 +544,7 @@ mod tests {
         fn serialized_blob_contains_secrets() {
             let (mut alice, _bob) = session();
             let _ = alice.encrypt(b"x").unwrap();
-            let blob = bincode::serde::encode_to_vec(&alice, bincode::config::standard()).unwrap();
+            let blob = postcard::to_alloc_vec(&alice).unwrap();
             let secret = alice.dh_self.secret_key;
             assert!(blob.windows(32).any(|w| w == secret.as_slice()));
         }
