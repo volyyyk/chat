@@ -449,7 +449,10 @@ mod tests {
         let bob = generate_keypair();
         let sealed = seal_for_recipients(
             Buffer::from(b"roundtrip via napi wrappers".to_vec()),
-            vec![alice.public_key, bob.public_key.clone()],
+            vec![
+                Buffer::from(bytes(&alice.public_key).to_vec()),
+                Buffer::from(bytes(&bob.public_key).to_vec()),
+            ],
         )
         .unwrap();
         assert_eq!(sealed.boxes.len(), 2);
@@ -656,11 +659,14 @@ mod tests {
         let bob = generate_keypair();
         let s1 = seal_for_recipients(
             Buffer::from(b"page item".to_vec()),
-            vec![alice.public_key.clone(), bob.public_key.clone()],
+            vec![
+                Buffer::from(bytes(&alice.public_key).to_vec()),
+                Buffer::from(bytes(&bob.public_key).to_vec()),
+            ],
         )
         .unwrap();
         let s2 =
-            seal_for_recipients(Buffer::from(b"only alice".to_vec()), vec![alice.public_key.clone()]).unwrap();
+            seal_for_recipients(Buffer::from(b"only alice".to_vec()), vec![Buffer::from(bytes(&alice.public_key).to_vec())]).unwrap();
         let env = |s: &JsSealedMessage| JsSealedMessage {
             epk: Buffer::from(bytes(&s.epk).to_vec()),
             nonce: Buffer::from(bytes(&s.nonce).to_vec()),

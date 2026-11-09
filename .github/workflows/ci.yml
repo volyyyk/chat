@@ -576,7 +576,7 @@ jobs:
         with:
           workspaces: medchat-v2/core
 
-      # Установка CLI из git-тега v0.32.2 (прогоны #105–#107: семейство
+      # Установка CLI из git-тега v0.32.1 (прогоны #105–#107: семейство
       # uniffi-крейтов отсутствует в sparse-индексе crates.io — cargo
       # «could not find uniffi-bindgen in registry crates-io» на любую
       # версию, ни --version, ни фолбэк без --locked не спасают: нет самой
@@ -588,25 +588,25 @@ jobs:
       # пишется в ci-uniffi.log с первой команды (заголовок прогона для
       # сверки метки времени, cargo --version для контекста).
       # Прогон #108 (run 42479207992): тег резолвится, но пакета
-      # uniffi-bindgen в workspace v0.32.2 НЕТ — имя пакета crates.io
+      # uniffi-bindgen в workspace v0.32.1 НЕТ — имя пакета crates.io
       # не обязано совпадать с git-workspace: CLI на этом теге —
       # пакет uniffi-bindgen-cli (member examples/app/uniffi-bindgen-cli,
       # publish=false), бинарь называется uniffi-bindgen ([[bin]] name).
       # cargo install ищет ПАКЕТ по имени среди workspace-мемберов;
       # ставим uniffi-bindgen-cli — в PATH появляется тот же бинарь
       # uniffi-bindgen, остальные шаги джобы не меняются.
-      - name: Install uniffi-bindgen (v0.32.2 from git)
+      - name: Install uniffi-bindgen (v0.32.1 from git)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.2 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-uniffi.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.1 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-uniffi.log
 
-      # cdylib c UniFFI-scaffolding (без napi): setup_scaffolding! эмитит
-      # metadata-символы, по которым bindgen строит обвязку в library mode.
-      # serde добавляет MedRatchetState.save()/restore() в экспорт (этап 7).
+      # cdylib с UniFFI-scaffolding (без napi): release нужен для runtime smoke,
+      # debug (без LTO) — для bindgen metadata extraction; serde добавляет
+      # MedRatchetState.save()/restore() в экспорт (этап 7).
       - name: Build cdylib with UniFFI scaffolding
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo build --release --no-default-features --features uniffi-bind,serde; } 2>&1 | tee ../../ci-uniffi.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo build --release --no-default-features --features uniffi-bind,serde; cargo build --no-default-features --features uniffi-bind,serde; } 2>&1 | tee ../../ci-uniffi.log
 
       # В отличие от napi-обёрток, uniffi-код линкуется в тестовый бинарник
       # чисто (metadata-функции — обычный Rust) — гоняем юнит-тесты обёрток.
@@ -615,20 +615,25 @@ jobs:
           set -o pipefail
           { cargo test --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-uniffi.log
 
-      # Генерация обвязки из метаданных собранного cdylib (library mode):
-      # гейтит консистентность обёрток и саму генерацию. Сгенерированная
+      # Генерация обвязки из debug cdylib (без LTO): release-артефакт остаётся
+      # для runtime smoke; debug используется только для metadata extraction. Сгенерированная
       # обвязка гейтится в ios-smoke (Swift, macOS) и android-smoke
       # (Kotlin, ubuntu); сборка приложений (Xcode/Gradle) — на целевой
       # машине разработчика (этапы 3/4).
+      - name: Diagnose UniFFI metadata extraction
+        run: |
+          set -o pipefail
+          cargo run --example inspect_uniffi_metadata --no-default-features --features uniffi-bind,serde -- target/debug/libmedchat_core.so 2>&1 | tee -a ../../ci-uniffi.log
+
       - name: Generate Kotlin bindings
         run: |
           set -o pipefail
-          { uniffi-bindgen generate --library target/release/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin; } 2>&1 | tee -a ../../ci-uniffi.log
+          { uniffi-bindgen-cli generate --library target/debug/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin; } 2>&1 | tee -a ../../ci-uniffi.log
 
       - name: Generate Swift bindings
         run: |
           set -o pipefail
-          { uniffi-bindgen generate --library target/release/libmedchat_core.so --language swift --out-dir uniffi-out/swift; } 2>&1 | tee -a ../../ci-uniffi.log
+          { uniffi-bindgen-cli generate --library target/debug/libmedchat_core.so --language swift --out-dir uniffi-out/swift; } 2>&1 | tee -a ../../ci-uniffi.log
 
       - name: Upload uniffi bindings artifact
         uses: actions/upload-artifact@v7
@@ -691,26 +696,26 @@ jobs:
         with:
           workspaces: medchat-v2/core
 
-      # Тот же git-тег v0.32.2, что в джобе uniffi-bindings и Cargo.toml
+      # Тот же git-тег v0.32.1, что в джобе uniffi-bindings и Cargo.toml
       # ядра: формат metadata привязан к версии крейта и CLI.
-      - name: Install uniffi-bindgen (v0.32.2 from git)
+      - name: Install uniffi-bindgen (v0.32.1 from git)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.2 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-ios.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.1 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-ios.log
 
-      # host-cdylib: по нему bindgen читает metadata (library mode) и против
-      # него линкуется runtime-smoke ниже.
+      # host-cdylib: debug cdylib используется bindgen для metadata extraction,
+      # release cdylib — для runtime-smoke ниже.
       - name: Build host cdylib with UniFFI scaffolding
         run: |
           set -o pipefail
-          { cargo build --release --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-ios.log
+          { cargo build --release --no-default-features --features uniffi-bind,serde; cargo build --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-ios.log
 
       - name: Generate Swift bindings
         run: |
           set -o pipefail
           exec > >(tee -a ../../ci-ios.log) 2>&1
           echo "[ci-ios] generate swift bindings: start"
-          uniffi-bindgen generate --library target/release/libmedchat_core.dylib --language swift --out-dir uniffi-out/swift
+          uniffi-bindgen-cli generate --library target/debug/libmedchat_core.dylib --language swift --out-dir uniffi-out/swift
           echo "[ci-ios] generated files:"
           ls -la uniffi-out/swift
 
@@ -877,26 +882,26 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # Тот же git-тег v0.32.2, что в uniffi-bindings/ios-smoke и Cargo.toml
+      # Тот же git-тег v0.32.1, что в uniffi-bindings/ios-smoke и Cargo.toml
       # ядра: формат metadata привязан к версии крейта и CLI.
-      - name: Install uniffi-bindgen (v0.32.2 from git)
+      - name: Install uniffi-bindgen (v0.32.1 from git)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.2 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-android.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.1 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-android.log
 
       # host-cdylib: по нему bindgen читает metadata (library mode) и против
       # него исполняется runtime-smoke ниже (JNA грузит libmedchat_core.so).
       - name: Build host cdylib with UniFFI scaffolding
         run: |
           set -o pipefail
-          { cargo build --release --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-android.log
+          { cargo build --release --no-default-features --features uniffi-bind,serde; cargo build --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-android.log
 
       - name: Generate Kotlin bindings
         run: |
           set -o pipefail
           exec > >(tee -a ../../ci-android.log) 2>&1
           echo "[ci-android] generate kotlin bindings: start"
-          uniffi-bindgen generate --library target/release/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin
+          uniffi-bindgen-cli generate --library target/debug/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin
           echo "[ci-android] generated files:"
           ls -la uniffi-out/kotlin
 

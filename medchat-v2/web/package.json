@@ -1,6 +1,6 @@
 {
   "name": "medchat-web",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "MedChat Web App for doctors and clinic admins (PC)",
   "private": true,
   "dependencies": {

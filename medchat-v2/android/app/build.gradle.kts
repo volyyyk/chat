@@ -19,8 +19,8 @@ android {
         applicationId = "medchat.android"
         minSdk = 23
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 201
+        versionName = "2.0.1"
     }
 
     buildTypes {
