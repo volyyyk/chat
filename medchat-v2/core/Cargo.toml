@@ -101,10 +101,13 @@ serde = { version = "1", features = ["derive"], optional = true }
 # биндингов (node.rs / uniffi_iface.rs), не только тестам ratchet.rs.
 bincode = { version = "3", optional = true, features = ["serde"] }
 
-# napi-build обязан совпадать с мажором napi (v3: napi-build 3 — иначе
-# cdylib-аддон собирается против несовпадающих символов, гайд v2->v3).
+# napi-build 2.6 — актуальная линия crates.io (мажора 3 в индексе нет,
+# прогон #205: failed to select a version for napi-build = "^3");
+# build-скрипт эмитит только cargo-инструкции и с крейтом napi 3
+# совместим — пара napi 3 + napi-build 2.6 уже была зелёной (прогон #202,
+# после мержа #22 до этого фикса).
 [build-dependencies]
-napi-build = "3"
+napi-build = "2"
 
 # criterion — бенчмарки крипто-пути ядра (benches/crypto.rs), DoD этапа 2
 # ROADMAP_NATIVE («бенчмарк ≥ x10 к Node на крипто-пути»). dev-зависимость:
