@@ -906,12 +906,25 @@ jobs:
         run: |
           set -e
           exec > >(tee -a ../../ci-android.log) 2>&1
+          fetch_retry() {
+            url="$1"; dest="$2"
+            for attempt in 1 2 3 4 5; do
+              echo "[ci-android] download attempt ${attempt}: ${url}"
+              if curl -fsSL "$url" -o "$dest"; then
+                return 0
+              fi
+              echo "[ci-android] attempt ${attempt} failed, retry in 15s (транзиентные 504, run 42568107454)"
+              sleep 15
+            done
+            echo "[ci-android] FAILED to download ${url}" >&2
+            return 1
+          }
           echo "[ci-android] downloading kotlinc 2.0.21"
-          curl -fsSL "https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip" -o /tmp/kotlinc.zip
+          fetch_retry "https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip" /tmp/kotlinc.zip
           unzip -q /tmp/kotlinc.zip -d /opt
           /opt/kotlinc/bin/kotlinc -version
           echo "[ci-android] downloading JNA 5.14.0"
-          curl -fsSL "https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar" -o /tmp/jna.jar
+          fetch_retry "https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar" /tmp/jna.jar
           ls -la /tmp/jna.jar
 
       # package-строку сгенерированной обвязки не фиксируем: smoke-файл
@@ -1008,7 +1021,20 @@ jobs:
           set -e
           exec > >(tee -a ../../ci-android.log) 2>&1
           echo "[ci-android] downloading NDK r27c"
-          curl -fsSL "https://dl.google.com/android/repository/android-ndk-r27c-linux.zip" -o /tmp/ndk.zip
+          fetch_retry() {
+            url="$1"; dest="$2"
+            for attempt in 1 2 3 4 5; do
+              echo "[ci-android] download attempt ${attempt}: ${url}"
+              if curl -fsSL "$url" -o "$dest"; then
+                return 0
+              fi
+              echo "[ci-android] attempt ${attempt} failed, retry in 15s"
+              sleep 15
+            done
+            echo "[ci-android] FAILED to download ${url}" >&2
+            return 1
+          }
+          fetch_retry "https://dl.google.com/android/repository/android-ndk-r27c-linux.zip" /tmp/ndk.zip
           unzip -q /tmp/ndk.zip -d /opt
           ls /opt/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
 
@@ -1268,19 +1294,20 @@ jobs:
         with:
           node-version: '20'
 
-      # Ретрай сборки установщиков (run 42566144164): AppImage-бандлер качает
-      # AppRun-x86_64 из GitHub Releases tauri-apps и ловит транзиентные 504;
-      # cargo-кэш делает повторные попытки дёшевыми (сборка уже в кэше).
+      # Ретрай сборки установщиков (runs 42566144164, 42567588015): бандлер
+      # качает AppRun-x86_64 и linuxdeploy из GitHub Releases tauri-apps и
+      # ловит транзиентные 504; 5 попыток по 30с, tee -a накапливает лог всех
+      # попыток; cargo-кэш делает повторы дёшевыми (сборка уже в кэше).
       - name: Build installers
         shell: bash
         run: |
           set -o pipefail
           ok=0
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4 5; do
             echo "[ci-desktop-bundle] build attempt $attempt"
-            { npx --yes @tauri-apps/cli@2 build --bundles ${{ matrix.bundles }}; } 2>&1 | tee ../../ci-desktop-bundle.log && ok=1 && break
-            echo "[ci-desktop-bundle] attempt $attempt failed, retry in 20s (транзиентные 504 на download-тулинге)"
-            sleep 20
+            { npx --yes @tauri-apps/cli@2 build --bundles ${{ matrix.bundles }}; } 2>&1 | tee -a ../../ci-desktop-bundle.log && ok=1 && break
+            echo "[ci-desktop-bundle] attempt $attempt failed, retry in 30s (транзиентные 504 на download-тулинге)"
+            sleep 30
           done
           if [ "$ok" != "1" ]; then exit 1; fi
 

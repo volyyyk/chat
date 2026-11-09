@@ -2,7 +2,7 @@
  * Settings: profile, convenience time, prices, backups with password, export/import
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { api, getDownloadUrl } from '../services/api';
+import { api } from '../services/api';
 
 const SettingsPage = () => {
   const [profile, setProfile] = useState({ firstName: '', lastName: '', middleName: '', specialty: '', qualification: '' });
@@ -144,7 +144,7 @@ const SettingsPage = () => {
       const data = await api.post('/api/backups/export', { password: backupPassword, dataTypes: ['all'] });
       const url = data.downloadUrl || (data.data && data.data.downloadUrl);
       if (url) {
-        window.open(getDownloadUrl(url.replace(/^\/?api\//, '/api/')), '_blank');
+        window.open(api.getDownloadUrl(url.replace(/^\/?api\//, '/api/')), '_blank');
       } else {
         flash('Экспорт выполнен');
       }
