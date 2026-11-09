@@ -115,7 +115,7 @@ fn aes256gcm_rejects_tampered_tag() {
     let last = forged.len() - 1;
     forged[last] ^= 0x01;
 
-    let n12: Nonce<Aes256Gcm> = Nonce::try_from(nonce.as_slice()).expect("nonce");
+    let n12: Nonce<Aes256Gcm> = Nonce::<Aes256Gcm>::try_from(nonce.as_slice()).expect("nonce");
     let result = cipher.decrypt(
         &n12,
         Payload {
