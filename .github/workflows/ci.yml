@@ -623,12 +623,12 @@ jobs:
       - name: Generate Kotlin bindings
         run: |
           set -o pipefail
-          { uniffi-bindgen generate target/release/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin; } 2>&1 | tee -a ../../ci-uniffi.log
+          { uniffi-bindgen generate --library target/release/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin; } 2>&1 | tee -a ../../ci-uniffi.log
 
       - name: Generate Swift bindings
         run: |
           set -o pipefail
-          { uniffi-bindgen generate target/release/libmedchat_core.so --language swift --out-dir uniffi-out/swift; } 2>&1 | tee -a ../../ci-uniffi.log
+          { uniffi-bindgen generate --library target/release/libmedchat_core.so --language swift --out-dir uniffi-out/swift; } 2>&1 | tee -a ../../ci-uniffi.log
 
       - name: Upload uniffi bindings artifact
         uses: actions/upload-artifact@v7
@@ -710,7 +710,7 @@ jobs:
           set -o pipefail
           exec > >(tee -a ../../ci-ios.log) 2>&1
           echo "[ci-ios] generate swift bindings: start"
-          uniffi-bindgen generate target/release/libmedchat_core.dylib --language swift --out-dir uniffi-out/swift
+          uniffi-bindgen generate --library target/release/libmedchat_core.dylib --language swift --out-dir uniffi-out/swift
           echo "[ci-ios] generated files:"
           ls -la uniffi-out/swift
 
@@ -896,7 +896,7 @@ jobs:
           set -o pipefail
           exec > >(tee -a ../../ci-android.log) 2>&1
           echo "[ci-android] generate kotlin bindings: start"
-          uniffi-bindgen generate target/release/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin
+          uniffi-bindgen generate --library target/release/libmedchat_core.so --language kotlin --out-dir uniffi-out/kotlin
           echo "[ci-android] generated files:"
           ls -la uniffi-out/kotlin
 
