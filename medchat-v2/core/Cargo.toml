@@ -48,7 +48,7 @@ crypto_box = "0.9"
 # Double Ratchet (src/ratchet.rs): raw X25519 (DH-выход для KDF_RK),
 # HMAC-SHA256 (цепочки KDF_RK/KDF_CK), AES-256-GCM (AEAD на message keys).
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
-hmac = "0.12"
+hmac = "0.13"
 sha2 = "0.10"
 aes-gcm = "0.10"
 # flate2 (src/hotpath.rs, этап 6): gzip-сжатие бэкапов — второй серверный
