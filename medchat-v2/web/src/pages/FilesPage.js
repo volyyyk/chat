@@ -3,7 +3,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, getDownloadUrl } from '../services/api';
+import { api } from '../services/api';
 
 const formatSize = (bytes) => {
   if (!bytes && bytes !== 0) return '';
@@ -136,7 +136,7 @@ const FilesPage = () => {
                 <td>{file.expiresAt ? new Date(file.expiresAt).toLocaleDateString('ru-RU') : '—'}</td>
                 <td>
                   <a className="btn btn-secondary btn-small" style={{ display: 'inline-block' }}
-                     href={getDownloadUrl('/api/files/' + file.id + '/download')} target="_blank" rel="noreferrer">
+                     href={api.getDownloadUrl('/api/files/' + file.id + '/download')} target="_blank" rel="noreferrer">
                     Скачать
                   </a>{' '}
                   <button className="btn btn-secondary btn-small" style={{ color: 'var(--error)' }} onClick={() => handleDelete(file)}>

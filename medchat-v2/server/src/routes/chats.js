@@ -217,14 +217,16 @@ router.delete('/:id', ChatController.delete);
  *           default: 50
  *       - in: query
  *         name: before
+ *         description: ISO-8601 createdAt курсора (самое старое загруженное сообщение)
  *         schema:
  *           type: string
- *           format: uuid
+ *           format: date-time
  *       - in: query
  *         name: after
+ *         description: ISO-8601 createdAt курсора (самое старое загруженное сообщение)
  *         schema:
  *           type: string
- *           format: uuid
+ *           format: date-time
  *       - in: query
  *         name: type
  *         schema:

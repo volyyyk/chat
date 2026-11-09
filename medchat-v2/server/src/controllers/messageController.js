@@ -50,7 +50,12 @@ class MessageController {
   static async list(req, res, next) {
     try {
       const { chatId } = req.params;
-      const { page = 1, limit = 50, before, after, type } = req.query;
+      // Длинные чаты: курсор before/after — ISO-8601 createdAt (id-курсоры
+      // убраны: UUID нехронологичен); limit капится 1..100. Единая
+      // семантика с ChatController.getMessages.
+      const { before, after, type } = req.query;
+      const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+      const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
       const offset = (page - 1) * limit;
 
       const chat = await models.Chat.findByPk(chatId);
@@ -65,8 +70,11 @@ class MessageController {
 
       const where = { chatId };
       if (type) where.type = type;
-      if (before) where.id = { [models.Sequelize.Op.lt]: before };
-      if (after) where.id = { [models.Sequelize.Op.gt]: after };
+      // Битый курсор игнорируется (NaN-проверка), а не роняет запрос 500.
+      const beforeTs = before ? new Date(before) : null;
+      const afterTs = after ? new Date(after) : null;
+      if (beforeTs && !isNaN(beforeTs.getTime())) where.createdAt = { [models.Sequelize.Op.lt]: beforeTs };
+      if (afterTs && !isNaN(afterTs.getTime())) where.createdAt = { [models.Sequelize.Op.gt]: afterTs };
 
       const messages = await models.Message.findAndCountAll({
         where,

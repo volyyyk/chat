@@ -28,7 +28,7 @@
 | Android-клиент | Expo (JS) | **Kotlin + Jetpack Compose** + Rust-ядро (JNI) | **Сделано (каркас + APK)**: Gradle-проект, Compose-экраны, Keystore, RatchetService; джоба android-build собирает unsigned debug-APK; release-подпись/Play Console/FCM — оператор | Play Store, Android Keystore, фоновая доставка |
 | Windows-клиент (exe) | — | **Tauri 2** (Rust), общий UI с Linux | **Сделано (каркас)**: рабочий клиент, ядро path-депом, secure storage (keyring 3); джоба desktop-bundle собирает NSIS .exe; Authenticode/автоапдейт — оператор | ~10–15 МБ вместо Electron-сотен, system webview |
 | Linux Ubuntu-клиент | — | **Tauri 2** → `.deb` + AppImage | **Сделано (каркас)**: та же кодовая база; .deb + AppImage собираются в CI (desktop-bundle); подписи/GPG-репозиторий — оператор | Та же кодовая база, что и Windows |
-| Web-клиент (браузер, клиника/врач) | React, без E2E (недоделан) | React + tweetnacl (браузерный E2E) | **Доделано**: E2E x25519-box конверты байт-в-байт с остальными клиентами, honest plaintext-fallback; приватный ключ в localStorage (в браузере нет secure storage — компромисс по прецеденту LEGAL.md §2); ratchet/mc:2 — честные плашки; джоба web-build, релизный ассет MedChat-Web-static.zip | Врач/клиника на любом ПК без установки desktop-приложения |
+| Web-клиент (браузер, клиника/врач) | React, без E2E (недоделан) | React + tweetnacl (браузерный E2E) | **Доделано**: E2E x25519-box конверты байт-в-байт с остальными клиентами, honest plaintext-fallback, пагинация/окно истории (курсор before по createdAt, окно рендера 300 — длинные чаты не грузят DOM целиком); приватный ключ в localStorage (в браузере нет secure storage — компромисс по прецеденту LEGAL.md §2); ratchet/mc:2 — честные плашки; джоба web-build, релизный ассет MedChat-Web-static.zip | Врач/клиника на любом ПК без установки desktop-приложения |
 | Серверный API | Node/Express | остаётся Node; горячие пути → napi-rs | **По плану** (чексуммы/сжатие — napi; остальной сервер не тронут, CI зелёный) | Стабильность, экосистема Sequelize |
 | ГОСТ-криптография (если УЗ-1 сертификация) | — | **C/C++**: сертифицированные СКЗИ | **Оператор** (аттестация ФСТЭК, LEGAL.md) | Только готовые сертифицированные библиотеки |
 | Интеграции с WinAPI/офисом клиники | — | **C#/.NET 8** — точечно | **Не требуется** (deep-Windows-фич нет) | Если появится MSIX, 1С-мосты |
@@ -412,7 +412,7 @@ phone/verify — одноразовый 6-значный код в VerificationT
 CI-гейты всех платформ (server, e2e, core, bench, napi, fuzz, uniffi,
 ios-smoke, android-smoke, android-build, desktop-check, desktop-bundle,
 k6-load, core-audit, web-build), E2E + Double Ratchet склеены во всех нативных клиентах
-(desktop, iOS, Android; web — конверты x25519-box, ratchet — честная плашка;
+(desktop, iOS, Android; web — конверты x25519-box + пагинация/окно истории, ratchet — честная плашка;
 RN — честная плашка reference-клиента).
 Остаток этапов 3/4/5/7 — операторские позиции: TestFlight и подписи
 Apple, Play Console и подписи Android, Authenticode/GPG-подписи и
