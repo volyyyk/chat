@@ -1,4 +1,4 @@
-=== run 42561969322 job core-bench Mon Nov  9 04:28:13 UTC 2026 ===
+=== run 42562423653 job core-bench Mon Nov  9 04:33:03 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Locking[0m 165 packages to highest compatible versions
@@ -19,39 +19,127 @@
 [1m[92m   Compiling[0m serde_json v1.0.154
 [1m[92m   Compiling[0m tinytemplate v1.2.1
 [1m[92m   Compiling[0m criterion v0.5.1
-[1m[91merror[E0382][0m[1m: use of moved value: `s1`[0m
-   [1m[94m--> [0msrc/lib.rs:323:43
-    [1m[94m|[0m
-[1m[94m314[0m [1m[94m|[0m         let s1 =
-    [1m[94m|[0m             [1m[94m--[0m [1m[94mmove occurs because `s1` has type `SealedMessage`, which does not implement the `Copy` trait[0m
-[1m[94m...[0m
-[1m[94m318[0m [1m[94m|[0m         let out = open_sealed_batch(&[s1, s2, s3], &alice.public_key, &alice.secret_key);
-    [1m[94m|[0m                                       [1m[94m--[0m [1m[94mvalue moved here[0m
-[1m[94m...[0m
-[1m[94m323[0m [1m[94m|[0m         let for_bob = open_sealed_batch(&[s1, s3], &bob.public_key, &bob.secret_key);
-    [1m[94m|[0m                                           [1m[91m^^[0m [1m[91mvalue used here after move[0m
-    [1m[94m|[0m
-[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
-    [1m[94m|[0m
-[1m[94m318[0m [1m[94m| [0m        let out = open_sealed_batch(&[s1[92m.clone()[0m, s2, s3], &alice.public_key, &alice.secret_key);
-    [1m[94m|[0m                                         [92m++++++++[0m
+[1m[92m    Finished[0m `bench` profile [optimized] target(s) in 30.35s
+[1m[92m     Running[0m unittests src/lib.rs (target/release/deps/medchat_core-f46c66c0eaeca468)
 
-[1m[91merror[E0382][0m[1m: use of moved value: `s3`[0m
-   [1m[94m--> [0msrc/lib.rs:323:47
-    [1m[94m|[0m
-[1m[94m317[0m [1m[94m|[0m         let s3 = seal_for_recipients(b"not for alice", &[bob.public_key]).unwrap();
-    [1m[94m|[0m             [1m[94m--[0m [1m[94mmove occurs because `s3` has type `SealedMessage`, which does not implement the `Copy` trait[0m
-[1m[94m318[0m [1m[94m|[0m         let out = open_sealed_batch(&[s1, s2, s3], &alice.public_key, &alice.secret_key);
-    [1m[94m|[0m                                               [1m[94m--[0m [1m[94mvalue moved here[0m
-[1m[94m...[0m
-[1m[94m323[0m [1m[94m|[0m         let for_bob = open_sealed_batch(&[s1, s3], &bob.public_key, &bob.secret_key);
-    [1m[94m|[0m                                               [1m[91m^^[0m [1m[91mvalue used here after move[0m
-    [1m[94m|[0m
-[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
-    [1m[94m|[0m
-[1m[94m318[0m [1m[94m| [0m        let out = open_sealed_batch(&[s1, s2, s3[92m.clone()[0m], &alice.public_key, &alice.secret_key);
-    [1m[94m|[0m                                                 [92m++++++++[0m
+running 23 tests
+test hotpath::tests::gzip_decompress_invalid_is_err ... ignored
+test hotpath::tests::gzip_header_and_empty ... ignored
+test hotpath::tests::gzip_roundtrip_json ... ignored
+test hotpath::tests::sha256_kat_abc ... ignored
+test hotpath::tests::sha256_kat_empty ... ignored
+test hotpath::tests::sha256_verify_matches_and_case_insensitive ... ignored
+test ratchet::tests::bad_header_rejected ... ignored
+test ratchet::tests::bidirectional_roundtrip_multiple_ratchets ... ignored
+test ratchet::tests::forward_secrecy_old_message_keys_gone ... ignored
+test ratchet::tests::headers_advance_counter ... ignored
+test ratchet::tests::out_of_order_decoded_via_skip_store ... ignored
+test ratchet::tests::responder_cannot_send_before_first_receive ... ignored
+test ratchet::tests::tampered_ciphertext_rejected ... ignored
+test ratchet::tests::too_many_skipped_rejected ... ignored
+test ratchet::tests::wire_roundtrip_and_decrypt ... ignored
+test ratchet::tests::wire_tampered_ciphertext_rejected_by_aead ... ignored
+test ratchet::tests::wire_too_short_rejected ... ignored
+test tests::batch_open_mixed_page ... ignored
+test tests::empty_recipients_is_empty_envelope ... ignored
+test tests::roundtrip_multiple_recipients ... ignored
+test tests::tampered_ciphertext_fails ... ignored
+test tests::wrong_key_fails ... ignored
+test tests::x25519_dh_rfc7748_kat_and_symmetry ... ignored
 
-[1mFor more information about this error, try `rustc --explain E0382`.[0m
-[1m[91merror[0m: could not compile `medchat-core` (lib test) due to 2 previous errors
-[1m[33mwarning[0m: build failed, waiting for other jobs to finish...
+test result: ok. 0 passed; 0 failed; 23 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m benches/crypto.rs (target/release/deps/crypto-e361945049965698)
+Gnuplot not found, using plotters backend
+Benchmarking x25519-box envelope/seal+open/1 recipient
+Benchmarking x25519-box envelope/seal+open/1 recipient: Warming up for 3.0000 s
+Benchmarking x25519-box envelope/seal+open/1 recipient: Collecting 100 samples in estimated 5.3545 s (45k iterations)
+Benchmarking x25519-box envelope/seal+open/1 recipient: Analyzing
+Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal+open/1 recipient/base/sample.json": No such file or directory (os error 2)
+x25519-box envelope/seal+open/1 recipient
+                        time:   [116.88 µs 117.20 µs 117.67 µs]
+                        thrpt:  [248.97 KiB/s 249.97 KiB/s 250.67 KiB/s]
+Found 20 outliers among 100 measurements (20.00%)
+  4 (4.00%) high mild
+  16 (16.00%) high severe
+Benchmarking x25519-box envelope/seal+open/3 recipients
+Benchmarking x25519-box envelope/seal+open/3 recipients: Warming up for 3.0000 s
+Benchmarking x25519-box envelope/seal+open/3 recipients: Collecting 100 samples in estimated 5.5338 s (25k iterations)
+Benchmarking x25519-box envelope/seal+open/3 recipients: Analyzing
+Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal+open/3 recipients/base/sample.json": No such file or directory (os error 2)
+x25519-box envelope/seal+open/3 recipients
+                        time:   [217.94 µs 218.17 µs 218.46 µs]
+                        thrpt:  [134.11 KiB/s 134.29 KiB/s 134.42 KiB/s]
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) high mild
+  5 (5.00%) high severe
+Benchmarking x25519-box envelope/seal/1 recipient
+Benchmarking x25519-box envelope/seal/1 recipient: Warming up for 3.0000 s
+Benchmarking x25519-box envelope/seal/1 recipient: Collecting 100 samples in estimated 5.0616 s (76k iterations)
+Benchmarking x25519-box envelope/seal/1 recipient: Analyzing
+Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal/1 recipient/base/sample.json": No such file or directory (os error 2)
+x25519-box envelope/seal/1 recipient
+                        time:   [66.481 µs 66.503 µs 66.525 µs]
+                        thrpt:  [440.39 KiB/s 440.54 KiB/s 440.68 KiB/s]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking double ratchet/encrypt+decrypt/in-order
+Benchmarking double ratchet/encrypt+decrypt/in-order: Warming up for 3.0000 s
+Benchmarking double ratchet/encrypt+decrypt/in-order: Collecting 100 samples in estimated 5.0009 s (2.6M iterations)
+Benchmarking double ratchet/encrypt+decrypt/in-order: Analyzing
+Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/double ratchet/encrypt+decrypt/in-order/base/sample.json": No such file or directory (os error 2)
+double ratchet/encrypt+decrypt/in-order
+                        time:   [1.9029 µs 1.9043 µs 1.9059 µs]
+                        thrpt:  [15.012 MiB/s 15.024 MiB/s 15.035 MiB/s]
+Found 17 outliers among 100 measurements (17.00%)
+  15 (15.00%) high mild
+  2 (2.00%) high severe
+Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip
+Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip: Warming up for 3.0000 s
+Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip: Collecting 100 samples in estimated 5.0088 s (2.6M iterations)
+Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip: Analyzing
+Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/double ratchet/encrypt+wire+decrypt/roundtrip/base/sample.json": No such file or directory (os error 2)
+double ratchet/encrypt+wire+decrypt/roundtrip
+                        time:   [1.9305 µs 1.9309 µs 1.9314 µs]
+                        thrpt:  [14.813 MiB/s 14.817 MiB/s 14.820 MiB/s]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking bcrypt verify/verify/cost 5 (KAT)
+Benchmarking bcrypt verify/verify/cost 5 (KAT): Warming up for 500.00 ms
+Benchmarking bcrypt verify/verify/cost 5 (KAT): Collecting 10 samples in estimated 2.0518 s (1100 iterations)
+Benchmarking bcrypt verify/verify/cost 5 (KAT): Analyzing
+Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/bcrypt verify/verify/cost 5 (KAT)/base/sample.json": No such file or directory (os error 2)
+bcrypt verify/verify/cost 5 (KAT)
+                        time:   [1.8631 ms 1.8633 ms 1.8635 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking bcrypt verify/verify/cost 12 (production)
+Benchmarking bcrypt verify/verify/cost 12 (production): Warming up for 500.00 ms
+
+Warning: Unable to complete 10 samples in 2.0s. You may wish to increase target time to 2.3s.
+Benchmarking bcrypt verify/verify/cost 12 (production): Collecting 10 samples in estimated 2.3344 s (10 iterations)
+Benchmarking bcrypt verify/verify/cost 12 (production): Analyzing
+Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/bcrypt verify/verify/cost 12 (production)/base/sample.json": No such file or directory (os error 2)
+bcrypt verify/verify/cost 12 (production)
+                        time:   [233.36 ms 233.44 ms 233.56 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+
+=== node reference 42562423653 Mon Nov  9 04:35:00 UTC 2026 ===
+
+> medchat-server@2.0.0 bench:core
+> node bench/coreBench.js
+
+node v24.22.2, platform: linux, payload: 30 bytes
+[bench] tweetnacl box seal+open / 1 recipient / 30B: 655 ops/s (1.53 ms/op)
+[bench] tweetnacl box seal+open / 3 recipients / 30B: 391 ops/s (2.55 ms/op)
+[bench] tweetnacl box seal / 1 recipient / 30B: 988 ops/s (1.01 ms/op)
+[bench] node crypto AES-256-GCM encrypt+decrypt / 30B: 139839 ops/s (0.007 ms/op)
+[bench] bcrypt compareSync / cost 5 (KAT): 606 ops/s (1.65 ms/op)
+[bench] bcrypt compareSync / cost 12 (production): 4.84 ops/s (206.48 ms/op)
+done.
