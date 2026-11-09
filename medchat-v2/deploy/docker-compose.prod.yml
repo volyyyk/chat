@@ -1,0 +1,102 @@
+# Прод-контур MedChat (инструкция — ../docs/DEPLOY.md).
+# Запуск из папки deploy/:
+#   cp .env.prod.example .env.prod   # заполнить секреты
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+# Секреты живут ТОЛЬКО в .env.prod на хосте (в git — только .env.prod.example).
+
+name: medchat-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-medchat_v2}
+      POSTGRES_USER: ${DB_USER:-medchat}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?заполните DB_PASSWORD в .env.prod}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-medchat} -d ${DB_NAME:-medchat_v2}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Порт наружу не пробрасываем: только внутренняя сеть контура.
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?заполните MINIO_ACCESS_KEY в .env.prod}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?заполните MINIO_SECRET_KEY в .env.prod}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    # Консоль MinIO (:9001) наружу не проброшена — доступ только из контура.
+
+  server:
+    build:
+      context: ../server
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_SSL: "false"        # внутри compose-сети TLS нет; для managed-Postgres уберите и верните require
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      TRUST_PROXY: "1"       # за nginx: корректные per-IP rate limits (см. src/index.js)
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    # Порт 3000 наружу не пробрасываем: ходит только nginx.
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # - "443:443"          # включить вместе с TLS (см. nginx/medchat.conf, DEPLOY.md)
+    volumes:
+      - ./nginx/medchat.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./web:/usr/share/nginx/html:ro
+      # - ./certs:/etc/nginx/certs:ro   # TLS-сертификаты (оператор)
+    depends_on:
+      server:
+        condition: service_started
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

@@ -3,7 +3,7 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-const { DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_DIALECT, NODE_ENV } = process.env;
+const { DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_DIALECT, NODE_ENV, DB_SSL } = process.env;
 
 const databaseConfig = {
   development: {
@@ -70,7 +70,10 @@ const databaseConfig = {
     port: DB_PORT || 5432,
     dialect: DB_DIALECT || 'postgres',
     dialectOptions: {
-      ssl: {
+      // Прод-режим по умолчанию требует TLS (managed-Postgres). Прод-контур
+      // deploy/ (postgres в той же compose-сети, без TLS) ставит DB_SSL=false;
+      // любое другое значение оставляет ssl require:true как раньше.
+      ssl: DB_SSL === 'false' ? false : {
         require: true,
         rejectUnauthorized: false,
       },

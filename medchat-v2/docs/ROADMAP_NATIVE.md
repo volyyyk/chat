@@ -433,6 +433,14 @@ iOS MedchatCore.xcframework.zip — .ipa требует подписи Apple о�
 uniffi-обвязка + .node-ядро, SHA256SUMS) из артефактов последнего зелёного
 прогона CI на main; триггер — пуш ветки release/<tag> (v2.0.0, ноябрь 2026).
 
+Прод-контур (deploy/, ноябрь 2026): docker-compose.prod.yml — postgres:16, redis:7,
+minio, сервер (Dockerfile node:18-alpine, healthcheck /health) и nginx (статика SPA +
+проксирование /api/ и /socket.io/, TLS-блок закомментирован); .env.prod.example — все
+переменные плейсхолдерами (секреты — только в .env.prod на хосте, в git не попадают);
+backup.sh — pg_dump с ротацией копий 14 дней; DEPLOY.md — запуск, обновление,
+мониторинг. TLS-сертификаты (certbot), прод-пароли, магазины и SMS-гейты (149-ФЗ) —
+операторские позиции: в репо только примеры.
+
 ## 4. Требования безопасности, общие для всех нативных клиентов
 
 - Секреты только в системных хранилищах (Keychain / Keystore / Credential
