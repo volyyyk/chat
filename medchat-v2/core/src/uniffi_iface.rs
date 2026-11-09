@@ -525,7 +525,7 @@ mod tests {
         let alice = generate_keypair();
         let bob = generate_keypair();
         let s1 =
-            seal_for_recipients(b"page item".to_vec(), vec![alice.public_key.clone()]).unwrap();
+            seal_for_recipients(b"page item".to_vec(), vec![alice.public_key.clone(), bob.public_key.clone()]).unwrap();
         let s2 =
             seal_for_recipients(b"only alice".to_vec(), vec![alice.public_key.clone()]).unwrap();
         let s3 = seal_for_recipients(b"not for alice".to_vec(), vec![bob.public_key.clone()]).unwrap();
