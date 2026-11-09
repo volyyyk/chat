@@ -1,26 +1,26 @@
-=== run 42582115948 job desktop-check Mon Nov  9 07:53:22 UTC 2026 ===
+=== run 42583038838 job desktop-check Mon Nov  9 08:01:55 UTC 2026 ===
 cargo 1.99.1 (5f94df478 2026-08-27)
 Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
 Get:6 https://packages.microsoft.com/ubuntu/26.04/prod resolute InRelease [3964 B]
 Hit:2 http://azure.archive.ubuntu.com/ubuntu resolute InRelease
 Get:3 http://azure.archive.ubuntu.com/ubuntu resolute-updates InRelease [137 kB]
 Get:4 http://azure.archive.ubuntu.com/ubuntu resolute-backports InRelease [137 kB]
-Get:5 http://azure.archive.ubuntu.com/ubuntu resolute-security InRelease [137 kB]
 Get:7 https://packages.microsoft.com/ubuntu/26.04/prod resolute/main amd64 Packages [149 kB]
-Get:8 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main amd64v3 Packages [845 kB]
-Get:9 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main Translation-en [192 kB]
-Get:14 https://packages.microsoft.com/ubuntu/26.04/prod resolute/main arm64 Packages [136 kB]
-Get:10 http://azure.archive.ubuntu.com/ubuntu resolute-updates/universe amd64v3 Packages [377 kB]
-Get:11 http://azure.archive.ubuntu.com/ubuntu resolute-updates/universe Translation-en [118 kB]
-Get:12 http://azure.archive.ubuntu.com/ubuntu resolute-updates/restricted amd64v3 Packages [573 kB]
-Get:13 http://azure.archive.ubuntu.com/ubuntu resolute-updates/restricted Translation-en [119 kB]
+Get:5 http://azure.archive.ubuntu.com/ubuntu resolute-security InRelease [137 kB]
+Get:8 https://packages.microsoft.com/ubuntu/26.04/prod resolute/main arm64 Packages [136 kB]
+Get:9 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main amd64v3 Packages [845 kB]
+Get:10 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main Translation-en [192 kB]
+Get:11 http://azure.archive.ubuntu.com/ubuntu resolute-updates/universe amd64v3 Packages [377 kB]
+Get:12 http://azure.archive.ubuntu.com/ubuntu resolute-updates/universe Translation-en [118 kB]
+Get:13 http://azure.archive.ubuntu.com/ubuntu resolute-updates/restricted amd64v3 Packages [573 kB]
+Get:14 http://azure.archive.ubuntu.com/ubuntu resolute-updates/restricted Translation-en [119 kB]
 Get:15 http://azure.archive.ubuntu.com/ubuntu resolute-security/main amd64v3 Packages [657 kB]
 Get:16 http://azure.archive.ubuntu.com/ubuntu resolute-security/main Translation-en [148 kB]
 Get:17 http://azure.archive.ubuntu.com/ubuntu resolute-security/universe amd64v3 Packages [208 kB]
 Get:18 http://azure.archive.ubuntu.com/ubuntu resolute-security/universe Translation-en [68.9 kB]
 Get:19 http://azure.archive.ubuntu.com/ubuntu resolute-security/restricted amd64v3 Packages [529 kB]
 Get:20 http://azure.archive.ubuntu.com/ubuntu resolute-security/restricted Translation-en [108 kB]
-Fetched 4644 kB in 0s (13.1 MB/s)
+Fetched 4645 kB in 0s (13.7 MB/s)
 Reading package lists...
 Reading package lists...
 Building dependency tree...
@@ -286,7 +286,7 @@ Get:168 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main amd64v3 lib
 Get:169 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main amd64v3 libwebkit2gtk-4.1-dev amd64 2.52.6-0ubuntu0.26.04.1 [290 kB]
 Get:170 http://azure.archive.ubuntu.com/ubuntu resolute-updates/main amd64v3 xdg-desktop-portal amd64 1.21.1+ds-1ubuntu3.1 [368 kB]
 Get:171 http://azure.archive.ubuntu.com/ubuntu resolute/main amd64v3 xdg-desktop-portal-gtk amd64 1.15.3-2ubuntu1 [81.8 kB]
-Fetched 67.4 MB in 17s (4047 kB/s)
+Fetched 67.4 MB in 8s (8301 kB/s)
 Selecting previously unselected package bzip2-doc.
 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 213197 files and directories currently installed.)
 Preparing to unpack .../000-bzip2-doc_1.0.8-6ubuntu0.1_all.deb ...
@@ -992,10 +992,12 @@ No user sessions are running outdated binaries.
 
 No VM guests are running outdated hypervisor (qemu) binaries on this host.
 [1m[92m    Updating[0m crates.io index
-[1m[91merror[0m: failed to select a version for the requirement `napi-build = "^3"`
-candidate versions found which didn't match: 2.6.0, 2.5.0, 2.4.4, ...
-location searched: crates.io index
-required by package `medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)`
+[1m[91merror[0m: failed to select a version for `bincode`.
+    ... required by package `medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)`
     ... which satisfies path dependency `medchat-core` of package `medchat-desktop v0.1.0 (/home/runner/work/chat/chat/medchat-v2/desktop/src-tauri)`
-help: if you are looking for the prerelease package it needs to be specified explicitly
-    napi-build = { version = "1.1.0-beta.0" }
+versions that meet the requirements `^3` are: 3.0.0
+
+package `medchat-core` depends on `bincode` with feature `serde` but `bincode` does not have that feature.
+
+
+failed to select a version for `bincode` which could resolve this conflict
