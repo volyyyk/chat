@@ -393,7 +393,7 @@ phone/verify — одноразовый 6-значный код в VerificationT
 бенчмарк ≥ x10 на конвертном пути, fuzz-smoke, napi + UniFFI-биндинги,
 CI-гейты всех платформ (server, e2e, core, bench, napi, fuzz, uniffi,
 ios-smoke, android-smoke, android-build, desktop-check, desktop-bundle,
-k6-load), E2E + Double Ratchet склеены во всех нативных клиентах
+k6-load, core-audit), E2E + Double Ratchet склеены во всех нативных клиентах
 (desktop, iOS, Android; RN — честная плашка reference-клиента).
 Остаток этапов 3/4/5/7 — операторские позиции: TestFlight и подписи
 Apple, Play Console и подписи Android, Authenticode/GPG-подписи и
@@ -410,6 +410,15 @@ Apple, Play Console и подписи Android, Authenticode/GPG-подписи �
   регулярное обновление платформы под требования магазинов.
 - Anti-tamper базово: проверка целостности бинаря не требуется MVP, но
   prohibited: хранение ключей в коде.
+
+**Прогресс (ноябрь 2026):** «cargo audit / cargo deny, Dependabot» — сделано:
+джоба CI core-audit (cargo-audit против advisory-базы RUSTSEC; Cargo.lock
+в джобе генерируется свежим — лок не в репо, библиотечный крейт; уязвимости
+роняют джобу, unmaintained-предупреждения печатаются без фейла) +
+.github/dependabot.yml (cargo: ядро; npm: server и mobile; github-actions:
+версии actions в CI). TLS-пиннинг и сборочные подписи — позиции, привязанные
+к прод-TLS и сертификатам оператора (пины появляются вместе с прод-сертификатом,
+подписи — в GitHub Secrets оператора).
 
 ## 5. Что НЕ делаем (анти-цели)
 

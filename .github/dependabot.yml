@@ -1,0 +1,32 @@
+# Dependabot — §4 ROADMAP_NATIVE («Зависимости: cargo audit / cargo deny,
+# Dependabot»): регулярные обновления зависимостей, секретов не требует.
+# Гейт безопасности зависимостей — джоба CI core-audit (cargo-audit
+# против advisory-базы RUSTSEC); Dependabot открывает PR, CI проверяет
+# обновление до слияния. Каталоги: cargo — ядро (medchat-v2/core), npm —
+# сервер (medchat-v2/server) и RN-мобилка (medchat-v2/mobile),
+# github-actions — версии actions в .github/workflows.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /medchat-v2/core
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /medchat-v2/server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /medchat-v2/mobile
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

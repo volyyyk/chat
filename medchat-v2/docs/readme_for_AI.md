@@ -1030,7 +1030,7 @@ node stop.js [--docker]                     # остановить процес�
 
 ## 10. CI (.github/workflows/ci.yml)
 
-Двенадцать джоб на каждый пуш в main:
+Четырнадцать джоб на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
   валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
@@ -1109,7 +1109,21 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
   в JVM против host-cdylib (jna.library.path); кросс-компиляция NDK r27c
   через cargo-ndk (arm64-v8a / armeabi-v7a / x86_64, api 21) → артефакт
   medchat-core-android (.so для jniLibs); лог падений — ci-logs/ci-android.log.
+- **android-build** (этап 4 ч.3): сборка unsigned debug-APK — артефакты
+  uniffi-bindings (Kotlin-обвязка → src/main/java/uniffi) и android-smoke
+  (.so 3 ABI → jniLibs) раскладываются в Gradle-проект (Gradle 8.9, AGP
+  8.5.2, Kotlin 2.0.21 + compose-плагин, Compose BOM, JNA 5.14.0 aar,
+  minSdk 23), gradle :app:assembleDebug --no-daemon; артефакт
+  medchat-android-debug-apk (adb install, эмулятор видит хост как
+  10.0.2.2); лог падений — ci-logs/ci-android-build.log. Release-подпись,
+  internal testing и Play Console — оператор (секреты оператора).
 - **k6-load** (этап 6): нагрузочный k6-профиль против стенда Postgres+Redis+seed  на том же раннере (сервер в фоне), гейты http_req_failed<1% и p95<2500 мс;  лог ci-logs/ci-k6.log публикуется ВСЕГДА (базлайн деградации от прогона к прогону).
+- **core-audit** (§4 ROADMAP): cargo-audit против advisory-базы RUSTSEC —
+  Cargo.lock в джобе генерируется свежим (лок не в репо, библиотечный
+  крейт); уязвимости роняют джобу, unmaintained-предупреждения — нет
+  (печатаются в лог); лог падений — ci-logs/ci-audit.log. Dependabot
+  (.github/dependabot.yml: cargo ядро, npm server/mobile, github-actions)
+  открывает PR — тот же CI проверяет обновление до слияния.
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),
@@ -1144,7 +1158,7 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
   uniffi-крейтов нет в sparse-индексе crates.io — крейт и CLI переведены
   на git-тег v0.28.3; #108 — пакет CLI в git-workspace зовётся uniffi-bindgen-cli (бинарь uniffi-bindgen), уроки в §8); #109 — uniffi::Error требует Display у ошибок экспортов (фикс: impl Display для MedCryptoError, §8); #111 — тест обёртки uniffi повторил баг фиктивной X25519-пары #104/#105 (Aead; фикс — generate_keypair() в тесте), §8. Логи
   падений бот ci-reporter
-  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log / ci-desktop.log; ci-bench.log пишется при любом исходе) — при
+  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log / ci-ios.log / ci-android.log / ci-android-build.log / ci-desktop.log / ci-desktop-bundle.log / ci-audit.log; ci-bench.log и ci-k6.log пишутся при любом исходе) — при
   красном прогоне читать оттуда.
 
 ## 11. Что осталось сделать (roadmap)

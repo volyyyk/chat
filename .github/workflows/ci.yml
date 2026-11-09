@@ -440,6 +440,61 @@ jobs:
           git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
           git push origin HEAD:main || echo "push failed (non-fatal)"
 
+  # §4 ROADMAP_NATIVE («Зависимости: cargo audit / cargo deny, Dependabot»):
+  # аудит безопасности зависимостей ядра против advisory-базы RUSTSEC.
+  # Cargo.lock в репо отсутствует (библиотечный крейт, лок в gitignore) —
+  # лок-файл генерируется в джобе свежим: аудит проверяет те semver-
+  # совместимые версии, которые реально резолвит сборка. Уязвимости
+  # (error) роняют джобу; unmaintained/warnings печатаются в лог, но не
+  # фейлят (уровень warnings, без --deny warnings). Dependabot
+  # (.github/dependabot.yml: cargo core / npm server+mobile /
+  # github-actions) держит версии свежими между прогонами: PR проходят
+  # тот же CI до слияния.
+  core-audit:
+    name: Rust dependency audit (cargo-audit, §4 ROADMAP)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install --locked cargo-audit
+
+      - name: Generate lockfile (Cargo.lock не в репо)
+        run: cargo generate-lockfile
+
+      - name: Audit dependencies (RUSTSEC advisory DB)
+        run: |
+          set -o pipefail
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo audit; } 2>&1 | tee ../../ci-audit.log
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-audit.log ]; then
+            cp ci-audit.log ci-logs/ci-audit.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
+
   uniffi-bindings:
     name: UniFFI bindings (Swift/Kotlin generation smoke)
     runs-on: ubuntu-latest
