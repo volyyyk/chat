@@ -65,7 +65,7 @@ bcrypt = "0.15"
 # compat-mode — совместимость со старыми Node/Electron; default-features =
 # false — минимальный рантайм (без tokio: наши обёртки синхронные).
 # optional: тесты ядра собираются без биндингов (см. [features] выше).
-napi = { version = "2", default-features = false, features = ["compat-mode"], optional = true }
+napi = { version = "3", default-features = false, features = ["compat-mode"], optional = true }
 napi-derive = { version = "2", optional = true }
 # UniFFI (src/uniffi_iface.rs, feature uniffi-bind): биндинги Swift/Kotlin
 # (этап 2 ROADMAP_NATIVE). Источник — git-тег v0.28.3 репозитория
