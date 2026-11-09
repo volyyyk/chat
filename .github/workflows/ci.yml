@@ -30,10 +30,10 @@ jobs:
         working-directory: medchat-v2/server
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 18
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '18'
 
@@ -133,10 +133,10 @@ jobs:
         working-directory: medchat-v2/server
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 18
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '18'
 
@@ -200,10 +200,10 @@ jobs:
         working-directory: medchat-v2/web
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 18
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '18'
 
@@ -241,7 +241,7 @@ jobs:
           git push origin HEAD:main || echo "push failed (non-fatal)"
 
       - name: Upload static bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-web-static
           path: medchat-v2/web/build
@@ -254,7 +254,7 @@ jobs:
         working-directory: medchat-v2/core
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust (stable, minimal profile)
         uses: dtolnay/rust-toolchain@stable
@@ -316,7 +316,7 @@ jobs:
         working-directory: medchat-v2/core
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -374,7 +374,7 @@ jobs:
         working-directory: medchat-v2/core
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -385,7 +385,7 @@ jobs:
           workspaces: medchat-v2/core
 
       - name: Setup Node.js 18
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '18'
 
@@ -411,7 +411,7 @@ jobs:
           { node napi-smoke.js; } 2>&1 | tee -a ../../ci-napi.log
 
       - name: Upload .node artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-core-linux-x64-gnu
           path: medchat-v2/core/medchat-core.linux-x64-gnu.node
@@ -446,7 +446,7 @@ jobs:
         working-directory: medchat-v2/core
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # cargo-fuzz требует nightly: -Zsanitizer-флаги и sancov.
       - name: Setup Rust (nightly)
@@ -521,7 +521,7 @@ jobs:
         working-directory: medchat-v2/core
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -566,7 +566,7 @@ jobs:
         working-directory: medchat-v2/core
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -631,7 +631,7 @@ jobs:
           { uniffi-bindgen generate --library target/release/libmedchat_core.so --language swift --out-dir uniffi-out/swift; } 2>&1 | tee -a ../../ci-uniffi.log
 
       - name: Upload uniffi bindings artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-core-uniffi-bindings
           path: medchat-v2/core/uniffi-out/
@@ -679,7 +679,7 @@ jobs:
         working-directory: medchat-v2/core
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust (stable + iOS targets)
         uses: dtolnay/rust-toolchain@stable
@@ -812,7 +812,7 @@ jobs:
           echo "[ci-ios] xcframework: done"
 
       - name: Upload MedchatCore.xcframework
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-core-xcframework
           path: medchat-v2/core/MedchatCore.xcframework
@@ -859,7 +859,7 @@ jobs:
         working-directory: medchat-v2/core
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust (stable + Android targets)
         uses: dtolnay/rust-toolchain@stable
@@ -872,7 +872,7 @@ jobs:
           workspaces: medchat-v2/core
 
       - name: Setup Java 17 (kotlinc + runtime JVM)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -1034,7 +1034,7 @@ jobs:
           ls -la target/x86_64-linux-android/release/libmedchat_core.so
 
       - name: Upload android .so artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-core-android
           path: |
@@ -1080,22 +1080,22 @@ jobs:
         working-directory: medchat-v2/android
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Download UniFFI bindings artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: medchat-core-uniffi-bindings
           path: bindings
 
       - name: Download android .so artifact (jniLibs)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: medchat-core-android
           path: solib
@@ -1119,7 +1119,7 @@ jobs:
           find app/src/main/jniLibs -name "*.so"
 
       - name: Setup Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.9'
 
@@ -1131,7 +1131,7 @@ jobs:
           { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; gradle :app:assembleDebug --no-daemon; } 2>&1 | tee ../../ci-android-build.log
 
       - name: Upload debug APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-android-debug-apk
           path: medchat-v2/android/app/build/outputs/apk/debug/*.apk
@@ -1166,7 +1166,7 @@ jobs:
         working-directory: medchat-v2/desktop/src-tauri
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -1245,7 +1245,7 @@ jobs:
         working-directory: medchat-v2/desktop
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -1264,7 +1264,7 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libfuse2
 
       - name: Node.js 20 (tauri CLI через npx)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
 
@@ -1275,7 +1275,7 @@ jobs:
           { npx --yes @tauri-apps/cli@2 build --bundles ${{ matrix.bundles }}; } 2>&1 | tee ../../ci-desktop-bundle.log
 
       - name: Upload installers
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           if-no-files-found: warn
@@ -1369,10 +1369,10 @@ jobs:
         working-directory: medchat-v2/server
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 18
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '18'
 
