@@ -60,7 +60,7 @@ flate2 = "1"
 # ($2a$/$2b$/$2y$, любой cost) — паритет с сервером (нативный bcrypt-пакет,
 # cost 12 в authService). Pure Rust (крейт blowfish), НЕ гейтится за
 # feature napi-bind: включён и в --no-default-features-сборках.
-bcrypt = "0.15"
+bcrypt = "0.19"
 # napi-rs (src/node.rs, feature napi-bind): Node.js-биндинги (этап 2).
 # compat-mode — совместимость со старыми Node/Electron; default-features =
 # false — минимальный рантайм (без tokio: наши обёртки синхронные).
