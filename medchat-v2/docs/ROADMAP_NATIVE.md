@@ -16,22 +16,23 @@
 
 ## 1. Карта «блок → текущая реализация → целевой язык → почему»
 
-| Блок | Сейчас | Цель | Обоснование |
-|---|---|---|---|
-| Криптография at-rest (cryptoService) | Node (AES-GCM через crypto) | **Rust**: `libmedchat_core` + napi-rs | Memory safety, единая реализация на сервере и всех клиентах, готовность к аудиту |
-| E2E X25519-box | реализовано (tweetnacl в мобильном, Rust-ядро совместимо; контракт — readme_for_AI §5) | остаётся в клиентах | Рабочий E2E-контур: сервер хранит только шифротекст |
-| Double Ratchet (forward secrecy) | прототип в medchat-core (src/ratchet.rs, 6aff983 + skip-store d033eeb + wire-формат a43102d + сериализация serde + биндинги save/restore) | **Rust** в ядре + napi-rs/UniFFI биндинги | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
-| Хэширование чексумм файлов, сжатие бэкапов | Node streams | **Rust** (napi-rs) | CPU-bound, разгружает event-loop сервера |
-| Realtime gateway (fan-out тысяч соединений) | Node Socket.IO | Этап A: Node + Redis pub/sub; Этап B: **Rust** (tokio) при >10k соединений | Node справляется до тысяч; переписывать раньше времени — риск без выгоды |
-| Поиск по сообщениям | Postgres ILIKE + GIN pg_trgm (seed: messages_content_trgm_idx) | **Rust** (Tantivy) при полнотексте | «Сначала pg_trgm + GIN» — сделано; дешёвая оптимизация раньше тяжёлой |
-| iOS-клиент | Expo (JS) | **Swift + SwiftUI** + Rust-ядро (UniFFI) | Требования App Store, производительность, Keychain для ключей, нативные push (APNs) |
-| Android-клиент | Expo (JS) | **Kotlin + Jetpack Compose** + Rust-ядро (JNI) | Play Store, Android Keystore, FCM-фоновая доставка |
-| Windows-клиент (exe) | — | **Tauri 2 (Rust)**, общий UI с Linux | ~10–15 МБ вместо Electron-сотен, system webview, подпись Authenticode |
-| Linux Ubuntu-клиент | — | **Tauri 2** → `.deb` + AppImage | Та же кодовая база, что и Windows |
-| Серверный API | Node/Express | остаётся Node; горячие пути → napi-rs | Стабильность, экосистема Sequelize, CI уже зелёный |
-| ГОСТ-криптография (если УЗ-1 сертификация) | — | **C/C++**: сертифицированные СКЗИ (КриптоПро CSP и т.п.) как native-зависимости | Использовать только готовые сертифицированные библиотеки; свой код в C/C++ не пишем |
-| Интеграции с WinAPI/офисом клиники | — | **C#/.NET 8** (WinUI/WPF) — точечно | Если появится deep-Windows фича (MSIX, 1С-мосты); не базовый путь |
-| Интеграции на JVM (гос-сервисы, корпоративные) | — | **Java/Kotlin (JVM)** — точечно | Только если интеграционный контур партнёра JVM; не базовый путь |
+| Блок | Было | Цель | Статус (ноябрь 2026) | Обоснование |
+|---|---|---|---|---|
+| Криптография at-rest (cryptoService) | Node (AES-GCM через crypto) | **Rust**: `libmedchat_core` + napi-rs | **Сделано, где горячо**: SHA-256-чексуммы и gzip-сжатие бэкапов — Rust (hotpath.rs + napi, серверные обёртки с честным fallback на node:crypto/zlib); at-rest AES-GCM остаётся в Node — AES-256-GCM ядра байт-в-байт совместим (KAT e7879a7), переезд не даёт выгоды при текущей нагрузке | Memory safety, единая реализация на сервере и всех клиентах, готовность к аудиту |
+| E2E X25519-box | tweetnacl (мобильный клиент) | остаётся в клиентах | **Сделано во всех клиентах**: мобильный, desktop (Rust-ядро), iOS/Android (UniFFI), web (tweetnacl, конверты байт-в-байт); контракт — readme_for_AI §5 | Рабочий E2E-контур: сервер хранит только шифротекст |
+| Double Ratchet (forward secrecy) | прототип в medchat-core | **Rust** в ядре + napi-rs/UniFFI биндинги | **Сделано и склеено**: desktop/iOS/Android (X3DH-lite, роль по keyId, save/restore в системном secure storage, honest-fallback); RN/web — честная плашка; негативные тесты + fuzz | Максимально критичный блок: одна реализация, fuzzing (cargo-fuzz), формальная верифицируемость |
+| Хэширование чексимм файлов, сжатие бэкапов | Node streams | **Rust** (napi-rs) | **Сделано** (hotpath.rs: SHA-256 KAT FIPS 180-4, gzip RFC 1952; utils/checksum.js + utils/compress.js, fallback честно отражён) | CPU-bound, разгружает event-loop сервера |
+| Realtime gateway (fan-out тысяч соединений) | Node Socket.IO | Этап A: Node + Redis pub/sub; Этап B: **Rust** (tokio) при >10k соединений | **По плану** (этап A работает; B — по фактической нагрузке) | Node справляется до тысяч; переписывать раньше времени — риск без выгоды |
+| Поиск по сообщениям | Postgres ILIKE + GIN pg_trgm | **Rust** (Tantivy) при полнотексте | **Дешёвая часть сделана** (pg_trgm + GIN, seed: messages_content_trgm_idx); Tantivy — по нагрузке; E2E-контент серверу не виден (шифротекст) — честное ограничение | Дешёвая оптимизация раньше тяжёлой |
+| iOS-клиент | Expo (JS) | **Swift + SwiftUI** + Rust-ядро (UniFFI) | **Сделано (каркас)**: экраны, ApiService, KeychainStore, CryptoService, RatchetService; джоба ios-smoke (runtime-smoke + typecheck + xcframework); сборка .ipa/TestFlight/APNs — оператор | Требования App Store, производительность, Keychain, нативные push |
+| Android-клиент | Expo (JS) | **Kotlin + Jetpack Compose** + Rust-ядро (JNI) | **Сделано (каркас + APK)**: Gradle-проект, Compose-экраны, Keystore, RatchetService; джоба android-build собирает unsigned debug-APK; release-подпись/Play Console/FCM — оператор | Play Store, Android Keystore, фоновая доставка |
+| Windows-клиент (exe) | — | **Tauri 2** (Rust), общий UI с Linux | **Сделано (каркас)**: рабочий клиент, ядро path-депом, secure storage (keyring 3); джоба desktop-bundle собирает NSIS .exe; Authenticode/автоапдейт — оператор | ~10–15 МБ вместо Electron-сотен, system webview |
+| Linux Ubuntu-клиент | — | **Tauri 2** → `.deb` + AppImage | **Сделано (каркас)**: та же кодовая база; .deb + AppImage собираются в CI (desktop-bundle); подписи/GPG-репозиторий — оператор | Та же кодовая база, что и Windows |
+| Web-клиент (браузер, клиника/врач) | React, без E2E (недоделан) | React + tweetnacl (браузерный E2E) | **Доделано**: E2E x25519-box конверты байт-в-байт с остальными клиентами, honest plaintext-fallback; приватный ключ в localStorage (в браузере нет secure storage — компромисс по прецеденту LEGAL.md §2); ratchet/mc:2 — честные плашки; джоба web-build, релизный ассет MedChat-Web-static.zip | Врач/клиника на любом ПК без установки desktop-приложения |
+| Серверный API | Node/Express | остаётся Node; горячие пути → napi-rs | **По плану** (чексуммы/сжатие — napi; остальной сервер не тронут, CI зелёный) | Стабильность, экосистема Sequelize |
+| ГОСТ-криптография (если УЗ-1 сертификация) | — | **C/C++**: сертифицированные СКЗИ | **Оператор** (аттестация ФСТЭК, LEGAL.md) | Только готовые сертифицированные библиотеки |
+| Интеграции с WinAPI/офисом клиники | — | **C#/.NET 8** — точечно | **Не требуется** (deep-Windows-фич нет) | Если появится MSIX, 1С-мосты |
+| Интеграции на JVM (гос-сервисы, корпоративные) | — | **Java/Kotlin (JVM)** — точечно | **Не требуется** | Только если интеграционный контур партнёра JVM |
 
 Итог по языкам: **Rust — основной системный язык проекта** (ядро, клиенты, desktop,
 горячие пути). **C/C++ — только готовые сертифицированные СКЗИ.** **C# и Java —
@@ -45,6 +46,15 @@
 пакет с контрактными тестами.
 **DoD:** contract-тесты гоняются против API-сервера в CI; мобильный клиент
 использует ядро без изменения UX.
+
+**Прогресс (ноябрь 2026):** DoD «contract-тесты гоняются против API-сервера в CI» —
+сделано: джоба e2e-smoke (seed, все стороны через REST/Socket.IO, платежи, поиск,
+E2E-секции [12]/[13]) — контрактные API-сценарии против настоящего сервера с
+реальной Postgres. DoD «мобильный клиент использует общее ядро» — замещён:
+RN-клиент заморожен как reference (анти-цель §5), общая логика переехала в
+Rust-ядро (этап 2) и нативные клиенты (этапы 3/4); выделять JS-пакет общей
+логики под замороженный RN-клиент выгоды не даёт. Этап 1 закрыт как
+замещённый (контрактная часть DoD выполнена).
 
 ### Этап 2. Rust-ядро `libmedchat_core`
 Криптография (AES-256-GCM, Argon2/bcrypt-verify), кодек протокола, checksums.
@@ -408,6 +418,12 @@ RN — честная плашка reference-клиента).
 Apple, Play Console и подписи Android, Authenticode/GPG-подписи и
 автоапдейт desktop, SMS-гейт для 149-ФЗ, ГОСТ СКЗИ и внешний аудит
 для УЗ-1, суточный fuzz-прогон по требованию.
+GitHub Releases: workflow Release (.github/workflows/release.yml) публикует
+GitHub Release с бинарными ассетами всех платформ (Android unsigned debug-APK,
+Linux .deb + AppImage, Windows NSIS exe, Web MedChat-Web-static.zip,
+iOS MedchatCore.xcframework.zip — .ipa требует подписи Apple оператора,
+uniffi-обвязка + .node-ядро, SHA256SUMS) из артефактов последнего зелёного
+прогона CI на main; триггер — пуш ветки release/<tag> (v2.0.0, ноябрь 2026).
 
 ## 4. Требования безопасности, общие для всех нативных клиентов
 

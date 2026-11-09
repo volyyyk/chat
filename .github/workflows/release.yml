@@ -1,0 +1,158 @@
+name: Release
+
+# Релизы MedChat: GitHub Release с бинарными ассетами всех платформ
+# (Android APK, Linux deb/AppImage, Windows NSIS exe, Web-статика,
+# iOS xcframework, .node-ядро, UniFFI-обвязка, SHA256SUMS) из артефактов
+# последнего ЗЕЛЁНОГО прогона CI на main. Триггер: пуш в ветку
+# release/<tag> — например release/v2.0.0 — создаёт/обновляет Release
+# с тегом <tag> (target_commitish: main).
+#
+# Честные ограничения (секреты оператора НЕ подключены): Android APK —
+# unsigned debug (adb install), desktop-установщики без Authenticode/GPG
+# (DESKTOP_RELEASE.md), iOS — MedchatCore.xcframework для сборки .ipa/
+# TestFlight оператором (README_IOS.md): устанавливаемого .ipa в релизе
+# НЕТ — подпись Apple не автоматизируется без секретов. Web — статический
+# бандл, разворачивается оператором за nginx/TLS.
+on:
+  push:
+    branches: ['release/**']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: GitHub Release (Android, iOS, Linux, Windows, Web)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release tag from branch name
+        id: tag
+        run: |
+          set -e
+          TAG="${GITHUB_REF_NAME#release/}"
+          if [ -z "$TAG" ] || [ "$TAG" = "$GITHUB_REF_NAME" ]; then
+            echo "branch must be release/<tag>, got: ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      # Артефакты берём у последнего зелёного прогона CI на main:
+      # релиз обязан содержать ровно те бинари, что прошли все 15 джоб.
+      - name: Resolve latest green CI run on main
+        id: ci
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          RUN_ID=$(gh api -X GET "repos/${{ github.repository }}/actions/runs?branch=main&per_page=30" --jq '[.workflow_runs[] | select(.name == "CI") | select(.conclusion == "success")] | .[0].id')
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "no green CI run on main found" >&2
+            exit 1
+          fi
+          echo "Using artifacts of CI run: ${RUN_ID}"
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Download CI artifacts (Android APK)
+        uses: actions/download-artifact@v4
+        with:
+          name: medchat-android-debug-apk
+          path: dist/android
+          run-id: ${{ steps.ci.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download CI artifacts (Linux deb + AppImage)
+        uses: actions/download-artifact@v4
+        with:
+          name: medchat-desktop-linux
+          path: dist/desktop-linux
+          run-id: ${{ steps.ci.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download CI artifacts (Windows NSIS exe)
+        uses: actions/download-artifact@v4
+        with:
+          name: medchat-desktop-nsis
+          path: dist/desktop-nsis
+          run-id: ${{ steps.ci.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download CI artifacts (Web static bundle)
+        uses: actions/download-artifact@v4
+        with:
+          name: medchat-web-static
+          path: dist/web
+          run-id: ${{ steps.ci.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download CI artifacts (iOS xcframework)
+        uses: actions/download-artifact@v4
+        with:
+          name: medchat-core-xcframework
+          path: dist/ios
+          run-id: ${{ steps.ci.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download CI artifacts (napi .node)
+        uses: actions/download-artifact@v4
+        with:
+          name: medchat-core-linux-x64-gnu
+          path: dist/node
+          run-id: ${{ steps.ci.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download CI artifacts (UniFFI bindings)
+        uses: actions/download-artifact@v4
+        with:
+          name: medchat-core-uniffi-bindings
+          path: dist/uniffi
+          run-id: ${{ steps.ci.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stage release assets
+        run: |
+          set -e
+          mkdir -p assets
+          # Android: неподписанный debug-APK (release-подпись — оператор)
+          cp dist/android/*.apk assets/MedChat-Android-debug-unsigned.apk
+          # Linux: имена .deb/AppImage от tauri сохраняем (версия продукта внутри)
+          cp dist/desktop-linux/*.deb assets/
+          cp dist/desktop-linux/*.AppImage assets/
+          # Windows: NSIS-установщик (без Authenticode)
+          cp dist/desktop-nsis/*.exe assets/MedChat-Windows-Setup-unsigned.exe
+          # Web: статический бандл (deploy за nginx/TLS — оператор)
+          (cd dist/web && zip -qr "$GITHUB_WORKSPACE/assets/MedChat-Web-static.zip" .)
+          # iOS: xcframework для сборки .ipa/TestFlight оператором
+          (cd dist/ios && zip -qr "$GITHUB_WORKSPACE/assets/MedChat-iOS-MedchatCore-xcframework.zip" MedchatCore.xcframework)
+          # Ядро: napi-аддон и UniFFI-обвязка (Swift/Kotlin)
+          cp dist/node/medchat-core.linux-x64-gnu.node assets/
+          (cd dist/uniffi && zip -qr "$GITHUB_WORKSPACE/assets/medchat-core-uniffi-bindings.zip" .)
+          # Контрольные суммы всех ассетов
+          (cd assets && sha256sum * > SHA256SUMS.txt)
+          ls -la assets
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          target_commitish: main
+          name: MedChat ${{ steps.tag.outputs.tag }}
+          body: |
+            MedChat v2 — сборки всех платформ из артефактов последнего зелёного прогона CI (main).
+
+            - Android: MedChat-Android-debug-unsigned.apk — неподписанный debug-APK (adb install; release-подпись и Play Console — оператор, medchat-v2/android/README_ANDROID.md).
+            - Linux: .deb и .AppImage — неподписанные установщики Tauri 2 (подписи/GPG — оператор, medchat-v2/docs/DESKTOP_RELEASE.md).
+            - Windows: MedChat-Windows-Setup-unsigned.exe — NSIS-установщик без Authenticode.
+            - Web: MedChat-Web-static.zip — статический бандл React-клиента (врачи/клиника; разворачивается за nginx/TLS, адрес API — REACT_APP_API_URL при сборке).
+            - iOS: MedChat-iOS-MedchatCore-xcframework.zip — Rust-ядро + Swift-обвязка (UniFFI) для сборки .ipa/TestFlight оператором (medchat-v2/ios/README_IOS.md). Устанавливаемого .ipa в релизе НЕТ: подпись Apple требует секретов оператора.
+            - Ядро: medchat-core.linux-x64-gnu.node (napi-rs для Node) и medchat-core-uniffi-bindings.zip (Swift/Kotlin).
+            - SHA256SUMS.txt — контрольные суммы всех ассетов.
+          files: assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
