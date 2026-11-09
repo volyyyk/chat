@@ -349,7 +349,7 @@ jobs:
           { node napi-smoke.js; } 2>&1 | tee -a ../../ci-napi.log
 
       - name: Upload .node artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-core-linux-x64-gnu
           path: medchat-v2/core/medchat-core.linux-x64-gnu.node
@@ -568,7 +568,7 @@ jobs:
           { uniffi-bindgen generate --library target/release/libmedchat_core.so --language swift --out-dir uniffi-out/swift; } 2>&1 | tee -a ../../ci-uniffi.log
 
       - name: Upload uniffi bindings artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-core-uniffi-bindings
           path: medchat-v2/core/uniffi-out/
@@ -749,7 +749,7 @@ jobs:
           echo "[ci-ios] xcframework: done"
 
       - name: Upload MedchatCore.xcframework
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-core-xcframework
           path: medchat-v2/core/MedchatCore.xcframework
@@ -971,7 +971,7 @@ jobs:
           ls -la target/x86_64-linux-android/release/libmedchat_core.so
 
       - name: Upload android .so artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-core-android
           path: |
@@ -1068,7 +1068,7 @@ jobs:
           { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; gradle :app:assembleDebug --no-daemon; } 2>&1 | tee ../../ci-android-build.log
 
       - name: Upload debug APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medchat-android-debug-apk
           path: medchat-v2/android/app/build/outputs/apk/debug/*.apk
@@ -1212,7 +1212,7 @@ jobs:
           { npx --yes @tauri-apps/cli@2 build --bundles ${{ matrix.bundles }}; } 2>&1 | tee ../../ci-desktop-bundle.log
 
       - name: Upload installers
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           if-no-files-found: warn
