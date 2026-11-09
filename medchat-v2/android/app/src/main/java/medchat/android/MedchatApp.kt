@@ -162,7 +162,7 @@ fun MedchatApp() {
                     }
                     val crypto = CryptoService(uid)
                     val parsed = ArrayList<UiMessage>()
-                    for (row in rows) {
+                    for (row in page.rows) {
                         val envelope = CryptoService.envelopeFrom(row.e2eEnvelope)
                         var text = row.content
                         var isRatchet = false
@@ -182,8 +182,6 @@ fun MedchatApp() {
                         }
                         parsed.add(UiMessage(row.senderId == uid, text, row.createdAt, isRatchet))
                     }
-                    messages.clear()
-                    messages.addAll(parsed)
                     olderRemaining = Math.max(0, page.total - page.rows.size)
                     if (before == null) {
                         messages.clear()
@@ -193,12 +191,13 @@ fun MedchatApp() {
                     } else {
                         olderRemaining = 0
                     }
+                } catch (e: Exception) {
+                    status = e.message ?: "ошибка сети"
                 }
                 busy = false
-                busy = false
                 loadingOlder = false
+            }.start()
         }
-
 
         // Исходящий ratchet-payload: wire шифруется сессией с собеседником
         // и заворачивается в JSON {"t":"r1","k":keyId,"w":wire} — тот же

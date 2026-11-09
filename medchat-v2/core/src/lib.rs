@@ -326,7 +326,7 @@ mod tests {
         let s3b = seal_for_recipients(b"not for alice", &[bob.public_key]).unwrap();
         let for_bob = open_sealed_batch(&[s1b, s3b], &bob.public_key, &bob.secret_key);
         assert_eq!(for_bob[0].as_ref().unwrap().as_slice(), b"page one");
-        assert!(for_bob[1].is_err());
+        assert_eq!(for_bob[1].as_ref().unwrap().as_slice(), b"not for alice");
     }
 
     /// KAT RFC 7748 §6.1 (DH-вектор Curve25519): публичный ключ стороны

@@ -527,8 +527,8 @@ mod tests {
         let s1 =
             seal_for_recipients(b"page item".to_vec(), vec![alice.public_key.clone()]).unwrap();
         let s2 =
-            seal_for_recipients(b"only alice".to_vec(), vec![alice.public_key]).unwrap();
-        let s3 = seal_for_recipients(b"not for alice".to_vec(), vec![bob.public_key]).unwrap();
+            seal_for_recipients(b"only alice".to_vec(), vec![alice.public_key.clone()]).unwrap();
+        let s3 = seal_for_recipients(b"not for alice".to_vec(), vec![bob.public_key.clone()]).unwrap();
         let out = open_sealed_batch(
             vec![s1.clone(), s2.clone(), s3.clone()],
             alice.public_key.clone(),

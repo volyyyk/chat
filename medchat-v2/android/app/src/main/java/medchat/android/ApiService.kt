@@ -182,7 +182,8 @@ class ApiService private constructor(val baseUrl: String) {
             path += "&before=" + java.net.URLEncoder.encode(before, "UTF-8")
         }
         val json = request(path)
-        return (0 until rows.length()).map { index ->
+        val rows = json.optJSONArray("data") ?: JSONArray()
+        val parsed = (0 until rows.length()).map { index ->
             val row = rows.getJSONObject(index)
             val metadata = row.optJSONObject("metadata") ?: JSONObject()
             val sender = row.optJSONObject("sender") ?: JSONObject()
