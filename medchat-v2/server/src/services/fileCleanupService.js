@@ -14,15 +14,23 @@ class FileCleanupService {
    */
   static async cleanupExpiredFiles() {
     try {
-      const threeDaysAgo = new Date();
-      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      const now = new Date();
+      const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 
-      // Find files that should be deleted
+      // deleteAt is the canonical per-file expiry. Older records created before
+      // deleteAt was populated get a conservative 3-day fallback only when
+      // autoDelete is explicitly enabled. Never use deleteAfterDays <= 3:
+      // that is a duration setting, not an expiry timestamp, and would match
+      // every new record whose default TTL is three days.
       const filesToDelete = await models.File.findAll({
         where: {
           [Op.or]: [
-            { autoDelete: true, createdAt: { [Op.lte]: threeDaysAgo } },
-            { deleteAfterDays: { [Op.lte]: 3 } },
+            { deleteAt: { [Op.lte]: now } },
+            {
+              autoDelete: true,
+              deleteAt: null,
+              createdAt: { [Op.lte]: threeDaysAgo },
+            },
           ],
           deleted: false,
         },
