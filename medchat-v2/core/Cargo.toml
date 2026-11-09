@@ -99,7 +99,7 @@ napi-build = "2"
 # не участвует в сборке .node (napi build) и не запускается обычными
 # прогонами ядра (cargo check --tests / cargo test --no-default-features).
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 # bincode — сериализационные тесты RatchetState (feature serde): бинарный
 # формат с произвольными ключами HashMap (JSON нестроковые ключи не умеет).
 bincode = "1"
