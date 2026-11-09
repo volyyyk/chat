@@ -1294,20 +1294,50 @@ jobs:
         with:
           node-version: '20'
 
-      # Ретрай сборки установщиков (runs 42566144164, 42567588015): бандлер
-      # качает AppRun-x86_64 и linuxdeploy из GitHub Releases tauri-apps и
-      # ловит транзиентные 504; 5 попыток по 30с, tee -a накапливает лог всех
-      # попыток; cargo-кэш делает повторы дёшевыми (сборка уже в кэше).
+      # Прогрев кэша бандлера (runs 42568107454, 42568745549): tauri-bundler
+      # качает AppImage-тулинг (AppRun-x86_64, linuxdeploy, plugin) из GitHub
+      # Releases, где сегодня стабильно ловятся 504 и битые скачивания
+      # («failed to run linuxdeploy»). Бандлер переиспользует файлы из
+      # $HOME/.cache/tauri — качаем их туда заранее, curl с ретраями.
+      # Best-effort: неудача не роняет джобу, остаются ретраи сборки.
+      - name: Prewarm tauri bundler cache (AppImage tooling)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -e
+          mkdir -p "$HOME/.cache/tauri"
+          prewarm() {
+            url="$1"; dest="$2"
+            for attempt in 1 2 3 4 5; do
+              echo "[prewarm] ${url}: attempt ${attempt}"
+              if curl -fL --retry 3 --retry-delay 5 -o "$dest" "$url"; then
+                chmod +x "$dest" || true
+                return 0
+              fi
+              echo "[prewarm] ${url}: attempt ${attempt} failed, retry in 10s"
+              sleep 10
+            done
+            rm -f "$dest"
+            echo "[prewarm] WARNING: could not prewarm ${url}" >&2
+            return 0
+          }
+          prewarm "https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64" "$HOME/.cache/tauri/AppRun-x86_64"
+          prewarm "https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy-07333c6/linuxdeploy-x86_64.AppImage" "$HOME/.cache/tauri/linuxdeploy-x86_64.AppImage"
+          prewarm "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage" "$HOME/.cache/tauri/linuxdeploy-plugin-appimage-x86_64.AppImage"
+          ls -la "$HOME/.cache/tauri"
+
+      # Ретрай сборки установщиков: cargo-кэш делает повторы дёшевыми
+      # (сборка уже в кэше); tee -a накапливает лог всех попыток.
       - name: Build installers
         shell: bash
         run: |
           set -o pipefail
           ok=0
-          for attempt in 1 2 3 4 5; do
+          for attempt in 1 2 3 4 5 6 7 8; do
             echo "[ci-desktop-bundle] build attempt $attempt"
             { npx --yes @tauri-apps/cli@2 build --bundles ${{ matrix.bundles }}; } 2>&1 | tee -a ../../ci-desktop-bundle.log && ok=1 && break
-            echo "[ci-desktop-bundle] attempt $attempt failed, retry in 30s (транзиентные 504 на download-тулинге)"
-            sleep 30
+            echo "[ci-desktop-bundle] attempt $attempt failed, retry in 25s (транзиентные 504 на download-тулинге)"
+            sleep 25
           done
           if [ "$ok" != "1" ]; then exit 1; fi
 
