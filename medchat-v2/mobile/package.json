@@ -1,6 +1,6 @@
 {
   "name": "medchat-mobile",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "MedChat Mobile App - Doctor-Patient Communication",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
