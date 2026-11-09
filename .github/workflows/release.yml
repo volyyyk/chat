@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -59,61 +60,37 @@ jobs:
           echo "Using artifacts of CI run: ${RUN_ID}"
           echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
 
-      - name: Download CI artifacts (Android APK)
-        uses: actions/download-artifact@v4
-        with:
-          name: medchat-android-debug-apk
-          path: dist/android
-          run-id: ${{ steps.ci.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download CI artifacts (Linux deb + AppImage)
-        uses: actions/download-artifact@v4
-        with:
-          name: medchat-desktop-linux
-          path: dist/desktop-linux
-          run-id: ${{ steps.ci.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download CI artifacts (Windows NSIS exe)
-        uses: actions/download-artifact@v4
-        with:
-          name: medchat-desktop-nsis
-          path: dist/desktop-nsis
-          run-id: ${{ steps.ci.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download CI artifacts (Web static bundle)
-        uses: actions/download-artifact@v4
-        with:
-          name: medchat-web-static
-          path: dist/web
-          run-id: ${{ steps.ci.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download CI artifacts (iOS xcframework)
-        uses: actions/download-artifact@v4
-        with:
-          name: medchat-core-xcframework
-          path: dist/ios
-          run-id: ${{ steps.ci.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download CI artifacts (napi .node)
-        uses: actions/download-artifact@v4
-        with:
-          name: medchat-core-linux-x64-gnu
-          path: dist/node
-          run-id: ${{ steps.ci.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download CI artifacts (UniFFI bindings)
-        uses: actions/download-artifact@v4
-        with:
-          name: medchat-core-uniffi-bindings
-          path: dist/uniffi
-          run-id: ${{ steps.ci.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # Ретраи против транзиентных 5xx на artifact API: релизный прогон #2
+      # упал на скачивании web-статика (остальные скачались нормально).
+      # gh CLI download с тем же GITHUB_TOKEN; 3 попытки на артефакт.
+      - name: Download CI artifacts (7, с ретраями)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          RUN_ID="${{ steps.ci.outputs.run_id }}"
+          dl() {
+            name="$1"; dest="$2"
+            for attempt in 1 2 3; do
+              echo "[release] download ${name} -> ${dest}: attempt ${attempt}"
+              if gh run download "$RUN_ID" --name "$name" --dir "$dest" --repo "${{ github.repository }}"; then
+                return 0
+              fi
+              echo "[release] ${name}: attempt ${attempt} failed, retry in 15s"
+              sleep 15
+            done
+            echo "[release] FAILED to download ${name} after 3 attempts" >&2
+            return 1
+          }
+          dl medchat-android-debug-apk dist/android
+          dl medchat-desktop-linux dist/desktop-linux
+          dl medchat-desktop-nsis dist/desktop-nsis
+          dl medchat-web-static dist/web
+          dl medchat-core-xcframework dist/ios
+          dl medchat-core-linux-x64-gnu dist/node
+          dl medchat-core-uniffi-bindings dist/uniffi
+          echo "[release] downloaded files:"
+          find dist -type f | sort
 
       - name: Stage release assets
         run: |
@@ -122,8 +99,10 @@ jobs:
           # Android: неподписанный debug-APK (release-подпись — оператор)
           cp dist/android/*.apk assets/MedChat-Android-debug-unsigned.apk
           # Linux: имена .deb/AppImage от tauri сохраняем (версия продукта внутри)
-          cp dist/desktop-linux/*.deb assets/
-          cp dist/desktop-linux/*.AppImage assets/
+          # upload-artifact хранит .deb/.AppImage в deb/ appimage/ внутри
+          # артефакта — find устойчив к внутренней раскладке
+          find dist/desktop-linux -name "*.deb" -exec cp {} assets/ \;
+          find dist/desktop-linux -name "*.AppImage" -exec cp {} assets/ \;
           # Windows: NSIS-установщик (без Authenticode)
           cp dist/desktop-nsis/*.exe assets/MedChat-Windows-Setup-unsigned.exe
           # Web: статический бандл (deploy за nginx/TLS — оператор)
