@@ -1294,12 +1294,18 @@ jobs:
         with:
           node-version: '20'
 
-      # Прогрев кэша бандлера (runs 42568107454, 42568745549): tauri-bundler
-      # качает AppImage-тулинг (AppRun-x86_64, linuxdeploy, plugin) из GitHub
-      # Releases, где сегодня стабильно ловятся 504 и битые скачивания
-      # («failed to run linuxdeploy»). Бандлер переиспользует файлы из
-      # $HOME/.cache/tauri — качаем их туда заранее, curl с ретраями.
-      # Best-effort: неудача не роняет джобу, остаются ретраи сборки.
+      # Прогрев кэша бандлера (инцидент с 09:00 UTC 2026-11-08: GitHub
+      # Releases CDN часами отдаёт 504 на binary-releases tauri-apps; runs
+      # 42568107454, 42568745549, 42569564665). Имена файлов в tools-папке
+      # бандлера (=2.10.4, src/bundle/linux/appimage/linuxdeploy.rs,
+      # докачивает только if !path.exists()): AppRun-x86_64,
+      # linuxdeploy-07333c6-x86_64.AppImage (тег релиза в имени файла!),
+      # linuxdeploy-plugin-appimage.AppImage (БЕЗ арх-суффикса). Четвёртая
+      # закачка скрыта в логе бандлера: appimagetool внутри linuxdeploy качает
+      # AppImage-runtime (type2-runtime continuous) в момент бандлинга —
+      # прогреваем и её, подсунув через LDAI_RUNTIME_FILE в шаге
+      # Build installers. Best-effort: неудача не роняет джобу, остаются
+      # ретраи сборки.
       - name: Prewarm tauri bundler cache (AppImage tooling)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
@@ -1311,7 +1317,6 @@ jobs:
             for attempt in 1 2 3 4 5; do
               echo "[prewarm] ${url}: attempt ${attempt}"
               if curl -fL --retry 3 --retry-delay 5 -o "$dest" "$url"; then
-                chmod +x "$dest" || true
                 return 0
               fi
               echo "[prewarm] ${url}: attempt ${attempt} failed, retry in 10s"
@@ -1322,8 +1327,13 @@ jobs:
             return 0
           }
           prewarm "https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64" "$HOME/.cache/tauri/AppRun-x86_64"
-          prewarm "https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy-07333c6/linuxdeploy-x86_64.AppImage" "$HOME/.cache/tauri/linuxdeploy-x86_64.AppImage"
-          prewarm "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage" "$HOME/.cache/tauri/linuxdeploy-plugin-appimage-x86_64.AppImage"
+          chmod +x "$HOME/.cache/tauri/AppRun-x86_64" || true
+          prewarm "https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy-07333c6/linuxdeploy-x86_64.AppImage" "$HOME/.cache/tauri/linuxdeploy-07333c6-x86_64.AppImage"
+          chmod +x "$HOME/.cache/tauri/linuxdeploy-07333c6-x86_64.AppImage" || true
+          prewarm "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage" "$HOME/.cache/tauri/linuxdeploy-plugin-appimage.AppImage"
+          chmod +x "$HOME/.cache/tauri/linuxdeploy-plugin-appimage.AppImage" || true
+          prewarm "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64" "$HOME/.cache/tauri/runtime-x86_64"
+          chmod 0644 "$HOME/.cache/tauri/runtime-x86_64" || true
           ls -la "$HOME/.cache/tauri"
 
       # Ретрай сборки установщиков: cargo-кэш делает повторы дёшевыми
@@ -1332,6 +1342,10 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          if [ -f "$HOME/.cache/tauri/runtime-x86_64" ]; then
+            export LDAI_RUNTIME_FILE="$HOME/.cache/tauri/runtime-x86_64"
+            echo "[ci-desktop-bundle] LDAI_RUNTIME_FILE=$LDAI_RUNTIME_FILE"
+          fi
           ok=0
           for attempt in 1 2 3 4 5 6 7 8; do
             echo "[ci-desktop-bundle] build attempt $attempt"
@@ -1371,7 +1385,20 @@ jobs:
           git commit -m "chore(ci): desktop-bundle logs from run ${GITHUB_RUN_ID} [skip ci]"
           git fetch origin main
           git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
+          # гонка пушей с bench/load-репортерами того же прогона
+          # (run 42569564665: лог упавшей джобы так и не попал в репо) —
+          # push с рефетчем и ретраями.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "[ci-desktop-bundle] log published (attempt $attempt)"
+              exit 0
+            fi
+            echo "[ci-desktop-bundle] push attempt $attempt failed, refetch and rebase"
+            git fetch origin main
+            git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          done
+          echo "push failed (non-fatal)"
+
 
   # Этап 6 ROADMAP_NATIVE (DoD «нагрузочный тест без деградации p95»):
   # k6-профиль против настоящего сервера (Postgres + Redis + seed),
