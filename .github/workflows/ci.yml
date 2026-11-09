@@ -32,10 +32,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Node.js 18
+      - name: Setup Node.js 22
         uses: actions/setup-node@v7
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Install dependencies (with error diagnosis)
         run: |
@@ -135,10 +135,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Node.js 18
+      - name: Setup Node.js 22
         uses: actions/setup-node@v7
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Install dependencies
         run: npm install
@@ -202,10 +202,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Node.js 18
+      - name: Setup Node.js 22
         uses: actions/setup-node@v7
         with:
-          node-version: '18'
+          node-version: '22'
 
       # lock-файла в web/ нет (замороженный состав deps) — npm install;
       # обновления web-мобилки управляются вручную.
@@ -384,10 +384,10 @@ jobs:
         with:
           workspaces: medchat-v2/core
 
-      - name: Setup Node.js 18
+      - name: Setup Node.js 22
         uses: actions/setup-node@v7
         with:
-          node-version: '18'
+          node-version: '22'
 
       # cdylib с napi-bind + serde — это и есть .node-артефакт:
       # napi-rs2-модуль = обычный cdylib (rename-рецепт из документации
@@ -1482,10 +1482,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Node.js 18
+      - name: Setup Node.js 22
         uses: actions/setup-node@v7
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Install dependencies
         run: npm install
