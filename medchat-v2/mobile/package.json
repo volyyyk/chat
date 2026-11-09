@@ -24,7 +24,7 @@
     "expo": "~48.0.0",
     "expo-av": "~13.5.0",
     "expo-barcode-scanner": "~12.3.0",
-    "expo-camera": "~13.4.0",
+    "expo-camera": "~58.0.14",
     "expo-crypto": "^12.4.0",
     "expo-device": "~5.4.0",
     "expo-document-picker": "~11.2.0",
