@@ -1,32 +1,42 @@
 # Dependabot — §4 ROADMAP_NATIVE («Зависимости: cargo audit / cargo deny,
 # Dependabot»): регулярные обновления зависимостей, секретов не требует.
 # Гейт безопасности зависимостей — джоба CI core-audit (cargo-audit
-# против advisory-базы RUSTSEC); Dependabot открывает PR, CI проверяет
-# обновление до слияния. Каталоги: cargo — ядро (medchat-v2/core), npm —
-# сервер (medchat-v2/server) и RN-мобилка (medchat-v2/mobile),
-# github-actions — версии actions в .github/workflows.
+# против advisory-базы RUSTSEC). ГРУППЫ: один PR на экосистему (все
+# обновления сразу) — иначе каждая мелкая правка тянет полный 14-джобовый
+# CI-прогон (урок первого запуска: 20 одиночных PR = переполненная очередь
+# раннеров, прогон main стоял около часа; ci.yml — concurrency-группа).
+# RN-мобилка (medchat-v2/mobile) НЕ в конфиге: reference-клиент заморожен
+# (§5 ROADMAP_NATIVE), CI её не покрывает — обновления вручную при
+# возвращении к её разработке. PR Dependabot проходят тот же CI до
+# слияния.
 version: 2
 updates:
   - package-ecosystem: cargo
     directory: /medchat-v2/core
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
+    groups:
+      cargo-all:
+        patterns:
+          - "*"
 
   - package-ecosystem: npm
     directory: /medchat-v2/server
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: npm
-    directory: /medchat-v2/mobile
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
+    groups:
+      npm-server-all:
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
+    groups:
+      actions-all:
+        patterns:
+          - "*"

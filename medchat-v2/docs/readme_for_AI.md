@@ -1130,8 +1130,12 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
   Cargo.lock в джобе генерируется свежим (лок не в репо, библиотечный
   крейт); уязвимости роняют джобу, unmaintained-предупреждения — нет
   (печатаются в лог); лог падений — ci-logs/ci-audit.log. Dependabot
-  (.github/dependabot.yml: cargo ядро, npm server/mobile, github-actions)
-  открывает PR — тот же CI проверяет обновление до слияния.
+  (.github/dependabot.yml: cargo ядро, npm server, github-actions; группы —
+  один PR на экосистему, RN-мобилка заморожена — обновления вручную)
+  открывает PR — тот же CI проверяет обновление до слияния. Concurrency-
+  группа workflow отменяет устаревшие прогоны того же ref (урок первого
+  запуска: 20 одиночных dependabot-PR переполнили очередь раннеров, прогон
+  main стоял около часа; PR закрыты, Dependabot пересоздаёт их группами).
 - env: NODE_ENV=test, JWT_SECRET=ci-e2e-secret, MESSAGE_PRICE_RUB=50,
   FREE_MESSAGE_DAYS=30, DOCTOR_SHARE_PERCENT=80.
 - CI зелёный: 3ef9ff0/#30, 65ec99c/#31, E2E-серия d11762c → 596c4a3 (runs #38–#43),

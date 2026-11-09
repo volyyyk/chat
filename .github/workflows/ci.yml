@@ -13,6 +13,14 @@ on:
 permissions:
   contents: write
 
+# concurrency: свежий прогон того же ref отменяет устаревший (урок
+# первого запуска Dependabot: 20 одиночных PR x 14 джоб переполнили
+# очередь раннеров, прогон main стоял в очереди около часа —
+# см. .github/dependabot.yml, группы там же).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   server-tests:
     name: Server tests (unit + integration)
@@ -447,9 +455,10 @@ jobs:
   # совместимые версии, которые реально резолвит сборка. Уязвимости
   # (error) роняют джобу; unmaintained/warnings печатаются в лог, но не
   # фейлят (уровень warnings, без --deny warnings). Dependabot
-  # (.github/dependabot.yml: cargo core / npm server+mobile /
-  # github-actions) держит версии свежими между прогонами: PR проходят
-  # тот же CI до слияния.
+  # (.github/dependabot.yml: cargo core / npm server / github-actions,
+  # группы — один PR на экосистему; замороженная RN-мобилка обновляется
+  # вручную) держит версии свежими между прогонами: PR проходят тот же
+  # CI до слияния; concurrency-группа отменяет устаревшие прогоны.
   core-audit:
     name: Rust dependency audit (cargo-audit, §4 ROADMAP)
     runs-on: ubuntu-latest

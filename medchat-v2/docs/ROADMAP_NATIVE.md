@@ -423,8 +423,10 @@ Apple, Play Console и подписи Android, Authenticode/GPG-подписи �
 джоба CI core-audit (cargo-audit против advisory-базы RUSTSEC; Cargo.lock
 в джобе генерируется свежим — лок не в репо, библиотечный крейт; уязвимости
 роняют джобу, unmaintained-предупреждения печатаются без фейла) +
-.github/dependabot.yml (cargo: ядро; npm: server и mobile; github-actions:
-версии actions в CI). TLS-пиннинг и сборочные подписи — позиции, привязанные
+.github/dependabot.yml (cargo: ядро; npm: server; github-actions: версии
+actions в CI; группы — один PR на экосистему: одиночный PR тянет полный
+14-джобовый CI-прогон, первый запуск дал 20 PR и переполнил очередь раннеров;
+замороженная RN-мобилка обновляется вручную — reference-клиент). TLS-пиннинг и сборочные подписи — позиции, привязанные
 к прод-TLS и сертификатам оператора (пины появляются вместе с прод-сертификатом,
 подписи — в GitHub Secrets оператора).
 
