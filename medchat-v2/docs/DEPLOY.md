@@ -8,7 +8,7 @@
 - nginx/medchat.conf — SPA-статика, /api/ и /socket.io/ (websocket upgrade), /health, закомментированный TLS-блок
 - .env.prod.example — все переменные окружения плейсхолдерами (копировать в .env.prod)
 - backup.sh — pg_dump | gzip с ротацией копий (14 дней)
-- ../server/Dockerfile — образ сервера (node:18-alpine, HEALTHCHECK /health)
+- ../server/Dockerfile — образ сервера (node:22-alpine, HEALTHCHECK /health)
 
 ## Требования
 
