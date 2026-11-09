@@ -1,4 +1,4 @@
-=== run 42566700995 job android-smoke Mon Nov  9 05:20:22 UTC 2026 ===
+=== run 42568107454 job android-smoke Mon Nov  9 05:35:08 UTC 2026 ===
 cargo 1.99.1 (5f94df478 2026-08-27)
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Ignored[0m package `uniffi-bindgen-cli v0.1.0 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)` is already installed, use --force to override
@@ -22,13 +22,13 @@ cargo 1.99.1 (5f94df478 2026-08-27)
 [1m[92m   Compiling[0m serde_json v1.0.154
 [1m[92m   Compiling[0m cargo_metadata v0.15.4
 [1m[92m   Compiling[0m uniffi v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
-[1m[92m    Finished[0m `release` profile [optimized] target(s) in 9.14s
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 9.43s
 [ci-android] generate kotlin bindings: start
 Warning: Unable to auto-format medchat_core.kt using ktlint: Os { code: 2, kind: NotFound, message: "No such file or directory" }
 [ci-android] generated files:
 total 12
-drwxr-xr-x 3 runner runner 4096 Nov  9 05:20 .
-drwxr-xr-x 3 runner runner 4096 Nov  9 05:20 ..
-drwxr-xr-x 3 runner runner 4096 Nov  9 05:20 uniffi
+drwxr-xr-x 3 runner runner 4096 Nov  9 05:35 .
+drwxr-xr-x 3 runner runner 4096 Nov  9 05:35 ..
+drwxr-xr-x 3 runner runner 4096 Nov  9 05:35 uniffi
 [ci-android] downloading kotlinc 2.0.21
 curl: (22) The requested URL returned error: 504
