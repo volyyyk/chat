@@ -47,10 +47,10 @@ serde = ["dep:serde", "dep:bincode"]
 crypto_box = "0.9"
 # Double Ratchet (src/ratchet.rs): raw X25519 (DH-выход для KDF_RK),
 # HMAC-SHA256 (цепочки KDF_RK/KDF_CK), AES-256-GCM (AEAD на message keys).
-x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
-hmac = "0.12"
-sha2 = "0.10"
-aes-gcm = "0.10"
+x25519-dalek = { version = "3.0.0", features = ["static_secrets"] }
+hmac = "0.13"
+sha2 = "0.11"
+aes-gcm = "0.11"
 # flate2 (src/hotpath.rs, этап 6): gzip-сжатие бэкапов — второй серверный
 # горячий путь (карта §1: «сжатие бэкапов»). Формат стандартный gzip
 # (RFC 1952), читается node:zlib и любым gunzip (parity — napi-smoke.js).
@@ -60,13 +60,13 @@ flate2 = "1"
 # ($2a$/$2b$/$2y$, любой cost) — паритет с сервером (нативный bcrypt-пакет,
 # cost 12 в authService). Pure Rust (крейт blowfish), НЕ гейтится за
 # feature napi-bind: включён и в --no-default-features-сборках.
-bcrypt = "0.15"
+bcrypt = "0.19"
 # napi-rs (src/node.rs, feature napi-bind): Node.js-биндинги (этап 2).
 # compat-mode — совместимость со старыми Node/Electron; default-features =
 # false — минимальный рантайм (без tokio: наши обёртки синхронные).
 # optional: тесты ядра собираются без биндингов (см. [features] выше).
-napi = { version = "2", default-features = false, features = ["compat-mode"], optional = true }
-napi-derive = { version = "2", optional = true }
+napi = { version = "3", default-features = false, features = ["compat-mode"], optional = true }
+napi-derive = { version = "3", optional = true }
 # UniFFI (src/uniffi_iface.rs, feature uniffi-bind): биндинги Swift/Kotlin
 # (этап 2 ROADMAP_NATIVE). Источник — git-тег v0.28.3 репозитория
 # mozilla/uniffi-rs: семейство uniffi-крейтов ОТСУТСТВУЕТ в sparse-индексе
@@ -78,7 +78,7 @@ napi-derive = { version = "2", optional = true }
 # (uniffi-macro, uniffi-meta) идут path-депами того же workspace —
 # обращений к отсутствующим индекс-записям не остаётся. Cargo.lock в
 # gitignore (библиотечный крейт) — правок лок-файла не требуется.
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", tag = "v0.28.3", optional = true }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", tag = "v0.32.2", optional = true }
 # serde (feature serde, src/ratchet.rs): сериализация RatchetState для
 # персистентности Double Ratchet (этап 7). Честно: JSON не подходит —
 # ключи skip-store HashMap(([u8;32], u32)) нестроковые; формат персистентности
@@ -89,7 +89,7 @@ serde = { version = "1", features = ["derive"], optional = true }
 # Дублирует dev-зависимость: сериализация нужна теперь и ЛИБ-коду —
 # методам save/restore биндингов (node.rs / uniffi_iface.rs), а не только
 # тестам ratchet.rs (где bincode идёт как dev-зависимость).
-bincode = { version = "1", optional = true }
+bincode = { version = "3", optional = true }
 
 [build-dependencies]
 napi-build = "2"
@@ -99,10 +99,10 @@ napi-build = "2"
 # не участвует в сборке .node (napi build) и не запускается обычными
 # прогонами ядра (cargo check --tests / cargo test --no-default-features).
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 # bincode — сериализационные тесты RatchetState (feature serde): бинарный
 # формат с произвольными ключами HashMap (JSON нестроковые ключи не умеет).
-bincode = "1"
+bincode = "3"
 
 # Бенчмарки запускает только cargo bench --no-default-features (джоба CI
 # core-bench). harness = false: точка входа — criterion, а не libtest.
