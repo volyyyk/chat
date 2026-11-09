@@ -66,7 +66,7 @@ fn aes256gcm_matches_known_answer_vectors() {
 
         let cipher = Aes256Gcm::new_from_slice(&key).expect("key");
         // aead 0.6: nonce типизирован (Nonce<Aes256Gcm>), передаётся по ссылке.
-        let n12: Nonce<Aes256Gcm> = Nonce::try_from(nonce.as_slice()).expect("nonce");
+        let n12: Nonce<Aes256Gcm> = Nonce::<Aes256Gcm>::try_from(nonce.as_slice()).expect("nonce");
         let sealed = cipher
             .encrypt(
                 &n12,
