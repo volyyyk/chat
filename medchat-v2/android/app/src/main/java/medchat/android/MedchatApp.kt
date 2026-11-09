@@ -119,6 +119,8 @@ fun MedchatApp() {
         var openChat by remember { mutableStateOf<ChatSummary?>(null) }
         var ratchetOn by remember { mutableStateOf(true) }
         var ratchetNote by remember { mutableStateOf<String?>(null) }
+        var olderRemaining by remember { mutableStateOf(0) }
+        var loadingOlder by remember { mutableStateOf(false) }
         val messages = remember { mutableStateListOf<UiMessage>() }
         val ratchet = remember { RatchetService() }
 
@@ -144,14 +146,15 @@ fun MedchatApp() {
             }.start()
         }
 
-        fun loadMessages(chat: ChatSummary) {
+        fun loadMessages(chat: ChatSummary, before: String? = null) {
             val service = api ?: return
             val uid = userId ?: return
             busy = true
-            status = null
+            if (before == null) status = null
+            if (before != null) loadingOlder = true
             Thread {
                 try {
-                    val rows = service.messages(chat.chatId)
+                    val page = service.messagesPage(chat.chatId, before = before)
                     val keys = try {
                         service.chatKeys(chat.chatId)
                     } catch (e: Exception) {
@@ -181,12 +184,21 @@ fun MedchatApp() {
                     }
                     messages.clear()
                     messages.addAll(parsed)
-                } catch (e: Exception) {
-                    status = e.message ?: "ошибка сети"
+                    olderRemaining = Math.max(0, page.total - page.rows.size)
+                    if (before == null) {
+                        messages.clear()
+                        messages.addAll(parsed)
+                    } else if (parsed.isNotEmpty()) {
+                        messages.addAll(0, parsed)
+                    } else {
+                        olderRemaining = 0
+                    }
                 }
                 busy = false
-            }.start()
+                busy = false
+                loadingOlder = false
         }
+
 
         // Исходящий ratchet-payload: wire шифруется сессией с собеседником
         // и заворачивается в JSON {"t":"r1","k":keyId,"w":wire} — тот же
@@ -373,6 +385,14 @@ fun MedchatApp() {
                         status,
                         ratchetOn,
                         ratchetNote,
+                        olderRemaining > 0,
+                        loadingOlder,
+                        onLoadOlder = {
+                            val oldest = messages.firstOrNull()?.time
+                            if (oldest != null && !loadingOlder) {
+                                loadMessages(chat, before = oldest)
+                            }
+                        },
                         onToggleRatchet = { value ->
                             ratchetOn = value
                             SecureStore.set(if (value) "1" else "0", ratchetFlagKey(chat.chatId))
@@ -469,6 +489,9 @@ private fun ChatScreen(
     status: String?,
     ratchetEnabled: Boolean,
     ratchetNote: String?,
+    canLoadOlder: Boolean,
+    loadingOlder: Boolean,
+    onLoadOlder: () -> Unit,
     onToggleRatchet: (Boolean) -> Unit,
     onSend: (String) -> Unit,
     onBack: () -> Unit) {
@@ -489,6 +512,14 @@ private fun ChatScreen(
         }
         ratchetNote?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        if (canLoadOlder) {
+            OutlinedButton(
+                onClick = onLoadOlder,
+                enabled = !busy && !loadingOlder,
+                modifier = Modifier.fillMaxWidth()) {
+                Text(if (loadingOlder) "Загрузка..." else "Загрузить более старые сообщения")
+            }
         }
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),

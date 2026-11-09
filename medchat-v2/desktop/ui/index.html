@@ -126,6 +126,9 @@
   #chat-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   .chat-header { padding: 12px 16px; font-weight: 700; border-bottom: 1px solid var(--line); background: var(--panel); }
   #msg-list { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  #older-bar { display: flex; gap: 8px; align-items: center; padding: 6px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  #older-bar .spacer { flex: 1; }
+  #older-bar .info { font-size: 12px; color: var(--muted); }
   .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 30px 10px; }
   .msg { max-width: 70%; padding: 8px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
   .msg.mine { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border: 0; }
@@ -187,6 +190,12 @@
     </aside>
     <section id="chat-panel">
       <div id="chat-title" class="chat-header">Выберите чат</div>
+      <div id="older-bar" style="display: none;">
+        <button id="btn-older" class="ghost" type="button">Показать более старые</button>
+        <span id="older-info" class="info"></span>
+        <span class="spacer"></span>
+        <button id="btn-latest" class="ghost" type="button">К последним сообщениям</button>
+      </div>
       <div id="msg-list"><div class="empty">Выберите чат слева, чтобы открыть переписку.</div></div>
       <form id="msg-form">
         <button id="ratchet-toggle" class="ghost" type="button" title="Double Ratchet поверх E2E-конверта">Ratchet: выкл</button>
@@ -211,8 +220,14 @@ var state = {
   e2e: null,
   e2eEnabled: false,
   chatKeys: [],
-  chatE2e: false
+  chatE2e: false,
+  // Длинные чаты: полная история в state.msgs, окно рендера RENDER_CAP.
+  msgs: [],
+  msgViewStart: 0,
+  msgRemaining: 0,
+  loadingOlder: false
 };
+var RENDER_CAP = 300;
 
 function $(id) { return document.getElementById(id); }
 
@@ -545,11 +560,16 @@ async function selectChat(id) {
   try {
     var r = await api("/api/chats/" + id + "/messages?limit=50");
     var messages = (r && r.data) || [];
+    state.msgs = messages;
+    var total = (r && r.pagination && r.pagination.total) || messages.length;
+    state.msgRemaining = Math.max(0, total - messages.length);
+    state.msgViewStart = Math.max(0, messages.length - RENDER_CAP);
     await loadChatKeys(id);
-    await renderMessages(messages);
+    await renderWindow(true);
     var chat = state.chats.filter(function (c) { return c.id === id; })[0];
     $("chat-title").textContent = ((chat && (chat.title || chat.chatId)) || "Чат") + (state.chatE2e ? " · 🔒 E2E" : "") + (state.chatE2e && ratchetEnabled(id) ? " · Ratchet" : "");
     renderRatchetToggle();
+    updateOlderBar();
     if (state.chatE2e) {
       setStatus("send-status", "🔒 E2E: сообщения этого чата шифруются на устройстве", false);
     } else if (state.e2eEnabled) {
@@ -574,7 +594,7 @@ async function renderMessages(list) {
     box.appendChild(empty);
     return;
   }
-  var texts = await Promise.all(list.map(messageText));
+  var texts = await decryptWindow(list);
   list.forEach(function (m, i) {
     var mine = state.user && m.senderId === state.user.id;
     var row = document.createElement("div");
@@ -591,29 +611,119 @@ async function renderMessages(list) {
     row.appendChild(meta);
     box.appendChild(row);
   });
-  box.scrollTop = box.scrollHeight;
 }
 
-// Текст сообщения: E2E-конверты (metadata.e2e) расшифровываются на устройстве
-// через ядро Rust (e2e_open) — приватным ключом из системного secure storage.
-// Plaintext-сообщения показываются как есть; чат никогда не ломается.
-async function messageText(m) {
-  var env = m.metadata && m.metadata.e2e;
-  if (!env) return { text: m.content || "", e2e: false };
+// Окно истории (длинные чаты): decryptWindow расшифровывает ВИДИМЫЕ конверты
+// батчем через ядро (e2e_open_batch — один IPC-вызов на окно вместо вызова
+// на каждое сообщение), plaintext — как есть; сбой элемента — честная плашка,
+// чат никогда не ломается. renderWindow рисует срез state.msgs (окно
+// RENDER_CAP) и якорит прокрутку при подгрузке старших.
+async function decryptWindow(list) {
   var tauri = window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke;
-  if (!state.e2eEnabled || !tauri) {
-    return { text: "🔒 Зашифровано (E2E). Расшифровка доступна в приложении с ключом устройства.", e2e: true };
+  var out = [];
+  var envIdx = [];
+  list.forEach(function (m, i) {
+    if (m.metadata && m.metadata.e2e) { envIdx.push(i); out.push(null); }
+    else { out.push({ text: m.content || "", e2e: false }); }
+  });
+  if (!envIdx.length) return out;
+  if (!state.e2eEnabled || !tauri || !state.user) {
+    envIdx.forEach(function (i) {
+      out[i] = { text: "🔒 Зашифровано (E2E). Расшифровка доступна в приложении с ключом устройства.", e2e: true };
+    });
+    return out;
   }
-  var myBox = env.boxes && env.boxes[String(state.user.id)];
-  if (!myBox) {
-    return { text: "🔒 Зашифровано не для этого устройства (нет бокса для нашего ключа).", e2e: true };
-  }
+  var envelopes = envIdx.map(function (i) {
+    var env = list[i].metadata.e2e;
+    var myBox = env.boxes && env.boxes[String(state.user.id)];
+    return { epk: env.epk, nonce: env.nonce, boxes: myBox ? [myBox] : [] };
+  });
+  var batch = null;
   try {
-    var plain = await tauri("e2e_open", { userId: state.user.id, epk: env.epk, nonce: env.nonce, boxes: [myBox] });
-    return await ratchetUnwrap(plain);
+    batch = await tauri("e2e_open_batch", { userId: state.user.id, envelopes: envelopes });
   } catch (e) {
-    return { text: "🔒 Не расшифровано: " + (e && e.message ? e.message : String(e)), e2e: true };
+    batch = null;
   }
+  for (var k = 0; k < envIdx.length; k++) {
+    var i = envIdx[k];
+    var env = list[i].metadata.e2e;
+    var myBox = env.boxes && env.boxes[String(state.user.id)];
+    if (batch && batch.ok && batch.ok[k] === true) {
+      out[i] = await ratchetUnwrap(batch.texts[k]);
+    } else if (!myBox) {
+      out[i] = { text: "🔒 Зашифровано не для этого устройства (нет бокса для нашего ключа).", e2e: true };
+    } else if (batch) {
+      out[i] = { text: "🔒 Не расшифровано (нет ключа этого устройства).", e2e: true };
+    } else {
+      out[i] = { text: "🔒 Не расшифровано: батч-расшифровка недоступна.", e2e: true };
+    }
+  }
+  return out;
+}
+
+async function renderWindow(jumpBottom) {
+  var box = $("msg-list");
+  var anchor = { top: box.scrollTop, height: box.scrollHeight };
+  var slice = state.msgs.slice(state.msgViewStart, state.msgViewStart + RENDER_CAP);
+  await renderMessages(slice);
+  if (jumpBottom) {
+    box.scrollTop = box.scrollHeight;
+  } else {
+    // Контент вырос сверху — компенсируем разницей высот (якорь).
+    box.scrollTop = anchor.top + (box.scrollHeight - anchor.height);
+  }
+  updateOlderBar();
+}
+
+// «Показать более старые»: сперва сдвиг окна по уже загруженным (без сети),
+// затем страница с сервера (курсор — createdAt самого старого загруженного).
+async function showOlder() {
+  if (state.loadingOlder) return;
+  if (state.msgViewStart > 0) {
+    state.msgViewStart = Math.max(0, state.msgViewStart - RENDER_CAP);
+    await renderWindow(false);
+    return;
+  }
+  if (state.msgRemaining <= 0) return;
+  var oldest = state.msgs.length ? state.msgs[0].createdAt : null;
+  if (!oldest) return;
+  state.loadingOlder = true;
+  updateOlderBar();
+  try {
+    var r = await api("/api/chats/" + state.chatId + "/messages?limit=50&before=" + encodeURIComponent(oldest));
+    var older = (r && r.data) || [];
+    state.msgs = older.concat(state.msgs);
+    state.msgViewStart = Math.max(0, state.msgViewStart + older.length - RENDER_CAP);
+    state.msgRemaining = Math.max(0, ((r && r.pagination && r.pagination.total) || 0) - older.length);
+    await renderWindow(false);
+  } catch (e) {
+    setStatus("send-status", "Не удалось загрузить старые сообщения: " + e.message, true);
+  } finally {
+    state.loadingOlder = false;
+    updateOlderBar();
+  }
+}
+
+function toLatest() {
+  state.msgViewStart = Math.max(0, state.msgs.length - RENDER_CAP);
+  renderWindow(true);
+}
+
+// Панель над историей: подгрузка старших + возврат к последним.
+function updateOlderBar() {
+  var bar = $("older-bar");
+  var older = $("btn-older");
+  var info = $("older-info");
+  var latest = $("btn-latest");
+  if (!bar || !older || !info || !latest) return;
+  var hiddenOlder = state.msgViewStart;
+  var hiddenNewer = Math.max(0, state.msgs.length - (state.msgViewStart + RENDER_CAP));
+  older.style.display = (hiddenOlder > 0 || state.msgRemaining > 0) ? "" : "none";
+  older.textContent = state.loadingOlder ? "Загрузка..." : "Показать более старые" + (state.msgRemaining > 0 ? " (на сервере ещё " + state.msgRemaining + ")" : "");
+  info.textContent = hiddenOlder > 0 ? "в буфере ещё " + hiddenOlder : "";
+  latest.style.display = hiddenNewer > 0 ? "" : "none";
+  latest.textContent = "К последним сообщениям" + (hiddenNewer > 0 ? " (" + hiddenNewer + ")" : "");
+  bar.style.display = (hiddenOlder > 0 || state.msgRemaining > 0 || hiddenNewer > 0) ? "" : "none";
 }
 
 async function sendMessage() {
@@ -700,6 +810,8 @@ async function init() {
   $("btn-refresh").addEventListener("click", refreshAll);
   $("msg-form").addEventListener("submit", function (e) { e.preventDefault(); sendMessage(); });
   $("ratchet-toggle").addEventListener("click", toggleRatchet);
+  $("btn-older").addEventListener("click", function () { showOlder(); });
+  $("btn-latest").addEventListener("click", toLatest);
   $("probe-core").addEventListener("click", probe("core_probe", "Конверт x25519-box"));
   $("probe-ratchet").addEventListener("click", probe("ratchet_probe", "Double Ratchet"));
   $("probe-storage").addEventListener("click", probe("ratchet_storage_probe", "Secure storage"));

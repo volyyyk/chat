@@ -384,6 +384,103 @@ fn e2e_open(
     }
 }
 
+/// Элемент батч-расшифровки окна истории (длинные чаты): e2e_open_batch
+/// расшифровывает страницу конвертов одним IPC-вызовом — UI больше не
+/// дёргает ядро на каждое сообщение. Чужой ключ/битый конверт — ok=false
+/// и честная плашка в text; батч не падает целиком.
+#[derive(serde::Deserialize)]
+struct E2eOpenItem {
+    epk: String,
+    nonce: String,
+    boxes: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+struct E2eOpenResult {
+    ok: bool,
+    text: String,
+}
+
+#[tauri::command]
+fn e2e_open_batch(user_id: String, envelopes: Vec<E2eOpenItem>) -> Vec<E2eOpenResult> {
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    {
+        // Ключ устройства грузится из secure storage один раз на страницу;
+        // конверты расшифровываются ядром батчем (open_sealed_batch).
+        let account = format!("e2e.{user_id}");
+        let setup: Result<[u8; 32], String> = (|| {
+            let blob = e2e_store::load(&account)?;
+            let record = serde_json::from_slice::<E2eKeyRecord>(&blob)
+                .map_err(|e| format!("key record parse: {e}"))?;
+            let secret_raw = b64_decode(&record.secret_key)?;
+            let secret: [u8; 32] = secret_raw
+                .try_into()
+                .map_err(|_| "secret key must be 32 bytes".to_string())?;
+            Ok(secret)
+        })();
+        let secret = match setup {
+            Ok(s) => s,
+            Err(e) => {
+                return envelopes
+                    .iter()
+                    .map(|_| E2eOpenResult {
+                        ok: false,
+                        text: format!("🔒 Не расшифровано: {e}"),
+                    })
+                    .collect();
+            }
+        };
+        let sealeds: Result<Vec<SealedMessage>, String> = envelopes
+            .iter()
+            .map(|e| {
+                Ok(SealedMessage {
+                    epk: b64_decode(&e.epk)?
+                        .try_into()
+                        .map_err(|_| "epk must be a 32-byte X25519 key".to_string())?,
+                    nonce: b64_decode(&e.nonce)?
+                        .try_into()
+                        .map_err(|_| "nonce must be 24 bytes".to_string())?,
+                    boxes: e
+                        .boxes
+                        .iter()
+                        .map(|b| b64_decode(b))
+                        .collect::<Result<Vec<_>, _>>()?,
+                })
+            })
+            .collect();
+        match sealeds {
+            Ok(list) => medchat_core::open_sealed_batch(&list, &[0u8; 32], &secret)
+                .into_iter()
+                .map(|r| match r {
+                    Ok(pt) => match String::from_utf8(pt) {
+                        Ok(text) => E2eOpenResult { ok: true, text },
+                        Err(_) => E2eOpenResult {
+                            ok: false,
+                            text: "🔒 Plaintext не является UTF-8".to_string(),
+                        },
+                    },
+                    Err(e) => E2eOpenResult {
+                        ok: false,
+                        text: format!("🔒 Не расшифровано: {e}"),
+                    },
+                })
+                .collect(),
+            Err(e) => envelopes
+                .iter()
+                .map(|_| E2eOpenResult {
+                    ok: false,
+                    text: format!("🔒 Не расшифровано: {e}"),
+                })
+                .collect(),
+        }
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        let _ = (user_id, envelopes);
+        Vec::new()
+    }
+}
+
 // ----- Double Ratchet поверх конверта (этап 7, склейка с UI) -----
 
 /// Пара identity-ключей устройства из secure storage (сервис medchat.e2e):
@@ -535,6 +632,7 @@ fn main() {
             e2e_get_or_create_key,
             e2e_seal,
             e2e_open,
+            e2e_open_batch,
             ratchet_encrypt,
             ratchet_decrypt
         ])

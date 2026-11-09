@@ -164,6 +164,61 @@ pub fn x25519_dh(my_secret: Buffer, their_public: Buffer) -> Result<Buffer> {
     Ok(Buffer::from(core_dh(&sk, &pk).to_vec()))
 }
 
+/// Батч-расшифровка окна конвертов (длинные чаты): один FFI-вызов на
+/// страницу вместо N вызовов openSealed. Элемент с чужим ключом —
+/// ok=false и пустой text, батч не падает целиком.
+#[napi(object)]
+pub struct JsBatchOpen {
+    pub ok: Vec<bool>,
+    pub texts: Vec<Buffer>,
+}
+
+#[napi]
+pub fn open_sealed_batch(
+    envelopes: Vec<JsSealedMessage>,
+    my_public: Buffer,
+    my_secret: Buffer,
+) -> Result<JsBatchOpen> {
+    let my_public_arr = fixed32(&my_public, "myPublic")?;
+    let my_secret_arr = fixed32(&my_secret, "mySecret")?;
+    let mut ok = Vec::with_capacity(envelopes.len());
+    let mut texts = Vec::with_capacity(envelopes.len());
+    for e in &envelopes {
+        let epk_arr = match fixed32(&e.epk, "epk") {
+            Ok(v) => v,
+            Err(_) => {
+                ok.push(false);
+                texts.push(Buffer::from(Vec::new()));
+                continue;
+            }
+        };
+        let mut nonce_arr = [0u8; NONCE_SIZE];
+        if e.nonce.len() == NONCE_SIZE {
+            nonce_arr.copy_from_slice(bytes(&e.nonce));
+        } else {
+            ok.push(false);
+            texts.push(Buffer::from(Vec::new()));
+            continue;
+        }
+        let sealed = SealedMessage {
+            epk: epk_arr,
+            nonce: nonce_arr,
+            boxes: e.boxes.iter().map(|b| bytes(b).to_vec()).collect(),
+        };
+        match core_open(&sealed, &my_public_arr, &my_secret_arr) {
+            Ok(pt) => {
+                ok.push(true);
+                texts.push(Buffer::from(pt));
+            }
+            Err(_) => {
+                ok.push(false);
+                texts.push(Buffer::from(Vec::new()));
+            }
+        }
+    }
+    Ok(JsBatchOpen { ok, texts })
+}
+
 // ----- Серверные горячие пути (этап 6): checksum для Node ----------
 
 /// SHA-256 от буфера → hex (64, lowercase). KAT FIPS 180-4, байт-в-байт
@@ -592,6 +647,31 @@ mod tests {
         // replay m1 после restore — ключ израсходован, OutOfOrder
         let (h, n, c) = parts(&m1);
         assert!(bob2.decrypt(h, n, c).is_err());
+    }
+
+    #[test]
+    fn napi_batch_open_page() {
+        let alice = generate_keypair();
+        let bob = generate_keypair();
+        let s1 = seal_for_recipients(
+            Buffer::from(b"page item".to_vec()),
+            vec![alice.public_key.clone(), bob.public_key.clone()],
+        )
+        .unwrap();
+        let s2 =
+            seal_for_recipients(Buffer::from(b"only alice".to_vec()), vec![alice.public_key]).unwrap();
+        let env = |s: &JsSealedMessage| JsSealedMessage {
+            epk: Buffer::from(bytes(&s.epk).to_vec()),
+            nonce: Buffer::from(bytes(&s.nonce).to_vec()),
+            boxes: s.boxes.iter().map(|b| Buffer::from(bytes(b).to_vec())).collect(),
+        };
+        let out = open_sealed_batch(vec![env(&s1), env(&s2)], alice.public_key, alice.secret_key)
+            .unwrap();
+        assert_eq!(out.ok, vec![true, true]);
+        assert_eq!(bytes(&out.texts[0]), b"page item");
+        let stranger = open_sealed_batch(vec![env(&s1)], bob.public_key, bob.secret_key).unwrap();
+        assert_eq!(stranger.ok, vec![false]);
+        assert!(bytes(&stranger.texts[0]).is_empty());
     }
 
     /// KAT RFC 7748 §6.1 (DH-вектор Curve25519) через обёртку x25519Dh.

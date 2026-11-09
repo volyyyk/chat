@@ -29,6 +29,8 @@ struct ChatView: View {
     @State private var input = ""
     @State private var status = ""
     @State private var sending = false
+    @State private var olderRemaining = 0
+    @State private var loadingOlder = false
     
     // Тумблер Double Ratchet per-chat: НЕ секрет, поэтому UserDefaults
     // (секреты — только Keychain, INTEGRATION_BINDINGS §1).
@@ -50,6 +52,15 @@ struct ChatView: View {
             }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
+                    if olderRemaining > 0 {
+                        Button {
+                            Task { await loadOlder() }
+                        } label: {
+                            Text(loadingOlder ? "Загрузка..." : "Показать более старые (ещё \(olderRemaining))")
+                                .font(.footnote)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
                     if messages.isEmpty {
                         Text("Сообщений пока нет")
                             .font(.footnote)
@@ -140,40 +151,73 @@ struct ChatView: View {
         status = ""
         guard let service = app.api else { return }
         do {
-            let list = try await service.messages(chatId: chat.id)
+            let page = try await service.messagesPage(chatId: chat.id)
             chatKeys = (try? await service.chatKeys(chatId: chat.id)) ?? []
             let covered = Set(chatKeys.map { $0.userId })
             let ids = participants()
             chatE2E = app.e2eEnabled && app.crypto != nil && !ids.isEmpty && ids.allSatisfy { covered.contains($0) }
             ratchetEnabled = (UserDefaults.standard.object(forKey: ratchetStorageKey) as? Bool) ?? true
-            messages = list
-            var decoded: [String: String] = [:]
-            var encryptedIds: Set<String> = []
-            var ratchetIds: Set<String> = []
-            for message in list {
-                if let rawEnvelope = message.e2eEnvelope {
-                    encryptedIds.insert(message.id)
-                    if let envelope = CryptoService.envelopeFrom(rawEnvelope),
-                       let cryptoService = app.crypto,
-                       let plaintext = cryptoService.openEnvelope(envelope) {
-                        if let unwrapped = ratchetUnwrap(plaintext) {
-                            decoded[message.id] = unwrapped.text
-                            if unwrapped.isRatchet {
-                                ratchetIds.insert(message.id)
-                            }
-                        } else {
-                            decoded[message.id] = plaintext
+            messages = page.rows
+            olderRemaining = max(0, page.total - page.rows.count)
+            let decoded = decode(page.rows)
+            texts = decoded.texts
+            e2eMessageIds = decoded.e2eIds
+            ratchetMessageIds = decoded.ratchetIds
+        } catch {
+            status = "Ошибка загрузки: " + apiErrorMessage(error)
+        }
+    }
+    
+    // Расшифровка страницы (используется и reload, и loadOlder): тексты и
+    // множества id E2E/ratchet-сообщений; ошибка элемента — честная плашка.
+    private func decode(_ list: [ApiService.ChatMessage]) -> (texts: [String: String], e2eIds: Set<String>, ratchetIds: Set<String>) {
+        var decoded: [String: String] = [:]
+        var encryptedIds: Set<String> = []
+        var ratchetIds: Set<String> = []
+        for message in list {
+            if let rawEnvelope = message.e2eEnvelope {
+                encryptedIds.insert(message.id)
+                if let envelope = CryptoService.envelopeFrom(rawEnvelope),
+                   let cryptoService = app.crypto,
+                   let plaintext = cryptoService.openEnvelope(envelope) {
+                    if let unwrapped = ratchetUnwrap(plaintext) {
+                        decoded[message.id] = unwrapped.text
+                        if unwrapped.isRatchet {
+                            ratchetIds.insert(message.id)
                         }
                     } else {
-                        decoded[message.id] = "🔒 Зашифровано (E2E): нет бокса для ключа этого устройства"
+                        decoded[message.id] = plaintext
                     }
                 } else {
-                    decoded[message.id] = message.content
+                    decoded[message.id] = "🔒 Зашифровано (E2E): нет бокса для ключа этого устройства"
                 }
+            } else {
+                decoded[message.id] = message.content
             }
-            texts = decoded
-            e2eMessageIds = encryptedIds
-            ratchetMessageIds = ratchetIds
+        }
+        return (decoded, encryptedIds, ratchetIds)
+    }
+    
+    // Длинные чаты: старшая страница по курсору createdAt самого старого
+    // загруженного (LazyVStack виртуализует ячейки сам; препенд в массив).
+    private func loadOlder() async {
+        guard !loadingOlder else { return }
+        guard let service = app.api else { return }
+        guard let oldest = messages.first else { return }
+        loadingOlder = true
+        defer { loadingOlder = false }
+        do {
+            let page = try await service.messagesPage(chatId: chat.id, before: oldest.createdAt)
+            if page.rows.isEmpty {
+                olderRemaining = 0
+                return
+            }
+            let decoded = decode(page.rows)
+            for (id, text) in decoded.texts { texts[id] = text }
+            e2eMessageIds.formUnion(decoded.e2eIds)
+            ratchetMessageIds.formUnion(decoded.ratchetIds)
+            messages.insert(contentsOf: page.rows, at: 0)
+            olderRemaining = max(0, page.total - page.rows.count)
         } catch {
             status = "Ошибка загрузки: " + apiErrorMessage(error)
         }

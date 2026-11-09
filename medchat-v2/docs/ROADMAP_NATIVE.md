@@ -414,6 +414,14 @@ ios-smoke, android-smoke, android-build, desktop-check, desktop-bundle,
 k6-load, core-audit, web-build), E2E + Double Ratchet склеены во всех нативных клиентах
 (desktop, iOS, Android; web — конверты x25519-box + пагинация/окно истории, ratchet — честная плашка;
 RN — честная плашка reference-клиента).
+Пагинация длинных чатов (ноябрь 2026): курсор before по createdAt (id-курсоры
+убраны — UUID нехронологичен; limit капится 1..100), окно рендера 300 в web и
+desktop (кнопка «Показать более старые» — сдвиг окна по загруженным или
+страница с сервера), load-older в iOS/Android (LazyVStack/LazyColumn
+виртуализуют ячейки сами); батч-расшифровка страницы конвертов в ядре —
+open_sealed_batch (napi openSealedBatch, UniFFI openSealedBatch, desktop —
+команда e2e_open_batch): один FFI/IPC-вызов на окно сообщений вместо вызова
+на каждое сообщение.
 Остаток этапов 3/4/5/7 — операторские позиции: TestFlight и подписи
 Apple, Play Console и подписи Android, Authenticode/GPG-подписи и
 автоапдейт desktop, SMS-гейт для 149-ФЗ, ГОСТ СКЗИ и внешний аудит

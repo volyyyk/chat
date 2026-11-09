@@ -24,7 +24,8 @@ use std::sync::Mutex;
 use crate::ratchet::{AEAD_NONCE_SIZE, HEADER_SIZE};
 use crate::{
     bcrypt_verify as core_bcrypt_verify, generate_keypair as core_generate_keypair,
-    open_sealed as core_open_sealed, seal_for_recipients as core_seal_for_recipients,
+    open_sealed as core_open_sealed, open_sealed_batch as core_open_sealed_batch,
+    seal_for_recipients as core_seal_for_recipients,
     CoreError, KeyPair, RatchetMessage, RatchetState, SealedMessage, KEY_SIZE, NONCE_SIZE,
     x25519_dh as core_x25519_dh,
 };
@@ -198,6 +199,51 @@ pub fn seal_for_recipients(
         nonce: sealed.nonce.to_vec(),
         boxes: sealed.boxes,
     })
+}
+
+/// Элемент батч-расшифровки (длинные чаты): ok=false + пустой plaintext —
+/// конверт не расшифрован (чужой ключ, битая длина); батч не падает целиком.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct MedOpenResult {
+    pub ok: bool,
+    pub plaintext: Vec<u8>,
+}
+
+/// Батч-расшифровка страницы конвертов: один FFI-вызов на окно сообщений
+/// (кнопка «Показать более старые» расшифровывает страницу целиком).
+/// Битые длины элемента — ok=false в этом элементе, не ошибка всего батча;
+/// битые ключи самого устройства — ошибка всего вызова (ключ один на батч).
+#[uniffi::export]
+pub fn open_sealed_batch(
+    sealeds: Vec<MedSealedMessage>,
+    my_public: Vec<u8>,
+    my_secret: Vec<u8>,
+) -> Result<Vec<MedOpenResult>, MedCryptoError> {
+    let my_public = arr32(&my_public, "my_public")?;
+    let my_secret = arr32(&my_secret, "my_secret")?;
+    Ok(sealeds
+        .into_iter()
+        .map(|sealed| {
+            let epk = match arr32(&sealed.epk, "sealed.epk") {
+                Ok(v) => v,
+                Err(_) => return Ok(MedOpenResult { ok: false, plaintext: Vec::new() }),
+            };
+            let nonce = match arr24(&sealed.nonce, "sealed.nonce") {
+                Ok(v) => v,
+                Err(_) => return Ok(MedOpenResult { ok: false, plaintext: Vec::new() }),
+            };
+            let inner = SealedMessage {
+                epk,
+                nonce,
+                boxes: sealed.boxes,
+            };
+            let out = core_open_sealed_batch(&[inner], &my_public, &my_secret);
+            Ok(match out.into_iter().next() {
+                Some(Ok(pt)) => MedOpenResult { ok: true, plaintext: pt },
+                _ => MedOpenResult { ok: false, plaintext: Vec::new() },
+            })
+        })
+        .collect())
 }
 
 /// Расшифровать конверт своим ключом: перебирает боксы, возвращает plaintext
@@ -472,6 +518,33 @@ mod tests {
         // replay m1 после restore — ключ израсходован
         let err = bob2.decrypt(m1).unwrap_err();
         assert!(matches!(err, MedCryptoError::OutOfOrder));
+    }
+
+    #[test]
+    fn uniffi_batch_open_page() {
+        let alice = generate_keypair();
+        let bob = generate_keypair();
+        let s1 =
+            seal_for_recipients(b"page item".to_vec(), vec![alice.public_key.clone()]).unwrap();
+        let s2 =
+            seal_for_recipients(b"only alice".to_vec(), vec![alice.public_key]).unwrap();
+        let s3 = seal_for_recipients(b"not for alice".to_vec(), vec![bob.public_key]).unwrap();
+        let out = open_sealed_batch(
+            vec![s1.clone(), s2.clone(), s3.clone()],
+            alice.public_key.clone(),
+            alice.secret_key.clone(),
+        )
+        .unwrap();
+        assert_eq!(out.len(), 3);
+        assert!(out[0].ok);
+        assert_eq!(out[0].plaintext, b"page item".to_vec());
+        assert!(out[1].ok);
+        assert!(!out[2].ok);
+        assert!(out[2].plaintext.is_empty());
+        let for_bob = open_sealed_batch(vec![s1, s3], bob.public_key, bob.secret_key).unwrap();
+        assert!(for_bob[0].ok);
+        assert_eq!(for_bob[1].plaintext, b"not for alice".to_vec());
+        let _ = s2;
     }
 
     /// KAT RFC 7748 §6.1 (DH-вектор Curve25519) через обёртку x25519Dh:

@@ -165,10 +165,21 @@ final class ApiService {
         }
     }
     
-    func messages(chatId: String, limit: Int = 50) async throws -> [ChatMessage] {
-        let json = try await request("/api/chats/" + chatId + "/messages?limit=" + String(limit)) as? [String: Any] ?? [:]
+    // Страница истории (длинные чаты): rows — хронология, total — сколько
+    // сообщений под выборкой курсора before (или всего чата без курсора).
+    struct MessagesPage {
+        let rows: [ChatMessage]
+        let total: Int
+    }
+    
+    func messagesPage(chatId: String, limit: Int = 50, before: String? = nil) async throws -> MessagesPage {
+        var path = "/api/chats/" + chatId + "/messages?limit=" + String(limit)
+        if let before = before {
+            path += "&before=" + before.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        }
+        let json = try await request(path) as? [String: Any] ?? [:]
         let rows = json["data"] as? [[String: Any]] ?? []
-        return rows.map { row in
+        let parsed = rows.map { row in
             let metadata = row["metadata"] as? [String: Any] ?? [:]
             let sender = row["sender"] as? [String: Any] ?? [:]
             return ChatMessage(
@@ -180,6 +191,12 @@ final class ApiService {
                 createdAt: row["createdAt"] as? String ?? "",
                 e2eEnvelope: metadata["e2e"] as? [String: Any])
         }
+        let total = (json["pagination"] as? [String: Any])?["total"] as? Int ?? parsed.count
+        return MessagesPage(rows: parsed, total: total)
+    }
+    
+    func messages(chatId: String, limit: Int = 50) async throws -> [ChatMessage] {
+        try await messagesPage(chatId: chatId, limit: limit).rows
     }
     
     // Отправка: при E2E content обязан быть пустым (шифр в envelope);

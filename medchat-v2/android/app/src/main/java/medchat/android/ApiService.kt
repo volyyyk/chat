@@ -171,9 +171,17 @@ class ApiService private constructor(val baseUrl: String) {
         }
     }
 
-    fun messages(chatId: String, limit: Int = 50): List<ChatMessage> {
-        val rows = request("/api/chats/" + chatId + "/messages?limit=" + limit)
-            .optJSONArray("data") ?: JSONArray()
+    // Страница истории (длинные чаты): rows — хронология, total — сколько
+    // сообщений под выборкой курсора before (или всего чата без курсора);
+    // клиенту остаётся remaining = max(0, total - rows.size).
+    class MessagesPage(val rows: List<ChatMessage>, val total: Int)
+
+    fun messagesPage(chatId: String, limit: Int = 50, before: String? = null): MessagesPage {
+        var path = "/api/chats/" + chatId + "/messages?limit=" + limit
+        if (before != null) {
+            path += "&before=" + java.net.URLEncoder.encode(before, "UTF-8")
+        }
+        val json = request(path)
         return (0 until rows.length()).map { index ->
             val row = rows.getJSONObject(index)
             val metadata = row.optJSONObject("metadata") ?: JSONObject()
@@ -187,7 +195,11 @@ class ApiService private constructor(val baseUrl: String) {
                 createdAt = row.optString("createdAt"),
                 e2eEnvelope = metadata.optJSONObject("e2e"))
         }
+        val total = json.optJSONObject("pagination")?.optInt("total") ?: parsed.size
+        return MessagesPage(parsed, total)
     }
+
+    fun messages(chatId: String, limit: Int = 50): List<ChatMessage> = messagesPage(chatId, limit).rows
 
     // Отправка: при E2E content обязан быть пустым (шифр в envelope);
     // 402 PAYMENT_REQUIRED пробрасывается наверх как ApiError.

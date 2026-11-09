@@ -197,6 +197,22 @@ pub fn open_sealed(
     Err(CoreError::NoBoxForRecipient)
 }
 
+/// Батч-расшифровка страницы конвертов (длинные чаты): тот же контракт,
+/// что open_sealed, но один вызов на окно сообщений — клиенты больше не
+/// дёргают FFI/IPC на каждое сообщение (кнопка «Показать более старые»
+/// расшифровывает страницу одним вызовом). Чужой ключ/битый конверт —
+/// Err в соответствующем элементе, остальные элементы батча не страдают.
+pub fn open_sealed_batch(
+    sealeds: &[SealedMessage],
+    my_public: &[u8; KEY_SIZE],
+    my_secret: &[u8; KEY_SIZE],
+) -> Vec<Result<Vec<u8>, CoreError>> {
+    sealeds
+        .iter()
+        .map(|sealed| open_sealed(sealed, my_public, my_secret))
+        .collect()
+}
+
 /// Raw X25519-DH (RFC 7748): общий секрет из приватного ключа этой стороны
 /// и публичного ключа собеседника. Симметричен: x25519_dh(a, B) ==
 /// x25519_dh(b, A). Скаляр клампится явно по RFC 7748 (сброс младших трёх
@@ -289,6 +305,24 @@ mod tests {
             open_sealed(&sealed, &[0u8; KEY_SIZE], &[0u8; KEY_SIZE]),
             Err(CoreError::NoBoxForRecipient)
         );
+    }
+
+    #[test]
+    fn batch_open_mixed_page() {
+        let alice = generate_keypair();
+        let bob = generate_keypair();
+        let s1 =
+            seal_for_recipients(b"page one", &[alice.public_key, bob.public_key]).unwrap();
+        let s2 = seal_for_recipients(b"page two", &[alice.public_key]).unwrap();
+        let s3 = seal_for_recipients(b"not for alice", &[bob.public_key]).unwrap();
+        let out = open_sealed_batch(&[s1, s2, s3], &alice.public_key, &alice.secret_key);
+        assert_eq!(out.len(), 3);
+        assert_eq!(out[0].as_ref().unwrap(), b"page one".to_vec());
+        assert_eq!(out[1].as_ref().unwrap(), b"page two".to_vec());
+        assert!(out[2].is_err());
+        let for_bob = open_sealed_batch(&[s1, s3], &bob.public_key, &bob.secret_key);
+        assert_eq!(for_bob[0].as_ref().unwrap(), b"page one".to_vec());
+        assert!(for_bob[1].is_err());
     }
 
     /// KAT RFC 7748 §6.1 (DH-вектор Curve25519): публичный ключ стороны
