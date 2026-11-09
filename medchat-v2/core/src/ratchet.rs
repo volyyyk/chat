@@ -24,9 +24,14 @@
 use std::collections::HashMap;
 
 use crate::{CoreError, KeyPair, KEY_SIZE};
-use aes_gcm::aead::{Aead, AeadCore, KeyInit, OsRng};
-use aes_gcm::{Aes256Gcm, Nonce};
+// RustCrypto 0.11-поколение (aes-gcm 0.11 / aead 0.6): nonce типизирован
+// по шифру (Nonce<Aes256Gcm>), encrypt/decrypt принимают nonce по ссылке;
+// aead::OsRng и AeadCore::generate_nonce удалены — энтропию даёт OsRng
+// crypto_box-линии (rand_core 0.6, см. Cargo.toml).
+use aes_gcm::aead::{Aead, Nonce};
+use aes_gcm::{Aes256Gcm, KeyInit};
 use hmac::{Hmac, Mac};
+use rand_core::RngCore;
 use sha2::Sha256;
 
 /// Размер nonce AES-256-GCM (12 байт).
@@ -42,7 +47,9 @@ pub const MAX_SKIPPED_KEYS: usize = 500;
 type HmacSha256 = Hmac<Sha256>;
 
 fn hmac256(key: &[u8], data: &[u8]) -> [u8; 32] {
-    let mut mac = <HmacSha256 as Mac>::new_from_slice(key).expect("HMAC accepts any key size");
+    // hmac 0.13: new_from_slice — из KeyInit (crypto-common 0.2, общий с
+    // aes-gcm 0.11), а не из Mac, как в 0.12.
+    let mut mac = HmacSha256::new_from_slice(key).expect("HMAC accepts any key size");
     mac.update(data);
     let out = mac.finalize().into_bytes();
     let mut res = [0u8; 32];
@@ -98,7 +105,7 @@ fn parse_header(bytes: &[u8]) -> Result<([u8; KEY_SIZE], u32, u32), CoreError> {
 fn aead_decrypt(message_key: &[u8; 32], nonce: &[u8; AEAD_NONCE_SIZE], ciphertext: &[u8]) -> Result<Vec<u8>, CoreError> {
     let cipher = Aes256Gcm::new_from_slice(message_key).map_err(|_| CoreError::Aead)?;
     cipher
-        .decrypt(Nonce::from_slice(nonce), ciphertext)
+        .decrypt(<&Nonce<Aes256Gcm>>::from(nonce), ciphertext)
         .map_err(|_| CoreError::Aead)
 }
 
@@ -224,13 +231,13 @@ impl RatchetState {
         let header = serialize_header(&self.dh_self.public_key, self.prev_send_count, n);
 
         let cipher = Aes256Gcm::new_from_slice(&message_key).map_err(|_| CoreError::Aead)?;
-        let mut rng = OsRng;
-        let nonce = Aes256Gcm::generate_nonce(&mut rng);
+        // aead 0.6 не генерирует nonce сам: 12 случайных байт из OsRng
+        // (crypto_box-линия rand_core 0.6 — тот же источник, что lib.rs).
         let mut nonce_arr = [0u8; AEAD_NONCE_SIZE];
-        nonce_arr.copy_from_slice(nonce.as_slice());
+        crypto_box::aead::OsRng.fill_bytes(&mut nonce_arr);
 
         let ciphertext = cipher
-            .encrypt(Nonce::from_slice(&nonce_arr), plaintext)
+            .encrypt(<&Nonce<Aes256Gcm>>::from(&nonce_arr), plaintext)
             .map_err(|_| CoreError::Aead)?;
 
         Ok(RatchetMessage {
@@ -498,10 +505,13 @@ mod tests {
             let m1 = alice.encrypt(b"hello").unwrap();
             assert_eq!(bob.decrypt(&m1).unwrap(), b"hello".to_vec());
 
-            let alice_blob = bincode::serialize(&alice).unwrap();
-            let bob_blob = bincode::serialize(&bob).unwrap();
-            let mut alice2: RatchetState = bincode::deserialize(&alice_blob).unwrap();
-            let mut bob2: RatchetState = bincode::deserialize(&bob_blob).unwrap();
+            // bincode 3: bincode::serde (encode_to_vec/decode_from_slice).
+            let alice_blob = bincode::serde::encode_to_vec(&alice, bincode::config::standard()).unwrap();
+            let bob_blob = bincode::serde::encode_to_vec(&bob, bincode::config::standard()).unwrap();
+            let mut alice2: RatchetState =
+                bincode::serde::decode_from_slice(&alice_blob, bincode::config::standard()).unwrap().0;
+            let mut bob2: RatchetState =
+                bincode::serde::decode_from_slice(&bob_blob, bincode::config::standard()).unwrap().0;
 
             let m2 = alice2.encrypt(b"after restart").unwrap();
             assert_eq!(bob2.decrypt(&m2).unwrap(), b"after restart".to_vec());
@@ -518,8 +528,9 @@ mod tests {
             let m2 = alice.encrypt(b"second").unwrap();
             assert_eq!(bob.decrypt(&m2).unwrap(), b"second".to_vec());
 
-            let blob = bincode::serialize(&bob).unwrap();
-            let mut bob2: RatchetState = bincode::deserialize(&blob).unwrap();
+            let blob = bincode::serde::encode_to_vec(&bob, bincode::config::standard()).unwrap();
+            let mut bob2: RatchetState =
+                bincode::serde::decode_from_slice(&blob, bincode::config::standard()).unwrap().0;
             assert_eq!(bob2.decrypt(&m1).unwrap(), b"first".to_vec());
 
             let replay = RatchetMessage {
@@ -536,7 +547,7 @@ mod tests {
         fn serialized_blob_contains_secrets() {
             let (mut alice, _bob) = session();
             let _ = alice.encrypt(b"x").unwrap();
-            let blob = bincode::serialize(&alice).unwrap();
+            let blob = bincode::serde::encode_to_vec(&alice, bincode::config::standard()).unwrap();
             let secret = alice.dh_self.secret_key;
             assert!(blob.windows(32).any(|w| w == secret.as_slice()));
         }

@@ -1,7 +1,7 @@
 //! Кросс-платформенный контрактный тест: known-answer векторы AES-256-GCM.
 //!
 //! AES-256-GCM — AEAD каждого сообщения Double Ratchet (ratchet.rs) и
-//! at-rest-путь серверного cryptoService. Крейт aes-gcm 0.10 обязан
+//! at-rest-путь серверного cryptoService. Крейт aes-gcm 0.11 обязан
 //! воспроизводить эталонные ct и tag байт-в-байт (раскладка ct || tag —
 //! та же, что в wire-формате ratchet). Вторая сторона контракта — Node.js
 //! crypto (server/tests/coreAesGcm.test.js, джоба CI server-tests) на той
@@ -9,8 +9,8 @@
 //! docs/ROADMAP_NATIVE.md: тест-векторы совпадают между реализациями
 //! (NaCl box закрыт 1ce9516, здесь — AES-GCM-путь).
 
-use aes_gcm::aead::{Aead, Payload};
-use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
+use aes_gcm::aead::{Aead, Nonce, Payload};
+use aes_gcm::{Aes256Gcm, KeyInit};
 
 fn unhex(s: &str) -> Vec<u8> {
     let clean: String = s
@@ -65,9 +65,11 @@ fn aes256gcm_matches_known_answer_vectors() {
         assert_eq!(ct.len(), pt.len(), "{}: ct size == pt size", prefix);
 
         let cipher = Aes256Gcm::new_from_slice(&key).expect("key");
+        // aead 0.6: nonce типизирован (Nonce<Aes256Gcm>), передаётся по ссылке.
+        let n12: Nonce<Aes256Gcm> = Nonce::try_from(nonce.as_slice()).expect("nonce");
         let sealed = cipher
             .encrypt(
-                Nonce::from_slice(&nonce),
+                &n12,
                 Payload {
                     msg: pt.as_slice(),
                     aad: aad.as_slice(),
@@ -87,7 +89,7 @@ fn aes256gcm_matches_known_answer_vectors() {
 
         let opened = cipher
             .decrypt(
-                Nonce::from_slice(&nonce),
+                &n12,
                 Payload {
                     msg: sealed.as_slice(),
                     aad: aad.as_slice(),
@@ -113,8 +115,9 @@ fn aes256gcm_rejects_tampered_tag() {
     let last = forged.len() - 1;
     forged[last] ^= 0x01;
 
+    let n12: Nonce<Aes256Gcm> = Nonce::try_from(nonce.as_slice()).expect("nonce");
     let result = cipher.decrypt(
-        Nonce::from_slice(&nonce),
+        &n12,
         Payload {
             msg: forged.as_slice(),
             aad: aad.as_slice(),

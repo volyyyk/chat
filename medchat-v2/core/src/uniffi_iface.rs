@@ -392,8 +392,11 @@ impl MedRatchetState {
     /// запусками. Восстановление — MedRatchetState.restore(saved).
     pub fn save(&self) -> Result<Vec<u8>, MedCryptoError> {
         let st = lock(&self.inner);
-        bincode::serialize(&*st).map_err(|e| MedCryptoError::InvalidArgument {
-            detail: format!("serialization failed: {}", e),
+        // bincode 3: bincode::serde::encode_to_vec (feature serde).
+        bincode::serde::encode_to_vec(&*st, bincode::config::standard()).map_err(|e| {
+            MedCryptoError::InvalidArgument {
+                detail: format!("serialization failed: {}", e),
+            }
         })
     }
 
@@ -401,11 +404,12 @@ impl MedRatchetState {
     /// месте, диалог продолжается. Битый буфер — InvalidArgument.
     #[uniffi::constructor]
     pub fn restore(saved: Vec<u8>) -> Result<Self, MedCryptoError> {
-        let st: RatchetState = bincode::deserialize(&saved).map_err(|e| {
-            MedCryptoError::InvalidArgument {
-                detail: format!("deserialization failed: {}", e),
-            }
-        })?;
+        let st: RatchetState =
+            bincode::serde::decode_from_slice(&saved, bincode::config::standard())
+                .map(|(v, _)| v)
+                .map_err(|e| MedCryptoError::InvalidArgument {
+                    detail: format!("deserialization failed: {}", e),
+                })?;
         Ok(MedRatchetState {
             inner: Mutex::new(st),
         })

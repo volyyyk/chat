@@ -414,7 +414,8 @@ impl JsRatchetState {
     /// запусками. Восстановление — JsRatchetState.restore(saved).
     #[napi]
     pub fn save(&self) -> Result<Buffer> {
-        let buf = bincode::serialize(&self.inner)
+        // bincode 3: bincode::serde::encode_to_vec (feature serde).
+        let buf = bincode::serde::encode_to_vec(&self.inner, bincode::config::standard())
             .map_err(|e| NapiError::new(Status::GenericFailure, format!("{}", e)))?;
         Ok(Buffer::from(buf))
     }
@@ -423,8 +424,10 @@ impl JsRatchetState {
     /// на месте, диалог продолжается. Битый буфер — GenericFailure.
     #[napi(factory)]
     pub fn restore(saved: Buffer) -> Result<Self> {
-        let inner = bincode::deserialize(bytes(&saved))
-            .map_err(|e| NapiError::new(Status::GenericFailure, format!("{}", e)))?;
+        let inner: RatchetState =
+            bincode::serde::decode_from_slice(bytes(&saved), bincode::config::standard())
+                .map(|(v, _)| v)
+                .map_err(|e| NapiError::new(Status::GenericFailure, format!("{}", e)))?;
         Ok(JsRatchetState { inner })
     }
 }
