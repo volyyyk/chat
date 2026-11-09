@@ -1,7 +1,7 @@
-2026-11-09 05:16:59 [warn] Swagger spec not found at /home/runner/work/chat/chat/medchat-v2/server/docs/api.yaml, /api-docs disabled
-2026-11-09 05:16:59 [info] MedChat Server v2.0 running on port 3000
-2026-11-09 05:16:59 [info] API Documentation: http://localhost:3000/api-docs
-2026-11-09 05:16:59 [info] Environment: test
+2026-11-09 05:22:26 [warn] Swagger spec not found at /home/runner/work/chat/chat/medchat-v2/server/docs/api.yaml, /api-docs disabled
+2026-11-09 05:22:26 [info] MedChat Server v2.0 running on port 3000
+2026-11-09 05:22:26 [info] API Documentation: http://localhost:3000/api-docs
+2026-11-09 05:22:26 [info] Environment: test
 ❌ Error initializing MinIO bucket: Error: connect ECONNREFUSED ::1:9000
     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
   errno: -111,
@@ -20,6 +20,6 @@
 }
 ✅ Redis client connected.
 ✅ Database connection has been established successfully (test).
-2026-11-09 05:17:00 [info] Incoming Request requestId="5ddec093-e8bd-44ba-9934-639a4666f6f0" method="GET" path="/health" query={} params={} ip="::1" userAgent="curl/8.18.0" userId=undefined role=undefined clinicId=undefined
-2026-11-09 05:17:00 [info] Request Completed requestId="5ddec093-e8bd-44ba-9934-639a4666f6f0" method="GET" path="/health" query={} params={} ip="::1" userAgent="curl/8.18.0" userId=undefined role=undefined clinicId=undefined statusCode=200 statusMessage="OK" duration="3ms"
-2026-11-09 05:17:00 [warn] Request Closed requestId="5ddec093-e8bd-44ba-9934-639a4666f6f0" duration="4ms"
+2026-11-09 05:22:27 [info] Incoming Request requestId="94511fe9-752f-41e0-a873-e87e5ced9216" method="GET" path="/health" query={} params={} ip="::1" userAgent="curl/8.18.0" userId=undefined role=undefined clinicId=undefined
+2026-11-09 05:22:27 [info] Request Completed requestId="94511fe9-752f-41e0-a873-e87e5ced9216" method="GET" path="/health" query={} params={} ip="::1" userAgent="curl/8.18.0" userId=undefined role=undefined clinicId=undefined statusCode=200 statusMessage="OK" duration="3ms"
+2026-11-09 05:22:27 [warn] Request Closed requestId="94511fe9-752f-41e0-a873-e87e5ced9216" duration="3ms"
