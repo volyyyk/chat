@@ -1,4 +1,4 @@
-=== run 42560848502 job core-bench Mon Nov  9 04:16:09 UTC 2026 ===
+=== run 42561454875 job core-bench Mon Nov  9 04:22:29 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Locking[0m 165 packages to highest compatible versions
@@ -19,126 +19,69 @@
 [1m[92m   Compiling[0m serde_json v1.0.154
 [1m[92m   Compiling[0m tinytemplate v1.2.1
 [1m[92m   Compiling[0m criterion v0.5.1
-[1m[92m    Finished[0m `bench` profile [optimized] target(s) in 27.85s
-[1m[92m     Running[0m unittests src/lib.rs (target/release/deps/medchat_core-f46c66c0eaeca468)
+[1m[91merror[E0277][0m[1m: can't compare `&Vec<u8>` with `Vec<u8>`[0m
+   [1m[94m--> [0msrc/lib.rs:320:9
+    [1m[94m|[0m
+[1m[94m320[0m [1m[94m|[0m         assert_eq!(out[0].as_ref().unwrap(), b"page one".to_vec());
+    [1m[94m|[0m         [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mno implementation for `&Vec<u8> == Vec<u8>`[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mhelp[0m: the trait `PartialEq<Vec<u8>>` is not implemented for `&Vec<u8>`
+[1m[96mhelp[0m: `Vec<u8>` implements trait `PartialEq<Rhs>`
+   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/bstr/traits.rs:56:8
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteStr>`
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteString>`
+   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:537:0
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: in this macro invocation
+   [1m[94m::: [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:681:0
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: in this macro invocation
+    [1m[94m= [0m[1mnote[0m: this error originates in the macro `assert_eq` which comes from the expansion of the macro `impl_partial_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-running 22 tests
-test hotpath::tests::gzip_decompress_invalid_is_err ... ignored
-test hotpath::tests::gzip_header_and_empty ... ignored
-test hotpath::tests::gzip_roundtrip_json ... ignored
-test hotpath::tests::sha256_kat_abc ... ignored
-test hotpath::tests::sha256_kat_empty ... ignored
-test hotpath::tests::sha256_verify_matches_and_case_insensitive ... ignored
-test ratchet::tests::bad_header_rejected ... ignored
-test ratchet::tests::bidirectional_roundtrip_multiple_ratchets ... ignored
-test ratchet::tests::forward_secrecy_old_message_keys_gone ... ignored
-test ratchet::tests::headers_advance_counter ... ignored
-test ratchet::tests::out_of_order_decoded_via_skip_store ... ignored
-test ratchet::tests::responder_cannot_send_before_first_receive ... ignored
-test ratchet::tests::tampered_ciphertext_rejected ... ignored
-test ratchet::tests::too_many_skipped_rejected ... ignored
-test ratchet::tests::wire_roundtrip_and_decrypt ... ignored
-test ratchet::tests::wire_tampered_ciphertext_rejected_by_aead ... ignored
-test ratchet::tests::wire_too_short_rejected ... ignored
-test tests::empty_recipients_is_empty_envelope ... ignored
-test tests::roundtrip_multiple_recipients ... ignored
-test tests::tampered_ciphertext_fails ... ignored
-test tests::wrong_key_fails ... ignored
-test tests::x25519_dh_rfc7748_kat_and_symmetry ... ignored
+[1m[91merror[E0277][0m[1m: can't compare `&Vec<u8>` with `Vec<u8>`[0m
+   [1m[94m--> [0msrc/lib.rs:321:9
+    [1m[94m|[0m
+[1m[94m321[0m [1m[94m|[0m         assert_eq!(out[1].as_ref().unwrap(), b"page two".to_vec());
+    [1m[94m|[0m         [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mno implementation for `&Vec<u8> == Vec<u8>`[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mhelp[0m: the trait `PartialEq<Vec<u8>>` is not implemented for `&Vec<u8>`
+[1m[96mhelp[0m: `Vec<u8>` implements trait `PartialEq<Rhs>`
+   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/bstr/traits.rs:56:8
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteStr>`
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteString>`
+   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:537:0
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: in this macro invocation
+   [1m[94m::: [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:681:0
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: in this macro invocation
+    [1m[94m= [0m[1mnote[0m: this error originates in the macro `assert_eq` which comes from the expansion of the macro `impl_partial_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-test result: ok. 0 passed; 0 failed; 22 ignored; 0 measured; 0 filtered out; finished in 0.00s
+[1m[91merror[E0277][0m[1m: can't compare `&Vec<u8>` with `Vec<u8>`[0m
+   [1m[94m--> [0msrc/lib.rs:324:9
+    [1m[94m|[0m
+[1m[94m324[0m [1m[94m|[0m         assert_eq!(for_bob[0].as_ref().unwrap(), b"page one".to_vec());
+    [1m[94m|[0m         [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mno implementation for `&Vec<u8> == Vec<u8>`[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mhelp[0m: the trait `PartialEq<Vec<u8>>` is not implemented for `&Vec<u8>`
+[1m[96mhelp[0m: `Vec<u8>` implements trait `PartialEq<Rhs>`
+   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/bstr/traits.rs:56:8
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteStr>`
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: `PartialEq<ByteString>`
+   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:537:0
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: in this macro invocation
+   [1m[94m::: [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/bstr.rs:681:0
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: in this macro invocation
+    [1m[94m= [0m[1mnote[0m: this error originates in the macro `assert_eq` which comes from the expansion of the macro `impl_partial_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-[1m[92m     Running[0m benches/crypto.rs (target/release/deps/crypto-e361945049965698)
-Gnuplot not found, using plotters backend
-Benchmarking x25519-box envelope/seal+open/1 recipient
-Benchmarking x25519-box envelope/seal+open/1 recipient: Warming up for 3.0000 s
-Benchmarking x25519-box envelope/seal+open/1 recipient: Collecting 100 samples in estimated 5.3504 s (66k iterations)
-Benchmarking x25519-box envelope/seal+open/1 recipient: Analyzing
-Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal+open/1 recipient/base/sample.json": No such file or directory (os error 2)
-x25519-box envelope/seal+open/1 recipient
-                        time:   [80.446 µs 80.952 µs 81.620 µs]
-                        thrpt:  [358.94 KiB/s 361.91 KiB/s 364.18 KiB/s]
-Found 6 outliers among 100 measurements (6.00%)
-  2 (2.00%) low mild
-  4 (4.00%) high severe
-Benchmarking x25519-box envelope/seal+open/3 recipients
-Benchmarking x25519-box envelope/seal+open/3 recipients: Warming up for 3.0000 s
-Benchmarking x25519-box envelope/seal+open/3 recipients: Collecting 100 samples in estimated 5.4409 s (35k iterations)
-Benchmarking x25519-box envelope/seal+open/3 recipients: Analyzing
-Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal+open/3 recipients/base/sample.json": No such file or directory (os error 2)
-x25519-box envelope/seal+open/3 recipients
-                        time:   [154.05 µs 155.15 µs 156.63 µs]
-                        thrpt:  [187.05 KiB/s 188.83 KiB/s 190.18 KiB/s]
-Found 7 outliers among 100 measurements (7.00%)
-  1 (1.00%) high mild
-  6 (6.00%) high severe
-Benchmarking x25519-box envelope/seal/1 recipient
-Benchmarking x25519-box envelope/seal/1 recipient: Warming up for 3.0000 s
-Benchmarking x25519-box envelope/seal/1 recipient: Collecting 100 samples in estimated 5.0162 s (106k iterations)
-Benchmarking x25519-box envelope/seal/1 recipient: Analyzing
-Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal/1 recipient/base/sample.json": No such file or directory (os error 2)
-x25519-box envelope/seal/1 recipient
-                        time:   [46.684 µs 46.915 µs 47.310 µs]
-                        thrpt:  [619.26 KiB/s 624.47 KiB/s 627.56 KiB/s]
-Found 4 outliers among 100 measurements (4.00%)
-  2 (2.00%) high mild
-  2 (2.00%) high severe
-
-Benchmarking double ratchet/encrypt+decrypt/in-order
-Benchmarking double ratchet/encrypt+decrypt/in-order: Warming up for 3.0000 s
-Benchmarking double ratchet/encrypt+decrypt/in-order: Collecting 100 samples in estimated 5.0051 s (3.4M iterations)
-Benchmarking double ratchet/encrypt+decrypt/in-order: Analyzing
-Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/double ratchet/encrypt+decrypt/in-order/base/sample.json": No such file or directory (os error 2)
-double ratchet/encrypt+decrypt/in-order
-                        time:   [1.5012 µs 1.5109 µs 1.5234 µs]
-                        thrpt:  [18.781 MiB/s 18.936 MiB/s 19.058 MiB/s]
-Found 10 outliers among 100 measurements (10.00%)
-  4 (4.00%) high mild
-  6 (6.00%) high severe
-Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip
-Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip: Warming up for 3.0000 s
-Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip: Collecting 100 samples in estimated 5.0002 s (3.3M iterations)
-Benchmarking double ratchet/encrypt+wire+decrypt/roundtrip: Analyzing
-Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/double ratchet/encrypt+wire+decrypt/roundtrip/base/sample.json": No such file or directory (os error 2)
-double ratchet/encrypt+wire+decrypt/roundtrip
-                        time:   [1.5084 µs 1.5226 µs 1.5411 µs]
-                        thrpt:  [18.565 MiB/s 18.791 MiB/s 18.967 MiB/s]
-Found 8 outliers among 100 measurements (8.00%)
-  3 (3.00%) high mild
-  5 (5.00%) high severe
-
-Benchmarking bcrypt verify/verify/cost 5 (KAT)
-Benchmarking bcrypt verify/verify/cost 5 (KAT): Warming up for 500.00 ms
-Benchmarking bcrypt verify/verify/cost 5 (KAT): Collecting 10 samples in estimated 2.0649 s (1265 iterations)
-Benchmarking bcrypt verify/verify/cost 5 (KAT): Analyzing
-Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/bcrypt verify/verify/cost 5 (KAT)/base/sample.json": No such file or directory (os error 2)
-bcrypt verify/verify/cost 5 (KAT)
-                        time:   [1.6102 ms 1.6180 ms 1.6364 ms]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high severe
-Benchmarking bcrypt verify/verify/cost 12 (production)
-Benchmarking bcrypt verify/verify/cost 12 (production): Warming up for 500.00 ms
-
-Warning: Unable to complete 10 samples in 2.0s. You may wish to increase target time to 2.0s.
-Benchmarking bcrypt verify/verify/cost 12 (production): Collecting 10 samples in estimated 2.0123 s (10 iterations)
-Benchmarking bcrypt verify/verify/cost 12 (production): Analyzing
-Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/bcrypt verify/verify/cost 12 (production)/base/sample.json": No such file or directory (os error 2)
-bcrypt verify/verify/cost 12 (production)
-                        time:   [203.16 ms 204.53 ms 206.81 ms]
-Found 3 outliers among 10 measurements (30.00%)
-  1 (10.00%) low mild
-  2 (20.00%) high severe
-
-=== node reference 42560848502 Mon Nov  9 04:17:57 UTC 2026 ===
-
-> medchat-server@2.0.0 bench:core
-> node bench/coreBench.js
-
-node v24.22.2, platform: linux, payload: 30 bytes
-[bench] tweetnacl box seal+open / 1 recipient / 30B: 845 ops/s (1.18 ms/op)
-[bench] tweetnacl box seal+open / 3 recipients / 30B: 512 ops/s (1.95 ms/op)
-[bench] tweetnacl box seal / 1 recipient / 30B: 1235 ops/s (0.810 ms/op)
-[bench] node crypto AES-256-GCM encrypt+decrypt / 30B: 176055 ops/s (0.006 ms/op)
-[bench] bcrypt compareSync / cost 5 (KAT): 742 ops/s (1.35 ms/op)
-[bench] bcrypt compareSync / cost 12 (production): 5.88 ops/s (170.11 ms/op)
-done.
+[1mFor more information about this error, try `rustc --explain E0277`.[0m
+[1m[91merror[0m: could not compile `medchat-core` (lib test) due to 3 previous errors
+[1m[33mwarning[0m: build failed, waiting for other jobs to finish...
