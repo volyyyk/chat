@@ -1,4 +1,4 @@
-=== run 42561969322 job core-tests Mon Nov  9 04:28:09 UTC 2026 ===
+=== run 42562423653 job core-tests Mon Nov  9 04:32:56 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Locking[0m 165 packages to highest compatible versions
@@ -19,38 +19,56 @@
 [1m[92m    Checking[0m serde_json v1.0.154
 [1m[92m    Checking[0m tinytemplate v1.2.1
 [1m[92m    Checking[0m criterion v0.5.1
-[1m[91merror[E0382][0m[1m: use of moved value: `s1`[0m
-   [1m[94m--> [0msrc/lib.rs:323:43
-    [1m[94m|[0m
-[1m[94m314[0m [1m[94m|[0m         let s1 =
-    [1m[94m|[0m             [1m[94m--[0m [1m[94mmove occurs because `s1` has type `SealedMessage`, which does not implement the `Copy` trait[0m
-[1m[94m...[0m
-[1m[94m318[0m [1m[94m|[0m         let out = open_sealed_batch(&[s1, s2, s3], &alice.public_key, &alice.secret_key);
-    [1m[94m|[0m                                       [1m[94m--[0m [1m[94mvalue moved here[0m
-[1m[94m...[0m
-[1m[94m323[0m [1m[94m|[0m         let for_bob = open_sealed_batch(&[s1, s3], &bob.public_key, &bob.secret_key);
-    [1m[94m|[0m                                           [1m[91m^^[0m [1m[91mvalue used here after move[0m
-    [1m[94m|[0m
-[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
-    [1m[94m|[0m
-[1m[94m318[0m [1m[94m| [0m        let out = open_sealed_batch(&[s1[92m.clone()[0m, s2, s3], &alice.public_key, &alice.secret_key);
-    [1m[94m|[0m                                         [92m++++++++[0m
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 6.39s
+=== run 42562423653 job core-tests Mon Nov  9 04:33:03 UTC 2026 ===
+[1m[92m   Compiling[0m itoa v1.0.19
+[1m[92m   Compiling[0m medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m tinytemplate v1.2.1
+[1m[92m   Compiling[0m criterion v0.5.1
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 3.54s
+[1m[92m     Running[0m unittests src/lib.rs (target/debug/deps/medchat_core-1e65b2c452607109)
 
-[1m[91merror[E0382][0m[1m: use of moved value: `s3`[0m
-   [1m[94m--> [0msrc/lib.rs:323:47
-    [1m[94m|[0m
-[1m[94m317[0m [1m[94m|[0m         let s3 = seal_for_recipients(b"not for alice", &[bob.public_key]).unwrap();
-    [1m[94m|[0m             [1m[94m--[0m [1m[94mmove occurs because `s3` has type `SealedMessage`, which does not implement the `Copy` trait[0m
-[1m[94m318[0m [1m[94m|[0m         let out = open_sealed_batch(&[s1, s2, s3], &alice.public_key, &alice.secret_key);
-    [1m[94m|[0m                                               [1m[94m--[0m [1m[94mvalue moved here[0m
-[1m[94m...[0m
-[1m[94m323[0m [1m[94m|[0m         let for_bob = open_sealed_batch(&[s1, s3], &bob.public_key, &bob.secret_key);
-    [1m[94m|[0m                                               [1m[91m^^[0m [1m[91mvalue used here after move[0m
-    [1m[94m|[0m
-[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
-    [1m[94m|[0m
-[1m[94m318[0m [1m[94m| [0m        let out = open_sealed_batch(&[s1, s2, s3[92m.clone()[0m], &alice.public_key, &alice.secret_key);
-    [1m[94m|[0m                                                 [92m++++++++[0m
+running 26 tests
+test hotpath::tests::sha256_kat_abc ... ok
+test hotpath::tests::gzip_header_and_empty ... ok
+test hotpath::tests::gzip_decompress_invalid_is_err ... ok
+test hotpath::tests::gzip_roundtrip_json ... ok
+test hotpath::tests::sha256_kat_empty ... ok
+test hotpath::tests::sha256_verify_matches_and_case_insensitive ... ok
+test ratchet::tests::forward_secrecy_old_message_keys_gone ... ok
+test ratchet::tests::bad_header_rejected ... ok
+test ratchet::tests::headers_advance_counter ... ok
+test ratchet::tests::responder_cannot_send_before_first_receive ... ok
+test ratchet::tests::bidirectional_roundtrip_multiple_ratchets ... ok
+test ratchet::tests::serde_persistence::serialized_blob_contains_secrets ... ok
+test ratchet::tests::out_of_order_decoded_via_skip_store ... ok
+test ratchet::tests::serde_persistence::session_survives_serialization_roundtrip ... ok
+test ratchet::tests::serde_persistence::skip_store_survives_serialization ... ok
+test ratchet::tests::tampered_ciphertext_rejected ... ok
+test ratchet::tests::too_many_skipped_rejected ... ok
+test ratchet::tests::wire_roundtrip_and_decrypt ... ok
+test tests::empty_recipients_is_empty_envelope ... ok
+test ratchet::tests::wire_too_short_rejected ... ok
+test ratchet::tests::wire_tampered_ciphertext_rejected_by_aead ... ok
+test tests::tampered_ciphertext_fails ... ok
+test tests::roundtrip_multiple_recipients ... ok
+test tests::wrong_key_fails ... ok
+test tests::batch_open_mixed_page ... FAILED
+test tests::x25519_dh_rfc7748_kat_and_symmetry ... ok
 
-[1mFor more information about this error, try `rustc --explain E0382`.[0m
-[1m[91merror[0m: could not compile `medchat-core` (lib test) due to 2 previous errors
+failures:
+
+---- tests::batch_open_mixed_page stdout ----
+
+thread 'tests::batch_open_mixed_page' (2584) panicked at src/lib.rs:329:9:
+assertion failed: for_bob[1].is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::batch_open_mixed_page
+
+test result: FAILED. 25 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+[1m[91merror[0m: test failed, to rerun pass `--lib`
