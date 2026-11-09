@@ -1,4 +1,4 @@
-=== run 42561454875 job android-smoke Mon Nov  9 04:22:38 UTC 2026 ===
+=== run 42561969322 job android-smoke Mon Nov  9 04:28:20 UTC 2026 ===
 cargo 1.99.1 (5f94df478 2026-08-27)
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Ignored[0m package `uniffi-bindgen-cli v0.1.0 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)` is already installed, use --force to override
@@ -22,34 +22,30 @@ cargo 1.99.1 (5f94df478 2026-08-27)
 [1m[92m   Compiling[0m serde_json v1.0.154
 [1m[92m   Compiling[0m cargo_metadata v0.15.4
 [1m[92m   Compiling[0m uniffi v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
-[1m[91merror[E0277][0m[1m: a value of type `Vec<MedOpenResult>` cannot be built from an iterator over elements of type `Result<MedOpenResult, _>`[0m
-   [1m[94m--> [0msrc/uniffi_iface.rs:246:10
+[1m[91merror[0m[1m: mismatched closing delimiter: `}`[0m
+   [1m[94m--> [0msrc/uniffi_iface.rs:224:7
     [1m[94m|[0m
-[1m[94m246[0m [1m[94m|[0m         .collect())
-    [1m[94m|[0m          [1m[91m^^^^^^^[0m [1m[91mvalue of type `Vec<MedOpenResult>` cannot be built from `std::iter::Iterator<Item=Result<MedOpenResult, _>>`[0m
-    [1m[94m|[0m
-[1m[96mhelp[0m: the trait `FromIterator<[1m[35mResult[0m[1m[35m<[0mMedOpenResult, [1m[35m_[0m[1m[35m>[0m>` [1m[35mis not[0m implemented for `Vec<MedOpenResult>`
-      but trait `FromIterator<MedOpenResult>` [1m[35mis[0m implemented for it
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/vec/mod.rs:3993:0
-    [1m[94m= [0m[1mhelp[0m: for that trait implementation, expected `[1m[35mMedOpenResult[0m`, found `[1m[35mResult<MedOpenResult, _>[0m`
-[1m[92mnote[0m: the method call chain might not have had the expected associated types
-   [1m[94m--> [0msrc/uniffi_iface.rs:226:10
-    [1m[94m|[0m
-[1m[94m224[0m [1m[94m|[0m       Ok(sealeds
-    [1m[94m|[0m          [1m[94m-------[0m [1m[94mthis expression has type `Vec<MedSealedMessage>`[0m
-[1m[94m225[0m [1m[94m|[0m           .into_iter()
-    [1m[94m|[0m            [1m[94m-----------[0m [1m[94m`Iterator::Item` is `MedSealedMessage` here[0m
-[1m[94m226[0m [1m[94m|[0m           .map(|sealed| {
-    [1m[94m|[0m [1m[92m __________^[0m
-[1m[94m227[0m [1m[94m|[0m [1m[92m|[0m             let epk = match arr32(&sealed.epk, "sealed.epk") {
-[1m[94m228[0m [1m[94m|[0m [1m[92m|[0m                 Ok(v) => v,
-[1m[94m229[0m [1m[94m|[0m [1m[92m|[0m                 Err(_) => return Ok(MedOpenResult { ok: false, plaintext: Vec::new() }),
-[1m[94m...[0m   [1m[92m|[0m
-[1m[94m244[0m [1m[94m|[0m [1m[92m|[0m             })
-[1m[94m245[0m [1m[94m|[0m [1m[92m|[0m         })
-    [1m[94m|[0m [1m[92m|__________^[0m [1m[92m`Iterator::Item` changed to `Result<MedOpenResult, _>` here[0m
-[1m[92mnote[0m: required by a bound in `collect`
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/iter/traits/iterator.rs:2073:4
+[1m[94m224[0m [1m[94m|[0m     Ok(sealeds
+    [1m[94m|[0m       [1m[91m^[0m [1m[91munclosed delimiter[0m
+[1m[94m...[0m
+[1m[94m230[0m [1m[94m|[0m             };
+    [1m[94m|[0m             [1m[91m^[0m [1m[91mmismatched closing delimiter[0m
 
-[1mFor more information about this error, try `rustc --explain E0277`.[0m
-[1m[91merror[0m: could not compile `medchat-core` (lib) due to 1 previous error
+[1m[91merror[0m[1m: unexpected closing delimiter: `}`[0m
+   [1m[94m--> [0msrc/uniffi_iface.rs:234:13
+    [1m[94m|[0m
+[1m[94m227[0m [1m[94m|[0m             let epk = match arr32(&sealed.epk, "sealed.epk") {
+    [1m[94m|[0m                                                              [1m[94m-[0m [1m[94mthe nearest open delimiter[0m
+[1m[94m228[0m [1m[94m|[0m                 Ok(v) => v,
+[1m[94m229[0m [1m[94m|[0m                 Err(_) => return MedOpenResult { ok: false, plaintext: Vec::new() }),
+    [1m[94m|[0m                                                                                    [1m[94m-[0m [1m[94mmissing open `(` for this delimiter[0m
+[1m[94m230[0m [1m[94m|[0m             };
+[1m[94m231[0m [1m[94m|[0m             let nonce = match arr24(&sealed.nonce, "sealed.nonce") {
+    [1m[94m|[0m                                                                    [1m[94m-[0m [1m[94mthe nearest open delimiter[0m
+[1m[94m232[0m [1m[94m|[0m                 Ok(v) => v,
+[1m[94m233[0m [1m[94m|[0m                 Err(_) => return MedOpenResult { ok: false, plaintext: Vec::new() }),
+    [1m[94m|[0m                                                                                    [1m[94m-[0m [1m[94mmissing open `(` for this delimiter[0m
+[1m[94m234[0m [1m[94m|[0m             };
+    [1m[94m|[0m             [1m[91m^[0m [1m[91munexpected closing delimiter[0m
+
+[1m[91merror[0m: could not compile `medchat-core` (lib) due to 2 previous errors
