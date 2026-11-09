@@ -620,6 +620,11 @@ jobs:
       # обвязка гейтится в ios-smoke (Swift, macOS) и android-smoke
       # (Kotlin, ubuntu); сборка приложений (Xcode/Gradle) — на целевой
       # машине разработчика (этапы 3/4).
+      - name: Diagnose UniFFI metadata extraction
+        run: |
+          set -o pipefail
+          cargo run --example inspect_uniffi_metadata --no-default-features --features uniffi-bind,serde -- target/debug/libmedchat_core.so 2>&1 | tee -a ../../ci-uniffi.log
+
       - name: Generate Kotlin bindings
         run: |
           set -o pipefail
