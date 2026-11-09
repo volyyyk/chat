@@ -600,9 +600,9 @@ jobs:
           set -o pipefail
           { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.1 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-uniffi.log
 
-      # cdylib c UniFFI-scaffolding (без napi): setup_scaffolding! эмитит
-      # metadata-символы, по которым bindgen строит обвязку в library mode.
-      # serde добавляет MedRatchetState.save()/restore() в экспорт (этап 7).
+      # cdylib с UniFFI-scaffolding (без napi): release нужен для runtime smoke,
+      # debug (без LTO) — для bindgen metadata extraction; serde добавляет
+      # MedRatchetState.save()/restore() в экспорт (этап 7).
       - name: Build cdylib with UniFFI scaffolding
         run: |
           set -o pipefail
@@ -615,8 +615,8 @@ jobs:
           set -o pipefail
           { cargo test --no-default-features --features uniffi-bind,serde; } 2>&1 | tee -a ../../ci-uniffi.log
 
-      # Генерация обвязки из метаданных собранного cdylib (library mode):
-      # гейтит консистентность обёрток и саму генерацию. Сгенерированная
+      # Генерация обвязки из debug cdylib (без LTO): release-артефакт остаётся
+      # для runtime smoke; debug используется только для metadata extraction. Сгенерированная
       # обвязка гейтится в ios-smoke (Swift, macOS) и android-smoke
       # (Kotlin, ubuntu); сборка приложений (Xcode/Gradle) — на целевой
       # машине разработчика (этапы 3/4).
@@ -698,8 +698,8 @@ jobs:
           set -o pipefail
           { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.1 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-ios.log
 
-      # host-cdylib: по нему bindgen читает metadata (library mode) и против
-      # него линкуется runtime-smoke ниже.
+      # host-cdylib: debug cdylib используется bindgen для metadata extraction,
+      # release cdylib — для runtime-smoke ниже.
       - name: Build host cdylib with UniFFI scaffolding
         run: |
           set -o pipefail
