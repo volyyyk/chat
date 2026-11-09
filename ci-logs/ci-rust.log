@@ -1,74 +1,154 @@
-=== run 42562423653 job core-tests Mon Nov  9 04:32:56 UTC 2026 ===
+=== run 42581621342 job core-tests Mon Nov  9 07:48:27 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
-[1m[92m     Locking[0m 165 packages to highest compatible versions
-[1m[92m      Adding[0m aes-gcm v0.10.3 [1m[33m(available: v0.11.1)[0m
-[1m[92m      Adding[0m bcrypt v0.15.1 [1m[33m(available: v0.19.3)[0m
-[1m[92m      Adding[0m bincode v1.3.3 [1m[33m(available: v3.0.0)[0m
-[1m[92m      Adding[0m criterion v0.5.1 [1m[33m(available: v0.8.2)[0m
+[1m[92m     Locking[0m 204 packages to highest compatible versions
 [1m[92m      Adding[0m generic-array v0.14.7 [1m[33m(available: v0.14.9)[0m
-[1m[92m      Adding[0m hmac v0.12.1 [1m[33m(available: v0.13.0)[0m
-[1m[92m      Adding[0m napi v2.16.17 [1m[33m(available: v3.16.1)[0m
-[1m[92m      Adding[0m napi-derive v2.16.13 [1m[33m(available: v3.7.0)[0m
-[1m[92m      Adding[0m sha2 v0.10.9 [1m[33m(available: v0.11.1)[0m
-[1m[92m      Adding[0m x25519-dalek v2.0.1 [1m[33m(available: v3.0.0)[0m
 [1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m alloca v0.4.0
+[1m[92m  Downloaded[0m bcrypt v0.19.3
+[1m[92m  Downloaded[0m aead v0.6.1
+[1m[92m  Downloaded[0m base64 v0.23.1
+[1m[92m  Downloaded[0m blowfish v0.10.0
+[1m[92m  Downloaded[0m aes v0.9.4
+[1m[92m  Downloaded[0m block-buffer v0.12.1
+[1m[92m  Downloaded[0m bincode v3.0.0
+[1m[92m  Downloaded[0m aes-gcm v0.11.1
+[1m[92m  Downloaded[0m cc v1.11.1
+[1m[92m  Downloaded[0m cipher v0.5.2
+[1m[92m  Downloaded[0m cmov v0.5.4
+[1m[92m  Downloaded[0m cpufeatures v0.3.1
+[1m[92m  Downloaded[0m convert_case v0.12.0
+[1m[92m  Downloaded[0m cpubits v0.1.1
+[1m[92m  Downloaded[0m const-oid v0.10.2
+[1m[92m  Downloaded[0m criterion-plot v0.8.2
+[1m[92m  Downloaded[0m criterion v0.8.2
+[1m[92m  Downloaded[0m crypto-common v0.2.2
+[1m[92m  Downloaded[0m ctor v1.0.13
+[1m[92m  Downloaded[0m ctr v0.10.1
+[1m[92m  Downloaded[0m ctutils v0.4.8
+[1m[92m  Downloaded[0m curve25519-dalek v5.0.0
+[1m[92m  Downloaded[0m digest v0.11.3
+[1m[92m  Downloaded[0m find-msvc-tools v0.1.15
+[1m[92m  Downloaded[0m futures-channel v0.3.34
+[1m[92m  Downloaded[0m futures v0.3.34
+[1m[92m  Downloaded[0m futures-io v0.3.34
+[1m[92m  Downloaded[0m futures-executor v0.3.34
+[1m[92m  Downloaded[0m futures-macro v0.3.34
+[1m[92m  Downloaded[0m futures-sink v0.3.34
+[1m[92m  Downloaded[0m getrandom v0.4.3
+[1m[92m  Downloaded[0m ghash v0.6.0
+[1m[92m  Downloaded[0m itertools v0.13.0
+[1m[92m  Downloaded[0m inout v0.2.6
+[1m[92m  Downloaded[0m hybrid-array v0.4.15
 [1m[92m  Downloaded[0m itoa v1.0.19
+[1m[92m  Downloaded[0m hmac v0.13.0
+[1m[92m  Downloaded[0m libloading v0.9.0
+[1m[92m  Downloaded[0m napi v3.16.1
+[1m[92m  Downloaded[0m nohash-hasher v0.2.0
+[1m[92m  Downloaded[0m napi-sys v3.4.1
+[1m[92m  Downloaded[0m napi-derive v3.7.0
+[1m[92m  Downloaded[0m page_size v0.6.0
+[1m[92m  Downloaded[0m napi-derive-backend v7.0.0
+[1m[92m  Downloaded[0m polyval v0.7.3
+[1m[92m  Downloaded[0m rand_core v0.10.1
+[1m[92m  Downloaded[0m rustc-hash v2.1.3
+[1m[92m  Downloaded[0m sha2 v0.11.1
+[1m[92m  Downloaded[0m shlex v2.0.1
+[1m[92m  Downloaded[0m syn v3.0.10
+[1m[92m  Downloaded[0m universal-hash v0.6.1
+[1m[92m  Downloaded[0m x25519-dalek v3.0.0
+[1m[92m    Checking[0m typenum v1.20.1
+[1m[92m    Checking[0m rand_core v0.10.1
+[1m[92m   Compiling[0m getrandom v0.4.3
+[1m[92m    Checking[0m zeroize v1.9.1
+[1m[92m   Compiling[0m syn v3.0.10
+[1m[92m    Checking[0m getrandom v0.2.17
+[1m[92m    Checking[0m hybrid-array v0.4.15
+[1m[92m    Checking[0m generic-array v0.14.7
+[1m[92m    Checking[0m rand_core v0.6.4
+[1m[92m    Checking[0m subtle v2.6.1
+[1m[92m    Checking[0m cmov v0.5.4
+[1m[92m    Checking[0m block-buffer v0.12.1
+[1m[92m    Checking[0m inout v0.2.6
+[1m[92m    Checking[0m crypto-common v0.1.7
+[1m[92m    Checking[0m cpufeatures v0.3.1
+[1m[92m    Checking[0m ctutils v0.4.8
+[1m[92m    Checking[0m memchr v2.8.3
+[1m[92m    Checking[0m futures-core v0.3.34
+[1m[92m    Checking[0m futures-sink v0.3.34
+[1m[92m   Compiling[0m napi-build v2.6.0
+[1m[92m    Checking[0m futures-channel v0.3.34
+[1m[92m    Checking[0m inout v0.1.4
+[1m[92m   Compiling[0m zerocopy-derive v0.8.63
+[1m[92m    Checking[0m slab v0.4.12
+[1m[92m    Checking[0m pin-project-lite v0.2.17
+[1m[92m   Compiling[0m shlex v2.0.1
+[1m[92m   Compiling[0m find-msvc-tools v0.1.15
+[1m[92m    Checking[0m cpubits v0.1.1
+[1m[92m    Checking[0m futures-task v0.3.34
+[1m[92m    Checking[0m futures-io v0.3.34
+[1m[92m   Compiling[0m cc v1.11.1
+[1m[92m    Checking[0m crypto-common v0.2.2
+[1m[92m    Checking[0m cipher v0.5.2
+[1m[92m    Checking[0m zerocopy v0.8.63
+[1m[92m    Checking[0m universal-hash v0.6.1
+[1m[92m    Checking[0m cipher v0.4.4
+[1m[92m    Checking[0m universal-hash v0.5.1
+[1m[92m   Compiling[0m curve25519-dalek v5.0.0
+[1m[92m    Checking[0m const-oid v0.10.2
+[1m[92m   Compiling[0m napi-sys v3.4.1
+[1m[92m   Compiling[0m convert_case v0.12.0
+[1m[92m   Compiling[0m alloca v0.4.0
+[1m[92m    Checking[0m digest v0.11.3
+[1m[92m    Checking[0m poly1305 v0.8.0
+[1m[92m    Checking[0m salsa20 v0.10.2
+[1m[92m    Checking[0m polyval v0.7.3
+[1m[92m   Compiling[0m napi v3.16.1
+[1m[92m    Checking[0m aead v0.5.2
+[1m[92m    Checking[0m libloading v0.9.0
 [1m[92m    Checking[0m itoa v1.0.19
-[1m[92m   Compiling[0m medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)
+[1m[92m    Checking[0m clap_builder v4.6.7
 [1m[92m    Checking[0m serde_json v1.0.154
-[1m[92m    Checking[0m tinytemplate v1.2.1
-[1m[92m    Checking[0m criterion v0.5.1
-[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 6.39s
-=== run 42562423653 job core-tests Mon Nov  9 04:33:03 UTC 2026 ===
-[1m[92m   Compiling[0m itoa v1.0.19
+[1m[92m   Compiling[0m futures-macro v0.3.34
+[1m[92m   Compiling[0m serde_derive v1.0.229
+[1m[92m    Checking[0m futures-util v0.3.34
+[1m[92m    Checking[0m blowfish v0.10.0
+[1m[92m    Checking[0m crypto_secretbox v0.1.1
+[1m[92m    Checking[0m ghash v0.6.0
+[1m[92m    Checking[0m curve25519-dalek v4.1.3
+[1m[92m    Checking[0m half v2.7.1
+[1m[92m    Checking[0m ciborium-ll v0.2.2
+[1m[92m   Compiling[0m napi-derive-backend v7.0.0
+[1m[92m    Checking[0m futures-executor v0.3.34
+[1m[92m    Checking[0m futures v0.3.34
+[1m[92m    Checking[0m itertools v0.13.0
+[1m[92m    Checking[0m serde v1.0.229
+[1m[92m    Checking[0m ctr v0.10.1
+[1m[92m    Checking[0m aes v0.9.4
+[1m[92m    Checking[0m aead v0.6.1
 [1m[92m   Compiling[0m medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)
-[1m[92m   Compiling[0m serde_json v1.0.154
-[1m[92m   Compiling[0m tinytemplate v1.2.1
-[1m[92m   Compiling[0m criterion v0.5.1
-[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 3.54s
-[1m[92m     Running[0m unittests src/lib.rs (target/debug/deps/medchat_core-1e65b2c452607109)
+[1m[92m    Checking[0m rustc-hash v2.1.3
+[1m[92m    Checking[0m ctor v1.0.13
+[1m[92m    Checking[0m base64 v0.23.1
+[1m[92m    Checking[0m nohash-hasher v0.2.0
+[1m[92m    Checking[0m bcrypt v0.19.3
+[1m[92m    Checking[0m aes-gcm v0.11.1
+[1m[92m    Checking[0m criterion-plot v0.8.2
+[1m[92m    Checking[0m tinytemplate v1.2.1
+[1m[92m   Compiling[0m napi-derive v3.7.0
+[1m[92m    Checking[0m ciborium v0.2.2
+[1m[92m    Checking[0m crypto_box v0.9.1
+[1m[92m    Checking[0m x25519-dalek v3.0.0
+[1m[92m    Checking[0m clap v4.6.7
+[1m[92m    Checking[0m hmac v0.13.0
+[1m[92m    Checking[0m sha2 v0.11.1
+[1m[92m    Checking[0m page_size v0.6.0
+[1m[92m    Checking[0m bincode v3.0.0
+[1m[91merror[0m[1m: https://xkcd.com/2347/[0m
+ [1m[94m--> [0m/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bincode-3.0.0/src/lib.rs:1:1
+  [1m[94m|[0m
+[1m[94m1[0m [1m[94m|[0m compile_error!("https://xkcd.com/2347/");
+  [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
 
-running 26 tests
-test hotpath::tests::sha256_kat_abc ... ok
-test hotpath::tests::gzip_header_and_empty ... ok
-test hotpath::tests::gzip_decompress_invalid_is_err ... ok
-test hotpath::tests::gzip_roundtrip_json ... ok
-test hotpath::tests::sha256_kat_empty ... ok
-test hotpath::tests::sha256_verify_matches_and_case_insensitive ... ok
-test ratchet::tests::forward_secrecy_old_message_keys_gone ... ok
-test ratchet::tests::bad_header_rejected ... ok
-test ratchet::tests::headers_advance_counter ... ok
-test ratchet::tests::responder_cannot_send_before_first_receive ... ok
-test ratchet::tests::bidirectional_roundtrip_multiple_ratchets ... ok
-test ratchet::tests::serde_persistence::serialized_blob_contains_secrets ... ok
-test ratchet::tests::out_of_order_decoded_via_skip_store ... ok
-test ratchet::tests::serde_persistence::session_survives_serialization_roundtrip ... ok
-test ratchet::tests::serde_persistence::skip_store_survives_serialization ... ok
-test ratchet::tests::tampered_ciphertext_rejected ... ok
-test ratchet::tests::too_many_skipped_rejected ... ok
-test ratchet::tests::wire_roundtrip_and_decrypt ... ok
-test tests::empty_recipients_is_empty_envelope ... ok
-test ratchet::tests::wire_too_short_rejected ... ok
-test ratchet::tests::wire_tampered_ciphertext_rejected_by_aead ... ok
-test tests::tampered_ciphertext_fails ... ok
-test tests::roundtrip_multiple_recipients ... ok
-test tests::wrong_key_fails ... ok
-test tests::batch_open_mixed_page ... FAILED
-test tests::x25519_dh_rfc7748_kat_and_symmetry ... ok
-
-failures:
-
----- tests::batch_open_mixed_page stdout ----
-
-thread 'tests::batch_open_mixed_page' (2584) panicked at src/lib.rs:329:9:
-assertion failed: for_bob[1].is_err()
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-
-
-failures:
-    tests::batch_open_mixed_page
-
-test result: FAILED. 25 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
-
-[1m[91merror[0m: test failed, to rerun pass `--lib`
+[1m[91merror[0m: could not compile `bincode` (lib) due to 1 previous error
+[1m[33mwarning[0m: build failed, waiting for other jobs to finish...
