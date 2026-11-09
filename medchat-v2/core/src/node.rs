@@ -414,8 +414,8 @@ impl JsRatchetState {
     /// запусками. Восстановление — JsRatchetState.restore(saved).
     #[napi]
     pub fn save(&self) -> Result<Buffer> {
-        // postcard: to_alloc_vec (serde, varint-формат).
-        let buf = postcard::to_alloc_vec(&self.inner)
+        // postcard: to_allocvec (serde, varint-формат).
+        let buf = postcard::to_allocvec(&self.inner)
             .map_err(|e| NapiError::new(Status::GenericFailure, format!("{}", e)))?;
         Ok(Buffer::from(buf))
     }

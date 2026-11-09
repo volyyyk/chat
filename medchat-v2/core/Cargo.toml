@@ -99,7 +99,7 @@ serde = { version = "1", features = ["derive"], optional = true }
 # #206: у крейта нет feature serde). postcard — официальная альтернатива из
 # README bincode: чистый serde (HashMap с нестроковыми ключами ок), формат
 # varint. default-features = false + фича alloc (default её НЕ включает —
-# default = heapless-cas): без heapless/crc-опций; to_alloc_vec требует
+# default = heapless-cas): без heapless/crc-опций; to_allocvec требует
 # alloc. Формат НЕ совместим со старыми bincode-буферами (прототип,
 # пользовательских данных нет). Дублирует dev-зависимость: сериализация
 # нужна и ЛИБ-коду — методам save/restore биндингов (node.rs /

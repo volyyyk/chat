@@ -505,9 +505,9 @@ mod tests {
             let m1 = alice.encrypt(b"hello").unwrap();
             assert_eq!(bob.decrypt(&m1).unwrap(), b"hello".to_vec());
 
-            // postcard: to_alloc_vec/from_bytes (serde, varint-формат).
-            let alice_blob = postcard::to_alloc_vec(&alice).unwrap();
-            let bob_blob = postcard::to_alloc_vec(&bob).unwrap();
+            // postcard: to_allocvec/from_bytes (serde, varint-формат).
+            let alice_blob = postcard::to_allocvec(&alice).unwrap();
+            let bob_blob = postcard::to_allocvec(&bob).unwrap();
             let mut alice2: RatchetState = postcard::from_bytes(&alice_blob).unwrap();
             let mut bob2: RatchetState = postcard::from_bytes(&bob_blob).unwrap();
 
@@ -526,7 +526,7 @@ mod tests {
             let m2 = alice.encrypt(b"second").unwrap();
             assert_eq!(bob.decrypt(&m2).unwrap(), b"second".to_vec());
 
-            let blob = postcard::to_alloc_vec(&bob).unwrap();
+            let blob = postcard::to_allocvec(&bob).unwrap();
             let mut bob2: RatchetState = postcard::from_bytes(&blob).unwrap();
             assert_eq!(bob2.decrypt(&m1).unwrap(), b"first".to_vec());
 
@@ -544,7 +544,7 @@ mod tests {
         fn serialized_blob_contains_secrets() {
             let (mut alice, _bob) = session();
             let _ = alice.encrypt(b"x").unwrap();
-            let blob = postcard::to_alloc_vec(&alice).unwrap();
+            let blob = postcard::to_allocvec(&alice).unwrap();
             let secret = alice.dh_self.secret_key;
             assert!(blob.windows(32).any(|w| w == secret.as_slice()));
         }

@@ -392,8 +392,8 @@ impl MedRatchetState {
     /// запусками. Восстановление — MedRatchetState.restore(saved).
     pub fn save(&self) -> Result<Vec<u8>, MedCryptoError> {
         let st = lock(&self.inner);
-        // postcard: to_alloc_vec (serde, varint-формат).
-        postcard::to_alloc_vec(&*st).map_err(|e| {
+        // postcard: to_allocvec (serde, varint-формат).
+        postcard::to_allocvec(&*st).map_err(|e| {
             MedCryptoError::InvalidArgument {
                 detail: format!("serialization failed: {}", e),
             }
