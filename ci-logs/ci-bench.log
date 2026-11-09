@@ -1,9 +1,11 @@
-=== run 42582115948 job core-bench Mon Nov  9 07:53:18 UTC 2026 ===
+=== run 42583038838 job core-bench Mon Nov  9 08:01:58 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
-[1m[91merror[0m: failed to select a version for the requirement `napi-build = "^3"`
-candidate versions found which didn't match: 2.6.0, 2.5.0, 2.4.4, ...
-location searched: crates.io index
-required by package `medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)`
-help: if you are looking for the prerelease package it needs to be specified explicitly
-    napi-build = { version = "1.1.0-beta.0" }
+[1m[91merror[0m: failed to select a version for `bincode`.
+    ... required by package `medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)`
+versions that meet the requirements `^3` are: 3.0.0
+
+package `medchat-core` depends on `bincode` with feature `serde` but `bincode` does not have that feature.
+
+
+failed to select a version for `bincode` which could resolve this conflict
