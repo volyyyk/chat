@@ -1,4 +1,4 @@
-=== run 42562423653 job android-smoke Mon Nov  9 04:33:09 UTC 2026 ===
+=== run 42566700995 job android-smoke Mon Nov  9 05:20:22 UTC 2026 ===
 cargo 1.99.1 (5f94df478 2026-08-27)
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Ignored[0m package `uniffi-bindgen-cli v0.1.0 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)` is already installed, use --force to override
@@ -22,82 +22,13 @@ cargo 1.99.1 (5f94df478 2026-08-27)
 [1m[92m   Compiling[0m serde_json v1.0.154
 [1m[92m   Compiling[0m cargo_metadata v0.15.4
 [1m[92m   Compiling[0m uniffi v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
-[1m[92m    Finished[0m `release` profile [optimized] target(s) in 11.97s
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 9.14s
 [ci-android] generate kotlin bindings: start
 Warning: Unable to auto-format medchat_core.kt using ktlint: Os { code: 2, kind: NotFound, message: "No such file or directory" }
 [ci-android] generated files:
 total 12
-drwxr-xr-x 3 runner runner 4096 Nov  9 04:33 .
-drwxr-xr-x 3 runner runner 4096 Nov  9 04:33 ..
-drwxr-xr-x 3 runner runner 4096 Nov  9 04:33 uniffi
+drwxr-xr-x 3 runner runner 4096 Nov  9 05:20 .
+drwxr-xr-x 3 runner runner 4096 Nov  9 05:20 ..
+drwxr-xr-x 3 runner runner 4096 Nov  9 05:20 uniffi
 [ci-android] downloading kotlinc 2.0.21
-info: kotlinc-jvm 2.0.21 (JRE 17.0.21+9)
-[ci-android] downloading JNA 5.14.0
--rw-r--r-- 1 runner runner 1878533 Nov  9 04:33 /tmp/jna.jar
-[ci-android] kotlin smoke: start
-[ci-android] kotlin package: uniffi.medchat_core
-[ci-android] compiling kotlinc (обвязка + smoke)
-[ci-android] running smoke in JVM via JNA (host cdylib)
-[ci-android] kotlin-stdlib: /opt/kotlinc/lib/kotlin-stdlib.jar
-[android-smoke] keySize/nonceSize — ok
-[android-smoke] ratchetHeaderSize/ratchetNonceSize — ok
-[android-smoke] generateKeypair: пары X25519 по 32+32 байта — ok
-[android-smoke] sealForRecipients: epk 32 + nonce 24 + бокс на каждого получателя — ok
-[android-smoke] openSealed roundtrip (получатель) — ok
-[android-smoke] бокс отправителя открывается ключом отправителя — ok
-[android-smoke] пустой список получателей — пустой конверт — ok
-[android-smoke] пустой конверт — NoBoxForRecipient — ok
-[android-smoke] чужой ключ — NoBoxForRecipient — ok
-[android-smoke] битый epk (31 байт) — InvalidArgument — ok
-[android-smoke] битый nonce (23 байта) — InvalidArgument — ok
-[android-smoke] x25519Dh KAT (a, B) == K из RFC 7748 §6.1 — ok
-[android-smoke] x25519Dh KAT (b, A) == K — ok
-[android-smoke] x25519Dh симметричен на сгенерированных парах — ok
-[android-smoke] битая длина mySecret — InvalidArgument — ok
-[android-smoke] bcrypt KAT: верный пароль — ok
-[android-smoke] bcrypt KAT: неверный пароль — false, не ошибка — ok
-[android-smoke] битый bcrypt-хэш — BadHash — ok
-[android-smoke] ratchet: header 40 + nonce 12 — ok
-[android-smoke] ratchet: encrypt/decrypt in-order — ok
-[android-smoke] ratchetMessageToWire: 40 + 12 + len + 16 — ok
-[android-smoke] ratchet: ответ по wire (DH-шаг) + decryptWire — ok
-[android-smoke] ratchetMessageTo/FromWire — байт-в-байт — ok
-[android-smoke] короткий wire — BadHeader — ok
-[android-smoke] skip-store: m2 раньше m1, оба читаются (m2) — ok
-[android-smoke] skip-store: m1 читается после m2 — ok
-[android-smoke] replay отклоняется (OutOfOrder) — ok
-[android-smoke] ratchet: битый nonce (11 байт) — InvalidArgument — ok
-[android-smoke] tampered ciphertext отклоняется AEAD — ok
-[android-smoke] responder до первого сообщения — NotInitialized — ok
-[android-smoke] save/restore: m1 расшифрован до сохранения — ok
-[android-smoke] save(): непустой bincode-буфер — ok
-[android-smoke] ratchet save/restore: диалог продолжается после рестарта — ok
-[android-smoke] replay после restore отклоняется (OutOfOrder) — ok
-[android-smoke] restore пустого буфера — InvalidArgument, не паника — ok
-[android-smoke] restore мусорного буфера — InvalidArgument — ok
-[android-smoke] все проверки пройдены: 36
-[ci-android] kotlin smoke: done
-[ci-android] typecheck kotlin sources: start
-[ci-android] android.jar: /usr/local/lib/android/sdk/platforms/android-37.2/android.jar
-[ci-android] compiling kotlinc (обвязка + сервисы против android.jar)
-/home/runner/work/chat/chat/medchat-v2/android/app/src/main/java/medchat/android/ApiService.kt:185:16: error: return type mismatch: expected 'medchat.android.ApiService.MessagesPage', actual 'kotlin.collections.List<medchat.android.ChatMessage>'.
-        return (0 until rows.length()).map { index ->
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/runner/work/chat/chat/medchat-v2/android/app/src/main/java/medchat/android/ApiService.kt:185:25: error: unresolved reference 'rows'.
-        return (0 until rows.length()).map { index ->
-                        ^^^^
-/home/runner/work/chat/chat/medchat-v2/android/app/src/main/java/medchat/android/ApiService.kt:186:23: error: unresolved reference 'rows'.
-            val row = rows.getJSONObject(index)
-                      ^^^^
-/home/runner/work/chat/chat/medchat-v2/android/app/src/main/java/medchat/android/ApiService.kt:192:24: error: argument type mismatch: actual type is 'kotlin.sequences.Sequence<T>', but 'kotlin.String' was expected.
-                type = row.optString("type").ifEmpty { "text" },
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/runner/work/chat/chat/medchat-v2/android/app/src/main/java/medchat/android/ApiService.kt:192:46: error: cannot infer type for this parameter. Please specify it explicitly.
-                type = row.optString("type").ifEmpty { "text" },
-                                             ^^^^^^^
-/home/runner/work/chat/chat/medchat-v2/android/app/src/main/java/medchat/android/ApiService.kt:198:74: error: unresolved reference 'parsed'.
-        val total = json.optJSONObject("pagination")?.optInt("total") ?: parsed.size
-                                                                         ^^^^^^
-/home/runner/work/chat/chat/medchat-v2/android/app/src/main/java/medchat/android/ApiService.kt:199:29: error: unresolved reference 'parsed'.
-        return MessagesPage(parsed, total)
-                            ^^^^^^
+curl: (22) The requested URL returned error: 504
