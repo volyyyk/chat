@@ -1,0 +1,72 @@
+Using artifacts of CI run: 42558443272
+[release] download medchat-android-debug-apk -> dist/android: attempt 1
+[release] download medchat-desktop-linux -> dist/desktop-linux: attempt 1
+[release] download medchat-desktop-nsis -> dist/desktop-nsis: attempt 1
+[release] download medchat-web-static -> dist/web: attempt 1
+no artifact matches any of the names or patterns provided
+[release] medchat-web-static: attempt 1 failed, retry in 15s
+[release] download medchat-web-static -> dist/web: attempt 2
+no artifact matches any of the names or patterns provided
+[release] medchat-web-static: attempt 2 failed, retry in 15s
+[release] download medchat-web-static -> dist/web: attempt 3
+no artifact matches any of the names or patterns provided
+[release] medchat-web-static: attempt 3 failed, retry in 15s
+[release] FAILED to download medchat-web-static after 3 attempts
+=== release run 42568114526 outcome=failure Mon Nov  9 05:35:41 UTC 2026 ===
+total 52
+drwxr-xr-x  8 runner runner  4096 Nov  9 05:34 .
+drwxr-xr-x  3 runner runner  4096 Nov  9 05:34 ..
+drwxr-xr-x  7 runner runner  4096 Nov  9 05:34 .git
+drwxr-xr-x  3 runner runner  4096 Nov  9 05:34 .github
+-rw-r--r--  1 runner runner 14604 Nov  9 05:34 README.md
+drwxr-xr-x  2 runner runner  4096 Nov  9 05:34 ci-logs
+drwxr-xr-x  5 runner runner  4096 Nov  9 05:34 dist
+drwxr-xr-x  5 runner runner  4096 Nov  9 05:34 medchat
+drwxr-xr-x 12 runner runner  4096 Nov  9 05:34 medchat-v2
+-rw-r--r--  1 runner runner   939 Nov  9 05:35 release-build.log
+dist:
+total 20
+drwxr-xr-x 5 runner runner 4096 Nov  9 05:34 .
+drwxr-xr-x 8 runner runner 4096 Nov  9 05:34 ..
+drwxr-xr-x 2 runner runner 4096 Nov  9 05:34 android
+drwxr-xr-x 4 runner runner 4096 Nov  9 05:34 desktop-linux
+drwxr-xr-x 3 runner runner 4096 Nov  9 05:34 desktop-nsis
+
+dist/android:
+total 11944
+drwxr-xr-x 2 runner runner     4096 Nov  9 05:34 .
+drwxr-xr-x 5 runner runner     4096 Nov  9 05:34 ..
+-rw-r--r-- 1 runner runner 12221406 Nov  9 05:34 app-debug.apk
+
+dist/desktop-linux:
+total 16
+drwxr-xr-x 4 runner runner 4096 Nov  9 05:34 .
+drwxr-xr-x 5 runner runner 4096 Nov  9 05:34 ..
+drwxr-xr-x 2 runner runner 4096 Nov  9 05:34 appimage
+drwxr-xr-x 2 runner runner 4096 Nov  9 05:34 deb
+
+dist/desktop-linux/appimage:
+total 84744
+drwxr-xr-x 2 runner runner     4096 Nov  9 05:34 .
+drwxr-xr-x 4 runner runner     4096 Nov  9 05:34 ..
+-rwxr-xr-x 1 runner runner 86768120 Nov  9 05:34 MedChat_0.1.0_amd64.AppImage
+
+dist/desktop-linux/deb:
+total 3264
+drwxr-xr-x 2 runner runner    4096 Nov  9 05:34 .
+drwxr-xr-x 4 runner runner    4096 Nov  9 05:34 ..
+-rw-r--r-- 1 runner runner 3331714 Nov  9 05:34 MedChat_0.1.0_amd64.deb
+
+dist/desktop-nsis:
+total 12
+drwxr-xr-x 3 runner runner 4096 Nov  9 05:34 .
+drwxr-xr-x 5 runner runner 4096 Nov  9 05:34 ..
+drwxr-xr-x 2 runner runner 4096 Nov  9 05:34 nsis
+
+dist/desktop-nsis/nsis:
+total 1936
+drwxr-xr-x 2 runner runner    4096 Nov  9 05:34 .
+drwxr-xr-x 3 runner runner    4096 Nov  9 05:34 ..
+-rw-r--r-- 1 runner runner 1970483 Nov  9 05:34 MedChat_0.1.0_x64-setup.exe
+?? dist/
+?? release-build.log
