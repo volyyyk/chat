@@ -50,7 +50,7 @@ const config = {
 
   // App settings
   APP_NAME: 'MedChat',
-  APP_VERSION: '2.0.0',
+  APP_VERSION: '2.0.1',
 
   // Encryption settings
   ENCRYPTION_ALGORITHM: 'XChaCha20-Poly1305',
