@@ -44,7 +44,7 @@ const ChatsPage = () => {
           <Link key={chat.id} to={'/chats/' + chat.id} className="chat-list-item" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="info">
               <div className="name">{chat.title || (chat.patient && chat.patient.fullName) || 'Пациент'}</div>
-              <div className="last">{chat.lastMessage ? (chat.lastMessage.content || '') : 'Нет сообщений'}</div>
+              <div className="last">{chat.lastMessage ? (chat.lastMessage.content || (chat.lastMessage.metadata && chat.lastMessage.metadata.e2e ? '🔒 Сообщение зашифровано' : '')) : 'Нет сообщений'}</div>
             </div>
             {(chat.unreadCount || 0) > 0 && <span className="unread-badge">{chat.unreadCount}</span>}
           </Link>

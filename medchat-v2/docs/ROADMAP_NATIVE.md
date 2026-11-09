@@ -351,7 +351,7 @@ UI после логина регистрирует публичный ключ 
 отправителя обязателен, сервер проверяет), входящие metadata.e2e
 расшифровывает на устройстве; при неполном покрытии участников
 ключами — честный plaintext-fallback (чат не ломается); склейка E2E-конвертов с клиентами завершена (desktop UI после логина,
-iOS ChatView + CryptoService, RN-мобилка; Android — каркас CryptoService,
+iOS ChatView + CryptoService, RN-мобилка, web-клиент (services/e2eCrypto.js + ChatPage: конверты байт-в-байт, приватный ключ в localStorage — честный компромисс браузера без secure storage, ratchet — плашка); Android — каркас CryptoService,
 UI ч.3); следующая фаза этапа 7 — ratchet-сессии в клиентском пути:
 raw X25519-DH экспортирован из ядра во все три поверхности (x25519_dh
 lib / x25519Dh napi + UniFFI; клампинг RFC 7748) — shared secret из
@@ -401,8 +401,9 @@ phone/verify — одноразовый 6-значный код в VerificationT
 бенчмарк ≥ x10 на конвертном пути, fuzz-smoke, napi + UniFFI-биндинги,
 CI-гейты всех платформ (server, e2e, core, bench, napi, fuzz, uniffi,
 ios-smoke, android-smoke, android-build, desktop-check, desktop-bundle,
-k6-load, core-audit), E2E + Double Ratchet склеены во всех нативных клиентах
-(desktop, iOS, Android; RN — честная плашка reference-клиента).
+k6-load, core-audit, web-build), E2E + Double Ratchet склеены во всех нативных клиентах
+(desktop, iOS, Android; web — конверты x25519-box, ratchet — честная плашка;
+RN — честная плашка reference-клиента).
 Остаток этапов 3/4/5/7 — операторские позиции: TestFlight и подписи
 Apple, Play Console и подписи Android, Authenticode/GPG-подписи и
 автоапдейт desktop, SMS-гейт для 149-ФЗ, ГОСТ СКЗИ и внешний аудит

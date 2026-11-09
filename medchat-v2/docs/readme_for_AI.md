@@ -67,7 +67,7 @@ MedChat v2 — телемедицинская платформа «клиник�
 |---|---|
 | server | Node 18+, Express, Sequelize + PostgreSQL, Redis (rate-limit), Socket.IO, MinIO, Joi, Jest + supertest |
 | mobile | React Native / Expo 48 (все роли, основной сценарий — пациент), tweetnacl (X25519 + box для E2E), expo-secure-store (Keychain/Keystore) |
-| web | React (порт 3002, клиника/админ) |
+| web | React (порт 3002, клиника/админ); E2E x25519-box через tweetnacl (services/e2eCrypto.js): конверты байт-в-байт с мобильным/desktop, honest plaintext-fallback, приватный ключ в localStorage (в браузере нет secure storage — компромисс по прецеденту LEGAL.md §2); ratchet/mc:2 — честные плашки |
 | desktop | Tauri 2 (Rust + системный webview): рабочий клиент (этапы 5–7: подключение/логин/чаты/сообщения REST, E2E-конверты, Double Ratchet поверх конверта); ядро medchat-core напрямую path-депом (Rust→Rust, без FFI); secure storage keyring 3 (Credential Manager / libsecret) |
 | ios/android | каркасы нативных клиентов (этапы 3/4): SwiftUI-источники ios/ (экраны, ApiService, KeychainStore, CryptoService, RatchetService; runtime-smoke MedchatCoreSmoke.swift + typecheck — джоба ios-smoke); Kotlin-каркас android/ — MedchatCoreSmoke.kt (runtime-smoke через kotlinc + JNA) и каркас источников этапа 4 ч.2: ApiService, SecureStore (Android Keystore), CryptoService, RatchetService, README_ANDROID.md (.so для jniLibs — cargo-ndk, артефакт medchat-core-android; typecheck против android.jar — джоба android-smoke) |
 | core | Rust-ядро medchat-core (этап 2 ROADMAP_NATIVE): X25519 + NaCl box (SalsaBox, crypto_box 0.9), совместимо с мобильным клиентом; Double Ratchet (этап 7, прототип + skip-store): x25519-dalek 2 + HMAC-SHA256 + AES-256-GCM; napi-rs-биндинги для Node (754f677 → 2bb38f2, feature napi-bind e411a54); bcrypt_verify — проверка паролей против серверных bcrypt-хэшей, паритет с authService cost 12 (крейт bcrypt 0.15, 8776f7c); бенчмарки criterion (d2db23e, benches/crypto.rs); uniffi-биндинги Swift/Kotlin (feature uniffi-bind); serde-сериализация RatchetState (feature serde) + биндинги save/restore наружу (napi/UniFFI; персистентность сессий для клиентов) |
@@ -133,7 +133,7 @@ medchat-v2/
 │ │                            расшифровка при просмотре)
 │   ├── components/ (8)         — MessageBubble (🔒 на E2E-сообщениях), AudioPlayer, ...
 │   ├── navigation/, styles/, utils/
-├── web/src/             — pages (7), services, context
+├── web/src/             — pages (7), services (api, e2eCrypto), context
 ├── desktop/            — каркас этапа 5 (Tauri 2): src-tauri/ (Cargo.toml, build.rs,
 │                        tauri.conf.json, src/main.rs — tauri-команды core_probe/
 │                        ratchet_probe/ratchet_save/ratchet_load/ratchet_delete/
@@ -183,7 +183,7 @@ medchat-v2/
 │                          DoD этапа 7), INTEGRATION_BINDINGS (гайд подключения
 │                          биндингов ядра) + этот файл
 ├── docker/, docker-compose.yml
-└── .github/workflows/ci.yml — 14 джоб: server-tests, e2e-smoke, core-tests,
+└── .github/workflows/ci.yml — 15 джоб: server-tests, e2e-smoke, web-build, core-tests,
     core-bench, napi-build, fuzz-smoke, core-audit, uniffi-bindings, ios-smoke,
     android-smoke, android-build, desktop-check, desktop-bundle, k6-load
 ```
@@ -289,6 +289,14 @@ E2E-сообщений серверу недоступен (хранится т�
     нерасшифровываемое → «🔒 Зашифрованное сообщение»;
   - чат-лист: пустой preview + наличие lastMessageId = зашифрованное сообщение (🔒);
   - MessageBubble рисует 🔒 на каждом сообщении с metadata.e2e.
+- **Web-клиент** (web/src/services/e2eCrypto.js + pages/ChatPage.js): та же
+  модель E2E в браузере — keypair X25519 (tweetnacl), регистрация POST /api/keys
+  (keyId web-*), конверты байт-в-байт с мобильным клиентом (те же base64/UTF-8
+  helpers), отправка конвертом при полном покрытии ключами, honest
+  plaintext-fallback; приватный ключ — localStorage (в браузере нет secure
+  storage — честный компромисс, прецедент LEGAL.md §2 / expo web).
+  Ratchet-payload {"t":"r1",...} и файловые mc:2 — честные плашки
+  (веб ratchet-сессию не держит, как RN-мобилка).
 - **Файлы и голосовые внутри E2E (гибридное шифрование, 42e5a1d → ed9a661)**:
   payload шифруется на устройстве случайным 32-байтным ключом (nacl.secretbox);
   на сервер/MinIO уходит только wire = nonce(24) || ciphertext (файл payload.bin,
@@ -1038,7 +1046,7 @@ node stop.js [--docker]                     # остановить процес�
 
 ## 10. CI (.github/workflows/ci.yml)
 
-Четырнадцать джоб на каждый пуш в main:
+Пятнадцать джоб на каждый пуш в main:
 - **server-tests**: `npm ci` + `jest --ci --runInBand` (unit + integration + security;
   БД мокается, Postgres не нужен; с 02dc969 включает tests/e2eEnvelope.test.js — 8 юнит-кейсов
   валидации E2E-конвертов; с 1ce9516 — tests/coreInterop.test.js: канонический
@@ -1058,6 +1066,11 @@ node stop.js [--docker]                     # остановить процес�
   мусорный запрос; скоуп по chatId («лекарство» в своём чате); 403 на поиск в чужом
   чате; глобальный поиск изолирован по доступным чатам. Сид (seed:test) создаёт
   pg_trgm + GIN-индекс по content (non-fatal warn при отсутствии прав).
+- **web-build** (этап 7, web-клиент): npm install (lock-файла нет — deps
+  управляются вручную) + CI=false react-scripts build в medchat-v2/web;
+  статический бандл build/ — артефакт medchat-web-static (релизный ассет
+  MedChat-Web-static.zip через workflow Release). E2E-конверты web-клиента
+  байт-в-байт совместимы с остальными клиентами (tweetnacl).
 - **core-tests**: Rust-ядро medchat-v2/core — stable-тулчейн, кэш (Swatinem/rust-cache),
   два шага (с e411a54): `cargo check --tests --no-default-features
   --features napi-bind,serde` (компиляция ядра + napi-биндингов src/node.rs
@@ -1170,7 +1183,7 @@ CRC32/Adler32/stored-deflate собираются кодом) + явный "icon
   uniffi-крейтов нет в sparse-индексе crates.io — крейт и CLI переведены
   на git-тег v0.28.3; #108 — пакет CLI в git-workspace зовётся uniffi-bindgen-cli (бинарь uniffi-bindgen), уроки в §8); #109 — uniffi::Error требует Display у ошибок экспортов (фикс: impl Display для MedCryptoError, §8); #111 — тест обёртки uniffi повторил баг фиктивной X25519-пары #104/#105 (Aead; фикс — generate_keypair() в тесте), §8. Логи
   падений бот ci-reporter
-  коммитит в `ci-logs/` (ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log / ci-ios.log / ci-android.log / ci-android-build.log / ci-desktop.log / ci-desktop-bundle.log / ci-audit.log; ci-bench.log и ci-k6.log пишутся при любом исходе) — при
+  коммитит в `ci-logs/` (ci-web-build.log / ci-smoke.log / ci-jest.log / ci-rust.log / ci-seed.log / ci-napi.log / ci-fuzz.log / ci-uniffi.log / ci-ios.log / ci-android.log / ci-android-build.log / ci-desktop.log / ci-desktop-bundle.log / ci-audit.log; ci-bench.log и ci-k6.log пишутся при любом исходе) — при
   красном прогоне читать оттуда.
 
 ## 11. Что осталось сделать (roadmap)

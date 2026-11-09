@@ -192,6 +192,60 @@ jobs:
           ls -la logs 2>/dev/null || true
           tail -n 200 logs/error.log 2>/dev/null || true
 
+  web-build:
+    name: Web client build (React, статический бандл)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # lock-файла в web/ нет (замороженный состав deps) — npm install;
+      # обновления web-мобилки управляются вручную.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # react-scripts при CI=true роняет сборку на любых ворнингах —
+      # для джобы это не хотим (CI=false), бандл обязан собраться.
+      - name: Build (react-scripts)
+        run: |
+          set -o pipefail
+          { CI=false npm run build; } 2>&1 | tee ../../ci-web-build.log
+
+      - name: Publish build log to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-web-build.log ]; then
+            cp ci-web-build.log ci-logs/ci-web-build.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no web build log to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): web-build log from run ${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
+
+      - name: Upload static bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: medchat-web-static
+          path: medchat-v2/web/build
+          if-no-files-found: error
   core-tests:
     name: Rust core (medchat-core, этап 2 ROADMAP_NATIVE)
     runs-on: ubuntu-latest
