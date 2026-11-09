@@ -76,7 +76,7 @@ bcrypt = "0.19"
 napi = { version = "3", default-features = false, features = ["compat-mode"], optional = true }
 napi-derive = { version = "3", optional = true }
 # UniFFI (src/uniffi_iface.rs, feature uniffi-bind): биндинги Swift/Kotlin
-# (этап 2 ROADMAP_NATIVE). Источник — git-тег v0.32.2 репозитория
+# (этап 2 ROADMAP_NATIVE). Источник — git-тег v0.32.1 репозитория
 # mozilla/uniffi-rs: семейство uniffi-крейтов ОТСУТСТВУЕТ в sparse-индексе
 # crates.io (index.crates.io/un/iff/uniffi* → NoSuchKey; в CI cargo 1.99
 # отвечает «could not find uniffi-bindgen in registry crates-io» на любую
@@ -86,7 +86,7 @@ napi-derive = { version = "3", optional = true }
 # (uniffi-macro, uniffi-meta) идут path-депами того же workspace —
 # обращений к отсутствующим индекс-записям не остаётся. Cargo.lock в
 # gitignore (библиотечный крейт) — правок лок-файла не требуется.
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", tag = "v0.32.2", optional = true }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", tag = "v0.32.1", optional = true }
 # serde (feature serde, src/ratchet.rs): сериализация RatchetState для
 # персистентности Double Ratchet (этап 7). Честно: JSON не подходит —
 # ключи skip-store HashMap(([u8;32], u32)) нестроковые; формат персистентности
