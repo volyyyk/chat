@@ -1,4 +1,4 @@
-=== run 42562423653 job uniffi-bindings Mon Nov  9 04:32:56 UTC 2026 ===
+=== run 42563219786 job uniffi-bindings Mon Nov  9 04:41:59 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Locking[0m 165 packages to highest compatible versions
@@ -19,7 +19,7 @@
 [1m[92m   Compiling[0m serde_json v1.0.154
 [1m[92m   Compiling[0m cargo_metadata v0.15.4
 [1m[92m   Compiling[0m uniffi v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
-[1m[92m    Finished[0m `release` profile [optimized] target(s) in 8.94s
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 8.12s
 [1m[92m   Compiling[0m itoa v1.0.19
 [1m[92m   Compiling[0m medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)
 [1m[92m   Compiling[0m serde_json v1.0.154
@@ -27,27 +27,57 @@
 [1m[92m   Compiling[0m tinytemplate v1.2.1
 [1m[92m   Compiling[0m criterion v0.5.1
 [1m[92m   Compiling[0m uniffi v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
-[1m[91merror[E0382][0m[1m: borrow of moved value: `alice.public_key`[0m
-   [1m[94m--> [0msrc/uniffi_iface.rs:534:13
-    [1m[94m|[0m
-[1m[94m530[0m [1m[94m|[0m             seal_for_recipients(b"only alice".to_vec(), vec![alice.public_key]).unwrap();
-    [1m[94m|[0m                                                              [1m[94m----------------[0m [1m[94mvalue moved here[0m
-[1m[94m...[0m
-[1m[94m534[0m [1m[94m|[0m             alice.public_key.clone(),
-    [1m[94m|[0m             [1m[91m^^^^^^^^^^^^^^^^[0m [1m[91mvalue borrowed here after move[0m
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: move occurs because `alice.public_key` has type `Vec<u8>`, which does not implement the `Copy` trait
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 5.26s
+[1m[92m     Running[0m unittests src/lib.rs (target/debug/deps/medchat_core-58a6b061b4667b87)
 
-[1m[91merror[E0382][0m[1m: use of moved value: `bob.public_key`[0m
-   [1m[94m--> [0msrc/uniffi_iface.rs:544:55
-    [1m[94m|[0m
-[1m[94m531[0m [1m[94m|[0m         let s3 = seal_for_recipients(b"not for alice".to_vec(), vec![bob.public_key]).unwrap();
-    [1m[94m|[0m                                                                      [1m[94m--------------[0m [1m[94mvalue moved here[0m
-[1m[94m...[0m
-[1m[94m544[0m [1m[94m|[0m         let for_bob = open_sealed_batch(vec![s1, s3], bob.public_key, bob.secret_key).unwrap();
-    [1m[94m|[0m                                                       [1m[91m^^^^^^^^^^^^^^[0m [1m[91mvalue used here after move[0m
-    [1m[94m|[0m
-    [1m[94m= [0m[1mnote[0m: move occurs because `bob.public_key` has type `Vec<u8>`, which does not implement the `Copy` trait
+running 34 tests
+test hotpath::tests::sha256_kat_abc ... ok
+test hotpath::tests::sha256_kat_empty ... ok
+test hotpath::tests::sha256_verify_matches_and_case_insensitive ... ok
+test hotpath::tests::gzip_decompress_invalid_is_err ... ok
+test hotpath::tests::gzip_header_and_empty ... ok
+test hotpath::tests::gzip_roundtrip_json ... ok
+test ratchet::tests::headers_advance_counter ... ok
+test ratchet::tests::bad_header_rejected ... ok
+test ratchet::tests::forward_secrecy_old_message_keys_gone ... ok
+test ratchet::tests::out_of_order_decoded_via_skip_store ... ok
+test ratchet::tests::bidirectional_roundtrip_multiple_ratchets ... ok
+test ratchet::tests::responder_cannot_send_before_first_receive ... ok
+test ratchet::tests::serde_persistence::serialized_blob_contains_secrets ... ok
+test ratchet::tests::serde_persistence::skip_store_survives_serialization ... ok
+test ratchet::tests::tampered_ciphertext_rejected ... ok
+test ratchet::tests::serde_persistence::session_survives_serialization_roundtrip ... ok
+test ratchet::tests::too_many_skipped_rejected ... ok
+test ratchet::tests::wire_too_short_rejected ... ok
+test tests::empty_recipients_is_empty_envelope ... ok
+test ratchet::tests::wire_tampered_ciphertext_rejected_by_aead ... ok
+test ratchet::tests::wire_roundtrip_and_decrypt ... ok
+test tests::tampered_ciphertext_fails ... ok
+test tests::roundtrip_multiple_recipients ... ok
+test tests::wrong_key_fails ... ok
+test uniffi_iface::tests::constants_match_core ... ok
+test tests::x25519_dh_rfc7748_kat_and_symmetry ... ok
+test uniffi_iface::tests::invalid_lengths_rejected ... ok
+test tests::batch_open_mixed_page ... ok
+test uniffi_iface::tests::ratchet_save_restore_roundtrip ... ok
+test uniffi_iface::tests::ratchet_wire_roundtrip_and_replay ... ok
+test uniffi_iface::tests::seal_open_roundtrip_and_wrong_key ... ok
+test uniffi_iface::tests::uniffi_x25519_dh_rfc7748_kat ... ok
+test uniffi_iface::tests::uniffi_batch_open_page ... FAILED
+test uniffi_iface::tests::bcrypt_kat_via_wrapper ... ok
 
-[1mFor more information about this error, try `rustc --explain E0382`.[0m
-[1m[91merror[0m: could not compile `medchat-core` (lib test) due to 2 previous errors
+failures:
+
+---- uniffi_iface::tests::uniffi_batch_open_page stdout ----
+
+thread 'uniffi_iface::tests::uniffi_batch_open_page' (2876) panicked at src/uniffi_iface.rs:545:9:
+assertion failed: for_bob[0].ok
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    uniffi_iface::tests::uniffi_batch_open_page
+
+test result: FAILED. 33 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+[1m[91merror[0m: test failed, to rerun pass `--lib`
