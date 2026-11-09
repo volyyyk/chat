@@ -1,4 +1,4 @@
-=== run 42561454875 job uniffi-bindings Mon Nov  9 04:22:32 UTC 2026 ===
+=== run 42562423653 job uniffi-bindings Mon Nov  9 04:32:56 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Locking[0m 165 packages to highest compatible versions
@@ -19,34 +19,35 @@
 [1m[92m   Compiling[0m serde_json v1.0.154
 [1m[92m   Compiling[0m cargo_metadata v0.15.4
 [1m[92m   Compiling[0m uniffi v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
-[1m[91merror[E0277][0m[1m: a value of type `Vec<MedOpenResult>` cannot be built from an iterator over elements of type `Result<MedOpenResult, _>`[0m
-   [1m[94m--> [0msrc/uniffi_iface.rs:246:10
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 8.94s
+[1m[92m   Compiling[0m itoa v1.0.19
+[1m[92m   Compiling[0m medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m cargo_metadata v0.15.4
+[1m[92m   Compiling[0m tinytemplate v1.2.1
+[1m[92m   Compiling[0m criterion v0.5.1
+[1m[92m   Compiling[0m uniffi v0.28.3 (https://github.com/mozilla/uniffi-rs?tag=v0.28.3#0d38fc51)
+[1m[91merror[E0382][0m[1m: borrow of moved value: `alice.public_key`[0m
+   [1m[94m--> [0msrc/uniffi_iface.rs:534:13
     [1m[94m|[0m
-[1m[94m246[0m [1m[94m|[0m         .collect())
-    [1m[94m|[0m          [1m[91m^^^^^^^[0m [1m[91mvalue of type `Vec<MedOpenResult>` cannot be built from `std::iter::Iterator<Item=Result<MedOpenResult, _>>`[0m
+[1m[94m530[0m [1m[94m|[0m             seal_for_recipients(b"only alice".to_vec(), vec![alice.public_key]).unwrap();
+    [1m[94m|[0m                                                              [1m[94m----------------[0m [1m[94mvalue moved here[0m
+[1m[94m...[0m
+[1m[94m534[0m [1m[94m|[0m             alice.public_key.clone(),
+    [1m[94m|[0m             [1m[91m^^^^^^^^^^^^^^^^[0m [1m[91mvalue borrowed here after move[0m
     [1m[94m|[0m
-[1m[96mhelp[0m: the trait `FromIterator<[1m[35mResult[0m[1m[35m<[0mMedOpenResult, [1m[35m_[0m[1m[35m>[0m>` [1m[35mis not[0m implemented for `Vec<MedOpenResult>`
-      but trait `FromIterator<MedOpenResult>` [1m[35mis[0m implemented for it
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/alloc/src/vec/mod.rs:3993:0
-    [1m[94m= [0m[1mhelp[0m: for that trait implementation, expected `[1m[35mMedOpenResult[0m`, found `[1m[35mResult<MedOpenResult, _>[0m`
-[1m[92mnote[0m: the method call chain might not have had the expected associated types
-   [1m[94m--> [0msrc/uniffi_iface.rs:226:10
-    [1m[94m|[0m
-[1m[94m224[0m [1m[94m|[0m       Ok(sealeds
-    [1m[94m|[0m          [1m[94m-------[0m [1m[94mthis expression has type `Vec<MedSealedMessage>`[0m
-[1m[94m225[0m [1m[94m|[0m           .into_iter()
-    [1m[94m|[0m            [1m[94m-----------[0m [1m[94m`Iterator::Item` is `MedSealedMessage` here[0m
-[1m[94m226[0m [1m[94m|[0m           .map(|sealed| {
-    [1m[94m|[0m [1m[92m __________^[0m
-[1m[94m227[0m [1m[94m|[0m [1m[92m|[0m             let epk = match arr32(&sealed.epk, "sealed.epk") {
-[1m[94m228[0m [1m[94m|[0m [1m[92m|[0m                 Ok(v) => v,
-[1m[94m229[0m [1m[94m|[0m [1m[92m|[0m                 Err(_) => return Ok(MedOpenResult { ok: false, plaintext: Vec::new() }),
-[1m[94m...[0m   [1m[92m|[0m
-[1m[94m244[0m [1m[94m|[0m [1m[92m|[0m             })
-[1m[94m245[0m [1m[94m|[0m [1m[92m|[0m         })
-    [1m[94m|[0m [1m[92m|__________^[0m [1m[92m`Iterator::Item` changed to `Result<MedOpenResult, _>` here[0m
-[1m[92mnote[0m: required by a bound in `collect`
-   [1m[94m--> [0m/rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/iter/traits/iterator.rs:2073:4
+    [1m[94m= [0m[1mnote[0m: move occurs because `alice.public_key` has type `Vec<u8>`, which does not implement the `Copy` trait
 
-[1mFor more information about this error, try `rustc --explain E0277`.[0m
-[1m[91merror[0m: could not compile `medchat-core` (lib) due to 1 previous error
+[1m[91merror[E0382][0m[1m: use of moved value: `bob.public_key`[0m
+   [1m[94m--> [0msrc/uniffi_iface.rs:544:55
+    [1m[94m|[0m
+[1m[94m531[0m [1m[94m|[0m         let s3 = seal_for_recipients(b"not for alice".to_vec(), vec![bob.public_key]).unwrap();
+    [1m[94m|[0m                                                                      [1m[94m--------------[0m [1m[94mvalue moved here[0m
+[1m[94m...[0m
+[1m[94m544[0m [1m[94m|[0m         let for_bob = open_sealed_batch(vec![s1, s3], bob.public_key, bob.secret_key).unwrap();
+    [1m[94m|[0m                                                       [1m[91m^^^^^^^^^^^^^^[0m [1m[91mvalue used here after move[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: move occurs because `bob.public_key` has type `Vec<u8>`, which does not implement the `Copy` trait
+
+[1mFor more information about this error, try `rustc --explain E0382`.[0m
+[1m[91merror[0m: could not compile `medchat-core` (lib test) due to 2 previous errors
