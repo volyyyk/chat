@@ -139,26 +139,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Лог падения релиза — в ci-logs/ (паттерн CI): API логов джоб
-      # требует прав, которых нет у вызывающей стороны; tee-транскрипт
-      # шагов resolve/download/staging публикуем в ci-logs/ci-release.log.
-      # [skip ci] — пуш GITHUB_TOKEN новых прогонов не запускает.
-      - name: Publish failure logs to the repo
-        if: failure()
+      # Лог релиза (всегда, не только при падении) — в ci-logs/ci-release.log
+      # (паттерн CI): API логов джоб требует прав, которых нет у вызывающей
+      # стороны; tee-транскрипт шагов + диагностика рабочего каталога
+      # (ls/git status) — даже если падение случилось до первого tee-шага,
+      # файл создаётся здесь. Рабочая копия — release-ветка: коммит
+      # собирается на свежем origin/main (checkout --detach) и пушится
+      # как fast-forward. [skip ci] — новых прогонов пуш не запускает.
+      - name: Publish release build log to the repo
+        if: always()
         run: |
           set -e
+          { echo "=== release run ${GITHUB_RUN_ID} outcome=${{ job.status }} $(date -u) ==="; ls -la; ls -laR dist 2>/dev/null || true; git status --short || true; } >> release-build.log 2>&1 || true
           git config user.name "ci-reporter"
           git config user.email "ci-reporter@users.noreply.github.com"
           mkdir -p ci-logs
-          if [ -f release-build.log ]; then
-            cp release-build.log ci-logs/ci-release.log
-          fi
+          cp release-build.log ci-logs/ci-release.log
+          git fetch origin main
+          git checkout --detach origin/main
           git add ci-logs
           if git diff --cached --quiet; then
             echo "no release log to publish"
             exit 0
           fi
-          git commit -m "chore(ci): release failure log from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git commit -m "chore(ci): release log from run ${GITHUB_RUN_ID} [skip ci]"
           git push origin HEAD:main || echo "push failed (non-fatal)"
