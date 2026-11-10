@@ -32,6 +32,7 @@
     justify-content: center;
     height: 100vh;
   }
+  #login .card + .card { margin-top: 16px; }
   .card {
     width: 380px;
     max-width: calc(100vw - 48px);
@@ -165,6 +166,21 @@
     <button id="btn-login">Войти</button>
     <button id="btn-change-server" class="ghost">Сменить сервер</button>
     <p id="login-status" class="status"></p>
+  </div>
+
+  <div class="card">
+    <h1>Вход по приглашению</h1>
+    <p class="muted">Пациент без регистрации: вставьте ссылку-приглашение от врача
+    (QR-код можно отсканировать телефоном и переслать ссылку сюда). Так можно
+    подключиться к нескольким врачам — по одному приглашению на врача.</p>
+    <label for="invite-token">Ссылка-приглашение или токен</label>
+    <input id="invite-token" type="text" autocomplete="off" />
+    <label style="display: flex; gap: 8px; align-items: flex-start; font-weight: 400;">
+      <input id="invite-consent" type="checkbox" style="width: auto; margin-top: 3px;" />
+      <span style="font-weight: 400; font-size: 13px;">Согласен на обработку персональных данных (152-ФЗ)</span>
+    </label>
+    <button id="btn-guest-join">Войти как гость</button>
+    <p id="invite-status" class="status"></p>
   </div>
 </div>
 
@@ -312,6 +328,42 @@ async function doLogin() {
     await enterMain();
   } catch (e) {
     setStatus("login-status", "Ошибка входа: " + e.message, true);
+  }
+}
+
+// Ссылка-приглашение целиком или «голый» 64-hex токен.
+function parseInviteToken(v) {
+  var s = trimValue(v);
+  var m = s.match(/token=([0-9a-fA-F]{64})/) || s.match(/^([0-9a-fA-F]{64})$/);
+  return m ? m[1] : "";
+}
+
+// Гостевой вход пациента по приглашению врача (без регистрации):
+// превью врача (GET /api/guest/invites/:token), затем join с согласием
+// 152-ФЗ. После входа пациент попадает в общий список чатов и может
+// добавить ещё одного врача по второму приглашению.
+async function guestJoin() {
+  var token = parseInviteToken($("invite-token").value);
+  if (!token) { setStatus("invite-status", "Вставьте ссылку-приглашение целиком или токен (64 символа)", true); return; }
+  if (!$("invite-consent").checked) { setStatus("invite-status", "Нужно согласие на обработку персональных данных", true); return; }
+  setStatus("invite-status", "Проверяем приглашение...");
+  try {
+    var preview = await api("/api/guest/invites/" + token);
+    if (preview && preview.valid === false) {
+      setStatus("invite-status", "Приглашение недействительно или истекло", true);
+      return;
+    }
+    var who = preview && preview.doctor && preview.doctor.fullName ? preview.doctor.fullName : "врач";
+    setStatus("invite-status", "Входим к: " + who + "...");
+    var r = await api("/api/guest/join", { method: "POST", body: { token: token, consent: true } });
+    state.token = r.token;
+    state.user = r.user;
+    localStorage.setItem("medchat.token", r.token);
+    localStorage.setItem("medchat.email", r.user && r.user.email ? r.user.email : "guest");
+    setStatus("invite-status", "");
+    await enterMain();
+  } catch (e) {
+    setStatus("invite-status", "Ошибка: " + e.message, true);
   }
 }
 
@@ -806,6 +858,7 @@ async function init() {
   $("password").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
   $("email").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
   $("btn-change-server").addEventListener("click", function () { show("connect"); });
+  $("btn-guest-join").addEventListener("click", guestJoin);
   $("btn-logout").addEventListener("click", logout);
   $("btn-refresh").addEventListener("click", refreshAll);
   $("msg-form").addEventListener("submit", function (e) { e.preventDefault(); sendMessage(); });
