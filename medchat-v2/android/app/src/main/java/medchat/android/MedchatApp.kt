@@ -3,6 +3,8 @@ package medchat.android
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.util.Base64
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +26,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +35,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -119,7 +124,14 @@ private data class UiMessage(
 
 @Composable
 fun MedchatApp() {
-    MaterialTheme {
+    MaterialTheme(colorScheme = lightColorScheme(
+        primary = Color(0xFF176B5B),
+        onPrimary = Color.White,
+        secondary = Color(0xFF5C8D82),
+        background = Color(0xFFF4F7F6),
+        surface = Color.White,
+        onSurface = Color(0xFF1C2925),
+        error = Color(0xFFB42318))) {
         var screen by remember { mutableStateOf("connect") }
         var api by remember { mutableStateOf<ApiService?>(null) }
         var busy by remember { mutableStateOf(false) }
@@ -127,6 +139,7 @@ fun MedchatApp() {
         var userId by remember { mutableStateOf<String?>(null) }
         var chats by remember { mutableStateOf(listOf<ChatSummary>()) }
         var openChat by remember { mutableStateOf<ChatSummary?>(null) }
+        var selectedChatId by remember { mutableStateOf<String?>(null) }
         var ratchetOn by remember { mutableStateOf(true) }
         var ratchetNote by remember { mutableStateOf<String?>(null) }
         var olderRemaining by remember { mutableStateOf(0) }
@@ -197,20 +210,24 @@ fun MedchatApp() {
                         }
                         parsed.add(UiMessage(row.senderId == uid, text, row.createdAt, isRatchet))
                     }
-                    olderRemaining = Math.max(0, page.total - page.rows.size)
-                    if (before == null) {
-                        messages.clear()
-                        messages.addAll(parsed)
-                    } else if (parsed.isNotEmpty()) {
-                        messages.addAll(0, parsed)
-                    } else {
-                        olderRemaining = 0
+                    if (selectedChatId == chat.chatId) {
+                        olderRemaining = Math.max(0, page.total - page.rows.size)
+                        if (before == null) {
+                            messages.clear()
+                            messages.addAll(parsed)
+                        } else if (parsed.isNotEmpty()) {
+                            messages.addAll(0, parsed)
+                        } else {
+                            olderRemaining = 0
+                        }
                     }
                 } catch (e: Exception) {
-                    status = e.message ?: "ошибка сети"
+                    if (selectedChatId == chat.chatId) status = e.message ?: "ошибка сети"
                 }
-                busy = false
-                loadingOlder = false
+                if (selectedChatId == chat.chatId) {
+                    busy = false
+                    loadingOlder = false
+                }
             }.start()
         }
 
@@ -310,6 +327,9 @@ fun MedchatApp() {
         }
 
         fun openChatById(c: ChatSummary) {
+            selectedChatId = c.chatId
+            messages.clear()
+            olderRemaining = 0
             openChat = c
             ratchetOn = (SecureStore.get(ratchetFlagKey(c.chatId)) ?: "1") == "1"
             ratchetNote = null
@@ -406,9 +426,45 @@ fun MedchatApp() {
                     busy = false
                 }.start()
             }
-            "chats" -> ChatsScreen(chats, busy, status, onOpen = { chat ->
+            "chats" -> ChatsScreen(chats, busy, status, onSettings = { screen = "settings" }, onOpen = { chat ->
                 openChatById(chat)
             })
+            "settings" -> SettingsScreen(
+                email = SecureStore.get(KEY_EMAIL).orEmpty(),
+                server = api?.baseUrl ?: SecureStore.get(KEY_SERVER).orEmpty(),
+                onBack = { screen = "chats" },
+                onLogout = {
+                    SecureStore.delete(KEY_TOKEN)
+                    SecureStore.delete(KEY_USER_ID)
+                    api = null
+                    userId = null
+                    openChat = null
+                    selectedChatId = null
+                    messages.clear()
+                    screen = "login"
+                },
+                onChangeServer = {
+                    SecureStore.delete(KEY_TOKEN)
+                    SecureStore.delete(KEY_USER_ID)
+                    api = null
+                    userId = null
+                    openChat = null
+                    selectedChatId = null
+                    messages.clear()
+                    screen = "connect"
+                },
+                onReset = {
+                    SecureStore.delete(KEY_SERVER)
+                    SecureStore.delete(KEY_TOKEN)
+                    SecureStore.delete(KEY_EMAIL)
+                    SecureStore.delete(KEY_USER_ID)
+                    api = null
+                    userId = null
+                    openChat = null
+                    selectedChatId = null
+                    messages.clear()
+                    screen = "connect"
+                })
             "chat" -> {
                 val chat = openChat
                 if (chat == null) {
@@ -418,6 +474,7 @@ fun MedchatApp() {
                 } else {
                     ChatScreen(
                         chat.title,
+                        chat.specialty,
                         messages,
                         busy,
                         status,
@@ -436,7 +493,13 @@ fun MedchatApp() {
                             SecureStore.set(if (value) "1" else "0", ratchetFlagKey(chat.chatId))
                         },
                         onSend = { text -> sendText(chat, text) },
-                        onBack = { openChat = null; screen = "chats" })
+                        onBack = {
+                            selectedChatId = null
+                            openChat = null
+                            messages.clear()
+                            busy = false
+                            screen = "chats"
+                        })
                 }
             }
             }
@@ -552,9 +615,12 @@ private fun LoginScreen(busy: Boolean, status: String?, onLogin: (String, String
 }
 
 @Composable
-private fun ChatsScreen(chats: List<ChatSummary>, busy: Boolean, status: String?, onOpen: (ChatSummary) -> Unit) {
+private fun ChatsScreen(chats: List<ChatSummary>, busy: Boolean, status: String?, onSettings: () -> Unit, onOpen: (ChatSummary) -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Чаты", style = MaterialTheme.typography.headlineSmall)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Чаты", style = MaterialTheme.typography.headlineSmall)
+            TextButton(onClick = onSettings) { Text("⚙ Настройки") }
+        }
         if (busy) {
             CircularProgressIndicator()
         }
@@ -563,10 +629,13 @@ private fun ChatsScreen(chats: List<ChatSummary>, busy: Boolean, status: String?
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(chats) { chat ->
+            items(chats, key = { it.chatId }) { chat ->
                 Button(onClick = { onOpen(chat) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.Start) {
                         Text(chat.title.ifEmpty { "Чат " + chat.chatId })
+                        if (chat.specialty.isNotBlank()) {
+                            Text(chat.specialty, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                        }
                         Text(
                             chat.lastMessageText.ifEmpty { "нет сообщений" },
                             style = MaterialTheme.typography.bodySmall)
@@ -577,9 +646,43 @@ private fun ChatsScreen(chats: List<ChatSummary>, busy: Boolean, status: String?
     }
 }
 
+
+@Composable
+private fun SettingsScreen(
+    email: String,
+    server: String,
+    onBack: () -> Unit,
+    onLogout: () -> Unit,
+    onChangeServer: () -> Unit,
+    onReset: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onBack) { Text("Назад") }
+            Text("Настройки", style = MaterialTheme.typography.headlineSmall)
+        }
+        Text("Аккаунт", style = MaterialTheme.typography.titleMedium)
+        Text(email.ifEmpty { "Аккаунт не указан" }, style = MaterialTheme.typography.bodyMedium)
+        Text("Сервер", style = MaterialTheme.typography.titleMedium)
+        Text(server.ifEmpty { "Не выбран" }, style = MaterialTheme.typography.bodySmall)
+        OutlinedButton(onClick = onChangeServer, modifier = Modifier.fillMaxWidth()) {
+            Text("Сменить сервер")
+        }
+        OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
+            Text("Выйти из аккаунта")
+        }
+        OutlinedButton(onClick = onReset, modifier = Modifier.fillMaxWidth()) {
+            Text("Сбросить подключение и локальный вход")
+        }
+        Text("QR-приглашения и безопасный перенос истории пока не подключены в этой тестовой сборке. Кнопки-заглушки добавлять не стал: сначала нужны рабочие серверные сценарии и защита ключей.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+    }
+}
+
 @Composable
 private fun ChatScreen(
     title: String,
+    subtitle: String,
     messages: List<UiMessage>,
     busy: Boolean,
     status: String?,
@@ -591,13 +694,23 @@ private fun ChatScreen(
     onToggleRatchet: (Boolean) -> Unit,
     onSend: (String) -> Unit,
     onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
     var input by remember { mutableStateOf("") }
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().pointerInput(Unit) {
+        var dragDistance = 0f
+        detectHorizontalDragGestures(
+            onHorizontalDrag = { _, amount -> dragDistance += amount },
+            onDragEnd = { if (dragDistance > 120f) onBack(); dragDistance = 0f },
+            onDragCancel = { dragDistance = 0f })
+    }.padding(16.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onBack) { Text("Назад") }
-            Text(title, style = MaterialTheme.typography.titleLarge)
+            Column {
+                Text(title, style = MaterialTheme.typography.titleLarge)
+                if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            }
         }
         status?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Row(
