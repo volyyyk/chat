@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Что НЕ эмулируется: БД, персистентность между запусками, реальная
  * E2E-криптография, платежи, файлы, OAuth-провайдеры.
  */
-class MockServer(port: Int, private val onLog: (String) -> Unit) : NanoHTTPD("0.0.0.0", port) {
+class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD("0.0.0.0", port) {
 
     private val messages = ConcurrentHashMap<String, MutableList<JSONObject>>()
     private val freeUntil = ConcurrentHashMap<String, Long>()

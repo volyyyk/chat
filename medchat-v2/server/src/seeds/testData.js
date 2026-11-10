@@ -341,7 +341,17 @@ async function main() {
   // бесплатности нового чата (NEW_CHAT_FREE_HOURS, по умолчанию 24ч от
   // createdAt) делает его сообщения бесплатными и ломает смоук-тест
   // платного потока (проверка «пациент 2: сообщение платно»).
-  await chat2.update({ createdAt: daysAgo(40), lastMessageAt: daysAgo(40) });
+  // instance.update() не перезаписывает автотаймстампы Sequelize надёжно,
+  // поэтому бэктейт делаем raw SQL по публичному chat_id.
+  await models.sequelize.query(
+    'UPDATE chats SET created_at = :ca, last_message_at = :lma, updated_at = :ca WHERE chat_id = :cid',
+    { replacements: { ca: daysAgo(40), lma: daysAgo(40), cid: 'test-chat-0002' } }
+  );
+  const backdated = await models.sequelize.query(
+    'SELECT created_at FROM chats WHERE chat_id = :cid',
+    { replacements: { cid: 'test-chat-0002' } }
+  );
+  console.log('chat2 created_at (бэктейт 40 дней): ' + JSON.stringify(backdated[0] && backdated[0][0]));
 
   await ensureParticipant(chat1, doctorUser.id, 'doctor');
   await ensureParticipant(chat1, patient1User.id, 'patient');
