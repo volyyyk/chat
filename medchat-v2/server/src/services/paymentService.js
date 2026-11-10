@@ -15,6 +15,9 @@ const MESSAGE_PRICE = () => parseFloat(process.env.MESSAGE_PRICE_RUB || '50');
 const FILE_PRICE = () => parseFloat(process.env.FILE_PRICE_RUB || '100');
 const SUBSCRIPTION_PRICES = { monthly: 500, yearly: 5000 };
 const FREE_MESSAGE_DAYS = () => parseInt(process.env.FREE_MESSAGE_DAYS || '30', 10);
+// Окно бесплатных сообщений для НОВОГО чата (от createdAt чата), часов.
+// 0 = выключить. Новому пациенту даём время пообщаться бесплатно.
+const NEW_CHAT_FREE_HOURS = () => parseInt(process.env.NEW_CHAT_FREE_HOURS || '24', 10);
 const DOCTOR_SHARE_PERCENT = () => parseInt(process.env.DOCTOR_SHARE_PERCENT || '80', 10);
 
 class PaymentService {
@@ -42,6 +45,7 @@ class PaymentService {
    * Free cases:
    *  - the doctor of the chat sends it (doctor_initiated)
    *  - it is the first message in the chat (first_message)
+   *  - the chat is younger than NEW_CHAT_FREE_HOURS (new_chat_window)
    *  - there was a completed appointment within the last N days (within_30_days)
    *  - patient's lastAppointmentDate is within N days (within_30_days)
    * @returns {Promise<{isFree: boolean, reason: string|null}>}
@@ -60,6 +64,16 @@ class PaymentService {
     const messageCount = await models.Message.count({ where: { chatId: chat.id } });
     if (messageCount === 0) {
       return { isFree: true, reason: 'first_message' };
+    }
+
+    // Free window for a NEW chat: NEW_CHAT_FREE_HOURS from chat.createdAt
+    // (по умолчанию 24 часа) - пациент осваивается бесплатно.
+    const freeHours = NEW_CHAT_FREE_HOURS();
+    if (freeHours > 0 && chat.createdAt) {
+      const freeUntil = new Date(new Date(chat.createdAt).getTime() + freeHours * 60 * 60 * 1000);
+      if (Date.now() < freeUntil.getTime()) {
+        return { isFree: true, reason: 'new_chat_window' };
+      }
     }
 
     // Completed appointment within the free window
@@ -384,7 +398,8 @@ class PaymentService {
         doctor: DOCTOR_SHARE_PERCENT() / 100, // 80%
         clinic: (100 - DOCTOR_SHARE_PERCENT()) / 100, // 20%
       },
-      freePeriodDays: FREE_MESSAGE_DAYS(), // Days after appointment when messages are free
+      freePeriodDays: FREE_MESSAGE_DAYS(), // Days after appointment when messages are free,
+      newChatFreeHours: NEW_CHAT_FREE_HOURS(), // Free window for a new chat (hours)
     };
   }
 

@@ -36,6 +36,7 @@ describe('PaymentService', () => {
     delete process.env.FREE_MESSAGE_DAYS;
     delete process.env.DOCTOR_SHARE_PERCENT;
   });
+    delete process.env.NEW_CHAT_FREE_HOURS;
 
   describe('findChat', () => {
     test('resolves a chat by UUID primary key', async () => {
@@ -86,6 +87,37 @@ describe('PaymentService', () => {
       models.Appointment.findOne.mockResolvedValue(null);
       const r = await PaymentService.resolveMessageFree('patient-user', baseChat);
       expect(r).toEqual({ isFree: false, reason: null });
+    });
+
+    test('новый чат в окне бесплатных сообщений бесплатен (new_chat_window)', async () => {
+      models.Message.count.mockResolvedValue(5);
+      models.Appointment.findOne.mockResolvedValue(null);
+      const freshChat = { ...baseChat, createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) };
+      const r = await PaymentService.resolveMessageFree('patient-user', freshChat);
+      expect(r).toEqual({ isFree: true, reason: 'new_chat_window' });
+    });
+
+    test('после окна новый чат платен без приёма', async () => {
+      models.Message.count.mockResolvedValue(5);
+      models.Appointment.findOne.mockResolvedValue(null);
+      const oldChat = { ...baseChat, createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) };
+      const r = await PaymentService.resolveMessageFree('patient-user', oldChat);
+      expect(r).toEqual({ isFree: false, reason: null });
+    });
+
+    test('окно можно отключить NEW_CHAT_FREE_HOURS=0', async () => {
+      process.env.NEW_CHAT_FREE_HOURS = '0';
+      models.Message.count.mockResolvedValue(5);
+      models.Appointment.findOne.mockResolvedValue(null);
+      const freshChat = { ...baseChat, createdAt: new Date() };
+      const r = await PaymentService.resolveMessageFree('patient-user', freshChat);
+      expect(r).toEqual({ isFree: false, reason: null });
+    });
+
+    test('врач пишет бесплатно и внутри окна нового чата', async () => {
+      const freshChat = { ...baseChat, createdAt: new Date() };
+      const r = await PaymentService.resolveMessageFree('doctor-user', freshChat);
+      expect(r).toEqual({ isFree: true, reason: 'doctor_initiated' });
     });
   });
 
