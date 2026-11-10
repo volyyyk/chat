@@ -1,11 +1,11 @@
-=== run 42776662142 job core-bench Tue Nov 10 07:38:34 UTC 2026 ===
+=== run 42777821850 job core-bench Tue Nov 10 07:48:12 UTC 2026 ===
 [1m[92m    Updating[0m crates.io index
 [1m[92m    Updating[0m git repository `https://github.com/mozilla/uniffi-rs`
 [1m[92m     Locking[0m 207 packages to highest compatible versions
 [1m[92m      Adding[0m generic-array v0.14.7 [1m[33m(available: v0.14.9)[0m
 [1m[92m      Adding[0m rand_core v0.6.4 [1m[33m(available: v0.10.1)[0m
 [1m[92m   Compiling[0m medchat-core v0.1.0 (/home/runner/work/chat/chat/medchat-v2/core)
-[1m[92m    Finished[0m `bench` profile [optimized] target(s) in 19.96s
+[1m[92m    Finished[0m `bench` profile [optimized] target(s) in 29.68s
 [1m[92m     Running[0m unittests src/lib.rs (target/release/deps/medchat_core-99b2624ca57b9474)
 
 running 23 tests
@@ -39,40 +39,25 @@ test result: ok. 0 passed; 0 failed; 23 ignored; 0 measured; 0 filtered out; fin
 Gnuplot not found, using plotters backend
 Benchmarking x25519-box envelope/seal+open/1 recipient
 Benchmarking x25519-box envelope/seal+open/1 recipient: Warming up for 3.0000 s
-Benchmarking x25519-box envelope/seal+open/1 recipient: Collecting 100 samples in estimated 5.2035 s (40k iterations)
+Benchmarking x25519-box envelope/seal+open/1 recipient: Collecting 100 samples in estimated 5.3733 s (40k iterations)
 Benchmarking x25519-box envelope/seal+open/1 recipient: Analyzing
 Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal+open/1 recipient/base/sample.json": No such file or directory (os error 2)
 x25519-box envelope/seal+open/1 recipient
-                        time:   [128.83 µs 129.16 µs 129.58 µs]
-                        thrpt:  [226.10 KiB/s 226.83 KiB/s 227.40 KiB/s]
+                        time:   [132.59 µs 132.87 µs 133.32 µs]
+                        thrpt:  [219.76 KiB/s 220.49 KiB/s 220.95 KiB/s]
 Found 10 outliers among 100 measurements (10.00%)
-  1 (1.00%) low mild
-  3 (3.00%) high mild
-  6 (6.00%) high severe
+  1 (1.00%) high mild
+  9 (9.00%) high severe
 Benchmarking x25519-box envelope/seal+open/3 recipients
 Benchmarking x25519-box envelope/seal+open/3 recipients: Warming up for 3.0000 s
-Benchmarking x25519-box envelope/seal+open/3 recipients: Collecting 100 samples in estimated 5.8421 s (25k iterations)
+Benchmarking x25519-box envelope/seal+open/3 recipients: Collecting 100 samples in estimated 5.9665 s (25k iterations)
 Benchmarking x25519-box envelope/seal+open/3 recipients: Analyzing
 Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal+open/3 recipients/base/sample.json": No such file or directory (os error 2)
 x25519-box envelope/seal+open/3 recipients
-                        time:   [231.61 µs 231.77 µs 231.93 µs]
-                        thrpt:  [126.32 KiB/s 126.40 KiB/s 126.49 KiB/s]
-Found 5 outliers among 100 measurements (5.00%)
-  1 (1.00%) low mild
+                        time:   [236.06 µs 236.97 µs 238.43 µs]
+                        thrpt:  [122.87 KiB/s 123.63 KiB/s 124.11 KiB/s]
+Found 10 outliers among 100 measurements (10.00%)
   1 (1.00%) high mild
-  3 (3.00%) high severe
+  9 (9.00%) high severe
 Benchmarking x25519-box envelope/seal/1 recipient
 Benchmarking x25519-box envelope/seal/1 recipient: Warming up for 3.0000 s
-Benchmarking x25519-box envelope/seal/1 recipient: Collecting 100 samples in estimated 5.1231 s (66k iterations)
-Benchmarking x25519-box envelope/seal/1 recipient: Analyzing
-Criterion.rs ERROR: error: Failed to access file "/home/runner/work/chat/chat/medchat-v2/core/target/criterion/x25519-box envelope/seal/1 recipient/base/sample.json": No such file or directory (os error 2)
-x25519-box envelope/seal/1 recipient
-                        time:   [77.530 µs 77.603 µs 77.692 µs]
-                        thrpt:  [377.09 KiB/s 377.52 KiB/s 377.88 KiB/s]
-Found 6 outliers among 100 measurements (6.00%)
-  1 (1.00%) low mild
-  3 (3.00%) high mild
-  2 (2.00%) high severe
-
-Benchmarking double ratchet/encrypt+decrypt/in-order
-Benchmarking double ratchet/encrypt+decrypt/in-order: Warming up for 3.0000 s
