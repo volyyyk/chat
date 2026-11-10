@@ -144,7 +144,7 @@ const LoginPage = () => {
       'https://id.vk.ru/authorize?response_type=code&client_id=' + encodeURIComponent(clientId) +
       '&redirect_uri=' + encodeURIComponent(redirectUri) +
       '&code_challenge=' + challenge + '&code_challenge_method=S256' +
-      '&scope=email';
+      '&scope=' + encodeURIComponent('email phone');
   };
 
   return (

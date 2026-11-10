@@ -732,6 +732,11 @@ HMAC-SHA256(data-check-string, SHA256(bot_token)) и окно свежести �
 (https://id.vk.ru/oauth2/user_info, best-effort) и входит. Ответ 200: как login.
 Ошибки: 400 (нет code/codeVerifier), 401 (обмен не удался), 501 (не настроен).
 
+VK ID при scope phone отдаёт абонентский номер: oauthLogin сохраняет его в
+User.phone с phoneVerified=true (идентификация по 149-ФЗ ст. 10.1; если номер
+уже занят другим аккаунтом, тихо пропускается). Web-клиент запрашивает
+scope=email phone.
+
 Логика oauthLogin (authService): вход по существующей привязке; привязка к
 аккаунту по верифицированному email (только VK ID отдаёт email); иначе новый
 пользователь-пациент с synthetic email @oauth.medchat.local (парольный вход
@@ -744,6 +749,14 @@ HMAC-SHA256(data-check-string, SHA256(bot_token)) и окно свежести �
 /vk-callback для обмена кода); Telegram требует домена сайта в настройках бота;
 на десктопе OAuth не включён (origin Tauri). Тесты: tests/unit/oauth.test.js.
 
+### Бесплатное окно нового чата
+
+При добавлении нового чата сообщения пациента бесплатны в течение окна
+`NEW_CHAT_FREE_HOURS` (env, по умолчанию 24 часа от `chat.createdAt`; `0` — выключить).
+Порядок проверки в `paymentService.resolveMessageFree`: врач (всегда бесплатно) →
+первое сообщение в чате → окно нового чата (reason `new_chat_window`) →
+30 дней после completed-приёма (`FREE_MESSAGE_DAYS`) → платно.
+`GET /api/chats/:id/pricing` (`getPricing`) возвращает `newChatFreeHours`.
 ### Messages
 
 #### GET /api/chats/:chatId/messages

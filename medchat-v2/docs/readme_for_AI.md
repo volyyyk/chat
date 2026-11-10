@@ -54,7 +54,10 @@ MedChat v2 — телемедицинская платформа «клиник�
   в том же конверте; шифрование на устройстве, сервер хранит только шифротекст —
   раздел 5).
 - **Платные сообщения**: первое сообщение в чате бесплатно; 30 дней после completed-приёма
-  бесплатно; далее 50 ₽ за сообщение. Оплата с **тестового баланса** — реальных платёжных
+  бесплатно; далее 50 ₽ за сообщение. Плюс **бесплатное окно нового чата**:
+  NEW_CHAT_FREE_HOURS (env, дефолт 24 ч от chat.createdAt, 0 = выключить),
+  reason new_chat_window в resolveMessageFree (после first_message, до
+  завершённого приёма); getPricing отдаёт newChatFreeHours. Оплата с **тестового баланса** — реальных платёжных
   шлюзов НЕТ, и это осознанное требование владельца (см. п. 8).
 - **Делёж дохода**: врачу 80 %, клинике 20 % (`clinic.doctorSharePercent`, override на клинике).
 - **Записи на приём** (подтверждение врачом, отмена, статусы), **электронные рецепты**
@@ -345,7 +348,8 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
   GET /api/auth/oauth/config (флаги по env), POST /api/auth/oauth/telegram
   (verifyTelegramAuth: HMAC-SHA256(data-check-string, SHA256(bot_token)),
   окно сутки), POST /api/auth/oauth/vk (обмен кода OAuth 2.1 + PKCE на
-  id.vk.ru, профиль best-effort). Тесты: tests/unit/oauth.test.js (подпись/
+  id.vk.ru, профиль best-effort; телефон (VK scope phone) сохраняется в
+  User.phone с phoneVerified=true, 149-ФЗ ст. 10.1). Тесты: tests/unit/oauth.test.js (подпись/
   подделка/чужой токен/устаревание). MAX и WhatsApp осознанно выключены
   (enabled:false): MAX требует верифицированное юрлицо РФ для публикации
   ботов, у WhatsApp нет официального бесплатного входа. Клиенты: web
@@ -1411,6 +1415,16 @@ GPG, Android release-key) — оператор, паттерн честност�
     honest-fallback) — этап 7 закрыт: desktop, iOS, Android; RN —
     reference-клиент с честной плашкой); Play Console и
     подписи — оператор.
+
+## Дополнения (ноябрь 2026)
+
+- **Тестовый сервер в APK** (medchat-v2/server-mock-android, отдельный
+  Gradle-проект): лёгкая эмуляция MedChat API (NanoHTTPD) для проверки
+  клиентов с телефона: вход с любыми данными, 2 демо-чата (один в окне
+  бесплатных сообщений), история/отправка сообщений, check-free/pricing.
+  Без БД, Rust-ядра, E2E-криптографии и платежей. CI-джоба server-mock-apk
+  собирает debug-APK, артефакт medchat-server-mock-apk. Подробнее
+  medchat-v2/server-mock-android/README.md.
 
 ---
 
