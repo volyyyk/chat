@@ -1213,6 +1213,73 @@ jobs:
           git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
           git push origin HEAD:main || echo "push failed (non-fatal)"
 
+  # Тестовый сервер MedChat внутри APK (medchat-v2/server-mock-android):
+  # лёгкая эмуляция API для проверки клиентов с телефона (смок-тесты
+  # мобилки/web/десктопа против адреса на устройстве). Отдельный
+  # Gradle-проект, секретов и Rust-артефактов не требует; артефакт —
+  # unsigned debug-APK medchat-server-mock-apk.
+  server-mock-apk:
+    name: Server mock APK (тестовый сервер для телефонов)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medchat-v2/server-mock-android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle 8.9
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.9'
+
+      # Ретраи как в android-build: Maven Central редиректит большие
+      # артефакты на GitHub CDN, который транзиентно отдаёт 504.
+      - name: Build debug APK (assembleDebug)
+        run: |
+          set -o pipefail
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            echo "[ci-server-mock] build attempt $attempt"
+            { echo "=== run \${GITHUB_RUN_ID} job \${GITHUB_JOB} $(date -u) === attempt $attempt"; gradle :app:assembleDebug --no-daemon; } 2>&1 | tee -a ../../ci-server-mock.log && ok=1 && break
+            echo "[ci-server-mock] attempt $attempt failed, retry in 25s (транзиентные 504 на Maven Central/GitHub CDN)"
+            sleep 25
+          done
+          if [ "$ok" != "1" ]; then exit 1; fi
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: medchat-server-mock-apk
+          path: medchat-v2/server-mock-android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Publish failure logs to the repo
+        if: failure()
+        run: |
+          set -e
+          cd ../..
+          mkdir -p ci-logs
+          if [ -f ci-server-mock.log ]; then
+            cp ci-server-mock.log ci-logs/ci-server-mock.log
+          fi
+          git config user.name "ci-reporter"
+          git config user.email "ci-reporter@users.noreply.github.com"
+          git add ci-logs
+          if git diff --cached --quiet; then
+            echo "no logs to publish"
+            exit 0
+          fi
+          git commit -m "chore(ci): server-mock log from run \${GITHUB_RUN_ID} [skip ci]"
+          git fetch origin main
+          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
+          git push origin HEAD:main || echo "push failed (non-fatal)"
   desktop-check:
     name: Desktop check (Tauri 2 scaffold, этап 5 ROADMAP_NATIVE)
     runs-on: ubuntu-latest
