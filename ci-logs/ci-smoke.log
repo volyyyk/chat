@@ -1,6 +1,6 @@
-=== run 42463596266 job e2e-smoke Sun Nov  8 08:37:39 UTC 2026 ===
+=== run 42777918245 job e2e-smoke Tue Nov 10 07:50:14 UTC 2026 ===
 
-> medchat-server@2.0.0 test:smoke
+> medchat-server@2.0.1 test:smoke
 > node scripts/smoke-test.js
 
 MedChat smoke test
@@ -22,13 +22,13 @@ Base URL: http://127.0.0.1:3990
 
 [3] Бесплатные/платные сообщения (check-free)
   ✓ пациент 1: сообщение бесплатно (прием был 5 дней назад)
-  ✓ пациент 2: сообщение платно (прием был 40 дней назад)
+  ✗ пациент 2: сообщение платно (прием был 40 дней назад) :: {"success":true,"data":{"isFree":true,"reason":"new_chat_window"}}
   ✓ врач всегда пишет бесплатно
 
 [4] Отправка бесплатного сообщения (последовательная связь)
-  ✓ сообщение отправлено и помечено как бесплатное
+  ✗ сообщение отправлено и помечено как бесплатное :: 500
   ✓ ответ врача отправлен
-  ✓ история сообщений читается обеими сторонами
+  ✗ история сообщений читается обеими сторонами :: 3
 
 [5] Платный поток: process -> отправка с paymentTransactionId
   ✓ платеж обработан (тестовый баланс)
@@ -41,89 +41,106 @@ Base URL: http://127.0.0.1:3990
   ✓ баланс клиники доступен администратору
 
 [6] Одновременная связь: 40 параллельных сообщений
-  ✓ 40/40 параллельных сообщений доставлено
+  ✗ 40/40 параллельных сообщений доставлено :: "0/40"
 
 [7] Socket.IO: комнаты, права, real-time доставка
   ✓ оба сокета подключены с JWT
   ✓ пациент 1 вошел в свой чат
   ✓ пациент 1 НЕ может войти в чужой чат (forbidden)
   ✓ индикатор печати доставлен врачу в реальном времени
-  ✓ новое сообщение доставлено врачу через Socket.IO
-  ✓ сокеты отключены
-
-[8] Приёмы (Appointments)
-  ✓ пациент 1 записался на приём
-  ✓ у пациента 1 есть приёмы (прошлый + новый)
-  ✓ врач подтвердил приём
-  ✓ врач видит приёмы пациентов
-  ✓ пациент 2 не видит чужой приём
-
-[9] Электронные рецепты (E-Prescriptions)
-  ✓ врач создал рецепт
-  ✓ medications сохранились как массив
-  ✓ врач подписал рецепт (route /:id/sign)
-  ✓ повторная подписка идемпотентна
-  ✓ пациент 1 видит свой рецепт
-  ✓ пациент 2 не видит чужой рецепт
-  ✓ GET /api/eprescriptions/statistics не перехватывается как /:id
-
-[10] Облачные бэкапы
-  ✓ бэкап создан
-  ✓ список бэкапов доступен
-  ✓ verify-password отвечает
-
-[11] Порядок роутов и статистика
-  ✓ GET /api/messages/unread-count отвечает 200 (не 404)
-  ✓ GET /api/payments/statistics отвечает 200
-  ✓ GET /api/transactions не 404
-  ✓ врач видит свои транзакции
-
-[12] E2E: реестр публичных ключей и зашифрованные конверты
-  ✓ пациент 1 зарегистрировал публичный ключ (201)
-  ✓ повторная регистрация = ротация ключа (200, rotated)
-  ✓ невалидный publicKey отклоняется (400)
-  ✓ врач зарегистрировал публичный ключ
-  ✓ GET /api/keys возвращает ключи с ротированным значением
-  ✓ ключи чата отдают активные ключи обоих участников
-  ✓ чужой пользователь не может собрать ключи чата (403)
-  ✓ E2E-сообщение принято: content пуст, конверт в metadata.e2e
-  ✓ plaintext рядом с конвертом отклоняется (400)
-  ✓ конверт без бокса отправителя отклоняется (400)
-  ✗ врач читает E2E-сообщение: только шифротекст, без plaintext :: true
-  ✓ деактивация ключа устройства (DELETE /api/keys/:keyId)
-  ✓ после деактивации в реестре чата остались только активные ключи
-
-==============================================
-Проверок: 63, ошибок: 1
-==============================================
-SMOKE TEST FAILED
+Smoke test crashed: Error: timeout waiting for "newMessage"
+    at Timeout._onTimeout (/home/runner/work/chat/chat/medchat-v2/server/scripts/smoke-test.js:154:43)
+    at listOnTimeout (node:internal/timers:585:17)
+    at process.processTimers (node:internal/timers:521:7)
 ---- server stderr (tail) ----
-❌ Error initializing MinIO bucket: Error: connect ECONNREFUSED ::1:9000
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-  errno: -111,
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+❌ Error initializing MinIO bucket: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
   code: 'ECONNREFUSED',
-  syscall: 'connect',
-  address: '::1',
-  port: 9000
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:9000
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 9000
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:9000
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 9000
+    }
+  ]
 }
-❌ Error setting bucket policy: Error: connect ECONNREFUSED ::1:9000
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16) {
-  errno: -111,
+❌ Error setting bucket policy: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
   code: 'ECONNREFUSED',
-  syscall: 'connect',
-  address: '::1',
-  port: 9000
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:9000
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 9000
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:9000
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 9000
+    }
+  ]
 }
 
---- SERVER STDOUT TAIL (winston error logs go here) ---
-✅ Redis client connected.
-✅ Database connection has been established successfully (test).
-2026-11-08 08:37:41 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/1842bde7-4e03-436e-9202-422acdb081ac" requestId="0fefe73b-b60e-4aeb-b324-a8533c8cc0a3" userId="f5fb5b06-daa0-434b-850d-fc758deacc29" stack=undefined
-2026-11-08 08:37:41 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/ee1aab66-72c4-46ca-8013-610cb90c3b3d" requestId="a4d28307-8778-42d5-9b61-a39ca465d2b4" userId="80b0c1bf-8e17-4d28-b093-6cc8d342a09e" stack=undefined
-2026-11-08 08:37:41 [error] [TRANSACTION_ALREADY_USED] Payment transaction has already been used code="TRANSACTION_ALREADY_USED" status=409 method="POST" url="/api/chats/1842bde7-4e03-436e-9202-422acdb081ac/messages" requestId="0a27b505-1f84-4eb1-b3ab-d53ea8319795" userId="80b0c1bf-8e17-4d28-b093-6cc8d342a09e" stack=undefined
-2026-11-08 08:37:42 [error] [FORBIDDEN] Cannot access this appointment code="FORBIDDEN" status=403 method="GET" url="/api/appointments/319a78f0-b42e-4819-a042-08bad84b5d27" requestId="91839ba4-ec84-4f5a-84da-66538f42c2b7" userId="80b0c1bf-8e17-4d28-b093-6cc8d342a09e" stack=undefined
-2026-11-08 08:37:42 [error] [FORBIDDEN] Cannot access this e-prescription code="FORBIDDEN" status=403 method="GET" url="/api/eprescriptions/f7676df0-45e4-4cdc-80bb-8f40742ef2d0" requestId="ccba3ca0-cce1-4c27-b608-42947d1a529a" userId="80b0c1bf-8e17-4d28-b093-6cc8d342a09e" stack=undefined
-2026-11-08 08:37:42 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/ee1aab66-72c4-46ca-8013-610cb90c3b3d/keys" requestId="fd807b5f-5eab-44d8-b1ef-6b4184efc9b1" userId="80b0c1bf-8e17-4d28-b093-6cc8d342a09e" stack=undefined
-2026-11-08 08:37:42 [error] [VALIDATION_ERROR] content must be empty for E2E messages (send ciphertext in envelope.boxes) code="VALIDATION_ERROR" status=400 method="POST" url="/api/chats/ee1aab66-72c4-46ca-8013-610cb90c3b3d/messages" requestId="31c35967-11a1-498b-917f-a595fbf54fa8" userId="f5fb5b06-daa0-434b-850d-fc758deacc29" stack=undefined
-2026-11-08 08:37:42 [error] [VALIDATION_ERROR] E2E envelope must include a box for the sender (own devices/history) code="VALIDATION_ERROR" status=400 method="POST" url="/api/chats/ee1aab66-72c4-46ca-8013-610cb90c3b3d/messages" requestId="a8b5dcdb-1d66-4b3b-9920-77894df20f88" userId="f5fb5b06-daa0-434b-850d-fc758deacc29" stack=undefined
+--- SERVER STDOUT TAIL (winston writes error logs to stdout!) ---
+t/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
+    at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
+2026-11-10 07:50:16 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
+    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
+    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.insert (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
+    at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
+    at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
+    at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
+2026-11-10 07:50:16 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
+    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
+    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.insert (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
+    at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
+    at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
+    at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
+2026-11-10 07:50:16 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
+    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
+    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.insert (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
+    at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
+    at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
+    at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
+2026-11-10 07:50:16 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
+    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
+    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.insert (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
+    at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
+    at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
+    at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
 
