@@ -1,4 +1,4 @@
-=== run 42780757877 job e2e-smoke Tue Nov 10 08:13:22 UTC 2026 ===
+=== run 42781152374 job e2e-smoke Tue Nov 10 08:16:47 UTC 2026 ===
 
 > medchat-server@2.0.1 test:smoke
 > node scripts/smoke-test.js
@@ -111,7 +111,7 @@ Smoke test crashed: Error: timeout waiting for "newMessage"
 --- SERVER STDOUT TAIL (winston writes error logs to stdout!) ---
 t/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
     at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
-2026-11-10 08:13:24 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
+2026-11-10 08:16:50 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
     at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
     at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
@@ -119,7 +119,7 @@ t/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
     at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
     at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
     at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
-2026-11-10 08:13:24 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
+2026-11-10 08:16:50 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
     at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
     at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
@@ -127,7 +127,7 @@ t/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
     at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
     at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
     at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
-2026-11-10 08:13:24 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
+2026-11-10 08:16:50 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
     at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
     at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
@@ -135,7 +135,7 @@ t/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
     at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
     at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
     at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
-2026-11-10 08:13:24 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
+2026-11-10 08:16:50 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
     at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
     at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
