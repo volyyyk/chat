@@ -41,7 +41,7 @@ import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
-import kotlinx.coroutines.withFrameNanos
+import androidx.compose.runtime.withFrameNanos
 
 // Физичный шарик-загрузчик (референс: cgw334.mount.jp): желейный шарик
 // (verlet, 60 точек) минимум 5 секунд протискивается между двумя
