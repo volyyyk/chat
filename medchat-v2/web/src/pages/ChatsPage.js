@@ -16,6 +16,20 @@ const ChatsPage = () => {
   const [invite, setInvite] = useState(null);
   const [inviteError, setInviteError] = useState('');
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [connectValue, setConnectValue] = useState('');
+  const [connectError, setConnectError] = useState('');
+
+  // Пациент/гость: добавить врача (в том числе второго) по ссылке-приглашению.
+  const goConnect = () => {
+    const v = connectValue.trim();
+    const m = v.match(/token=([0-9a-fA-F]{64})/) || v.match(/^([0-9a-fA-F]{64})$/);
+    if (!m) {
+      setConnectError('Вставьте ссылку-приглашение целиком или токен (64 символа).');
+      return;
+    }
+    // /connect публичный: там превью врача, согласие (152-ФЗ) и вход.
+    window.location.href = '/connect?token=' + m[1];
+  };
 
   const createInvite = async () => {
     setInviteBusy(true);
@@ -99,6 +113,26 @@ const ChatsPage = () => {
           </p>
           <button className="btn btn-secondary" onClick={() => printInvite(invite)}>Распечатать QR</button>{' '}
           <button className="btn" onClick={() => setInvite(null)}>Закрыть</button>
+        </div>
+      )}
+
+      {!isDoctor && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0 }}>Добавить врача</h3>
+          <p className="muted" style={{ fontSize: 14 }}>
+            Вставьте ссылку-приглашение от врача (или отсканируйте QR-код камерой
+            телефона). Врачей может быть несколько: каждый добавляется отдельно.
+          </p>
+          {connectError && <div className="alert alert-error">{connectError}</div>}
+          <div className="file-toolbar">
+            <input
+              className="search-input"
+              placeholder="Ссылка-приглашение или токен"
+              value={connectValue}
+              onChange={(e) => { setConnectValue(e.target.value); setConnectError(''); }}
+            />
+            <button className="btn btn-primary" onClick={goConnect}>Подключиться</button>
+          </div>
         </div>
       )}
 

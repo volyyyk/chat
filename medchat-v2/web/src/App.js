@@ -13,6 +13,7 @@ import ChatPage from './pages/ChatPage';
 import FilesPage from './pages/FilesPage';
 import SettingsPage from './pages/SettingsPage';
 import GuestConnectPage from './pages/GuestConnectPage';
+import VkCallbackPage from './pages/VkCallbackPage';
 
 function Protected({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -33,6 +34,7 @@ function AppRoutes() {
       <Route path="/files" element={<Protected><FilesPage /></Protected>} />
       <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
       <Route path="/connect" element={<GuestConnectPage />} />
+      <Route path="/vk-callback" element={<VkCallbackPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
