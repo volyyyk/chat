@@ -72,9 +72,11 @@ const ChatListScreen = ({ navigation, route }) => {
     navigation.navigate('Chat', { chatId: chat.id });
   }, [navigation]);
 
-  // Navigate to QR scanner (patient)
+  // Navigate to the add-chat scanner (patient): экран AddChat есть в
+  // PatientStack, поэтому кнопка работает и для гостя, и для добавления
+  // второго врача из списка чатов (PatientSetup в этом стеке нет).
   const handleScanQR = useCallback(() => {
-    navigation.navigate('PatientSetup');
+    navigation.navigate('AddChat');
   }, [navigation]);
 
   // Navigate to settings
