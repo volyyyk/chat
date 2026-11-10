@@ -19,6 +19,7 @@ const LoginPage = () => {
   const [loaderRun, setLoaderRun] = useState(0);
   const [loaderActive, setLoaderActive] = useState(false);
   const [loaderComplete, setLoaderComplete] = useState(false);
+  const [loaderFailed, setLoaderFailed] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,12 +28,14 @@ const LoginPage = () => {
     setIsLoading(true);
     setLoaderRun((v) => v + 1);
     setLoaderComplete(false);
+    setLoaderFailed(false);
     setLoaderActive(true);
     try {
       await login({ email, password, clinicCode });
       setLoaderComplete(true);
     } catch (err) {
-      setLoaderActive(false);
+      // ошибка: шарик на секунду краснеет и злится, потом экран входа с текстом ошибки
+      setLoaderFailed(true);
       if (err.message && (err.message.includes('подтвержд') || err.message.includes('verif'))) {
         setNotice('Ваш аккаунт не подтвержден. Обратитесь к руководству клиники.');
       } else {
@@ -218,6 +221,8 @@ const LoginPage = () => {
         <LoaderBall
           runId={loaderRun}
           complete={loaderComplete}
+          failed={loaderFailed}
+          onError={() => { setLoaderFailed(false); setLoaderActive(false); }}
           onProceed={() => { setLoaderActive(false); navigate('/'); }}
         />
       )}
