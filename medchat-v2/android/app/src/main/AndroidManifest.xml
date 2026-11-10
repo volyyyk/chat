@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Экран подключения: шлюз Wi-Fi (сервер в точке доступа другого телефона) -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
     <!-- Каркасный клиент: разрешаем HTTP к локальному тестовому серверу
          (NanoHTTPD, medchat-v2/server-mock-android). Прод-контур работает

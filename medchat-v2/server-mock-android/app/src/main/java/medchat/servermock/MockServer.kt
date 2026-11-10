@@ -44,6 +44,10 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
             .put("status", "active")
             .put("createdAt", iso(createdAt))
             .put("lastMessageAt", iso(createdAt))
+            .put("title", doctor)
+            .put("lastMessageText", "Здравствуйте! Чем могу помочь?")
+            .put("doctor", JSONObject().put("userId", "doctor-mock"))
+            .put("patient", JSONObject().put("userId", "user-mock-patient"))
     }
 
     private fun seedMessages(chatId: String) {
@@ -74,6 +78,14 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
             return jsonOk(JSONObject().put("status", "ok").put("mock", true))
         }
 
+        // Fast-fail для websocket-клиентов: иначе engine.io-handshake
+        // получал fallback-ответ и клиент висел до таймаута.
+        if (uri.startsWith("/socket.io")) {
+            return json(Response.Status.BAD_REQUEST, JSONObject()
+                .put("success", false)
+                .put("message", "mock: websocket не поддерживается, используйте REST"))
+        }
+
         val parts = uri.trim('/').split('/').filter { it.isNotEmpty() }
 
         // --- Auth: /api/auth/login | register | refresh | me ---
@@ -97,7 +109,7 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
             val sub = parts.getOrNull(3)
             return when {
                 sub == null -> jsonOk(chat)
-                method == Method.GET && sub == "messages" -> jsonOk(JSONArray(messagesFor(chatId)))
+                method == Method.GET && sub == "messages" -> messagesResponse(chatId)
                 method == Method.POST && sub == "messages" -> postMessage(chatId, session)
                 method == Method.GET && sub == "check-free" -> checkFree(chatId)
                 method == Method.GET && sub == "pricing" -> pricing(chatId)
@@ -145,6 +157,16 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
         .put("lastName", "Пациент")
         .put("phoneVerified", true)
 
+    // Формат клиента: { data: [...], pagination: { total } }.
+    private fun messagesResponse(chatId: String): Response {
+        val rows = messagesFor(chatId)
+        val payload = JSONObject()
+            .put("success", true)
+            .put("data", JSONArray(rows))
+            .put("pagination", JSONObject().put("total", rows.size))
+        return cors(NanoHTTPD.newFixedLengthResponse(Response.Status.OK, MIME_JSON, payload.toString()))
+    }
+
     private fun messagesFor(chatId: String): List<JSONObject> {
         return messages[chatId]?.toList() ?: emptyList()
     }
@@ -166,6 +188,7 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
             .put("id", UUID.randomUUID().toString())
             .put("chatId", chatId)
             .put("senderId", senderId)
+            .put("sender", JSONObject().put("firstName", if (senderId == "doctor-mock") "Иванов А.Б." else "Тест"))
             .put("content", content)
             .put("type", "text")
             .put("createdAt", iso(createdAt))

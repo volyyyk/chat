@@ -1,5 +1,7 @@
 package medchat.android
 
+import android.content.Context
+import android.net.wifi.WifiManager
 import android.util.Base64
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
@@ -335,7 +338,9 @@ fun MedchatApp() {
                         api = service
                         screen = "login"
                     } catch (e: Exception) {
-                        status = "Сервер недоступен: " + (e.message ?: "ошибка сети")
+                        status = "Сервер недоступен: " + (e.message ?: "ошибка сети") +
+                            ". Сервер на этом же телефоне? Введите http://127.0.0.1:8080. " +
+                            "На другом? Подключитесь к его Wi-Fi точке доступа и нажмите «Шлюз Wi-Fi»"
                     }
                     busy = false
                 }.start()
@@ -407,6 +412,8 @@ fun MedchatApp() {
 @Composable
 private fun ConnectScreen(busy: Boolean, status: String?, onConnect: (String) -> Unit) {
     var url by remember { mutableStateOf(SecureStore.get(KEY_SERVER) ?: "http://10.0.2.2:3000") }
+    var hint by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -418,12 +425,43 @@ private fun ConnectScreen(busy: Boolean, status: String?, onConnect: (String) ->
             label = { Text("Сервер") },
             enabled = !busy,
             modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { url = "http://127.0.0.1:8080" }, enabled = !busy) {
+                Text("Этот телефон")
+            }
+            OutlinedButton(
+                onClick = {
+                    val wm = context.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+                    val gw = wm?.dhcpInfo?.gateway ?: 0
+                    if (gw == 0) {
+                        hint = "Wi-Fi не подключён: клиент должен быть в Wi-Fi точки доступа сервера, не в мобильном интернете"
+                    } else {
+                        url = "http://" + dhcpIp(gw) + ":8080"
+                        hint = null
+                    }
+                },
+                enabled = !busy) {
+                Text("Шлюз Wi-Fi")
+            }
+        }
         Button(onClick = { onConnect(url) }, enabled = !busy) {
             Text(if (busy) "Подключение..." else "Подключиться")
         }
+        hint?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        Text(
+            "Сервер на этом же телефоне: http://127.0.0.1:8080. Сервер на другом: " +
+                "включите на нём точку доступа, подключитесь к ней по Wi-Fi и нажмите «Шлюз Wi-Fi» " +
+                "(подставит адрес 192.168.x.x сервера). Адреса 10.x/100.x принадлежат мобильной " +
+                "сети оператора и с другого телефона не работают.",
+            style = MaterialTheme.typography.bodySmall)
         status?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }
+
+// DhcpInfo.gateway: int little-endian, младший байт — первый октет.
+private fun dhcpIp(gw: Int): String =
+    (gw and 0xFF).toString() + "." + ((gw shr 8) and 0xFF) + "." +
+        ((gw shr 16) and 0xFF) + "." + ((gw shr 24) and 0xFF)
 
 @Composable
 private fun LoginScreen(busy: Boolean, status: String?, onLogin: (String, String) -> Unit) {

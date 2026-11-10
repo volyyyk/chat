@@ -1443,6 +1443,17 @@ GPG, Android release-key) — оператор, паттерн честност�
   chat_id (сид пациента 2, чат test-chat-0002 старше 40 дней, иначе окно
   24ч делает платный сценарий бесплатным и ломает smoke [3]).
 
+- **Подключение клиента к тестовому серверу (кнопки на ConnectScreen Android)**:
+  «Этот телефон» подставляет http://127.0.0.1:8080 (сервер и клиент на одном
+  устройстве: к собственному IP 10.x/13.x телефон по TCP сам к себе не
+  подключится, будет connect timeout 15с), «Шлюз Wi-Fi» читает
+  WifiManager.dhcpInfo.gateway (новое разрешение ACCESS_WIFI_STATE) и
+  подставляет адрес сервера в hotspot-сети (192.168.x.x). Телефон клиента
+  обязан быть в Wi-Fi точки доступа сервера, не в мобильном интернете.
+  ServerMock выровнен с контрактом ApiService: /socket.io fast-fail 400,
+  /api/chats отдаёт title/lastMessageText/doctor.userId/patient.userId,
+  messages — pagination.total, у сообщений sender.firstName.
+
 ---
 
 *Документ поддерживай актуальным при крупных изменениях: он — первое, что читает
