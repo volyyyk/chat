@@ -79,7 +79,14 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
     private fun route(method: Method, uri: String, session: IHTTPSession): Response {
         if (method == Method.GET && uri == "/") return htmlIndex()
         if (method == Method.GET && uri == "/health") {
-            return jsonOk(JSONObject().put("status", "ok").put("mock", true))
+            // Контракт настоящего сервера: status на ВЕРХНЕМ уровне ответа
+            // ({status:"ok",...}), клиенты сверяют именно его. Раньше status
+            // прятался внутри конверта data, и клиент честно отвечал
+            // «отвечает не MedChat-сервер (нет status=ok)» и не подключался.
+            return json(Response.Status.OK, JSONObject()
+                .put("status", "ok")
+                .put("mock", true)
+                .put("success", true))
         }
 
         // Fast-fail для websocket-клиентов: иначе engine.io-handshake

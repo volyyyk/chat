@@ -59,23 +59,36 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
     override fun serve(session: IHTTPSession): Response {
         val method = session.method
         val uri = session.uri ?: "/"
-        onLog(method.name + " " + uri)
+        val startedAt = System.currentTimeMillis()
         if (method == Method.OPTIONS) {
             return cors(NanoHTTPD.newFixedLengthResponse(Response.Status.OK, MIME_JSON, "{}"))
         }
-        return try {
+        val response = try {
             route(method, uri, session)
         } catch (e: Exception) {
+            // честно пишем причину сбоя обработки, а не только факт запроса
+            onLog(method.name + " " + uri + " -> ошибка обработки: " + (e.message ?: "internal error"))
             json(Response.Status.INTERNAL_ERROR, JSONObject()
                 .put("success", false)
                 .put("message", e.message ?: "internal error"))
         }
+        // Честный лог: статус и время каждого ответа, а не только метод и URI.
+        onLog(method.name + " " + uri + " -> HTTP " + response.status.requestStatus +
+            " (" + (System.currentTimeMillis() - startedAt) + " ms)")
+        return response
     }
 
     private fun route(method: Method, uri: String, session: IHTTPSession): Response {
         if (method == Method.GET && uri == "/") return htmlIndex()
         if (method == Method.GET && uri == "/health") {
-            return jsonOk(JSONObject().put("status", "ok").put("mock", true))
+            // Контракт настоящего сервера: status на ВЕРХНЕМ уровне ответа
+            // ({status:"ok",...}), клиенты сверяют именно его. Раньше status
+            // прятался внутри конверта data, и клиент честно отвечал
+            // «отвечает не MedChat-сервер (нет status=ok)» и не подключался.
+            return json(Response.Status.OK, JSONObject()
+                .put("status", "ok")
+                .put("mock", true)
+                .put("success", true))
         }
 
         // Fast-fail для websocket-клиентов: иначе engine.io-handshake
