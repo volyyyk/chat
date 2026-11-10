@@ -53,10 +53,13 @@ import androidx.compose.runtime.withFrameNanos
 private const val LOADER_MIN_MS = 5000.0
 
 @Composable
-fun BallLoaderOverlay(runId: Int, complete: Boolean, onProceed: () -> Unit) {
+fun BallLoaderOverlay(runId: Int, complete: Boolean, failed: Boolean, onProceed: () -> Unit, onError: () -> Unit) {
     val completeState = rememberUpdatedState(complete)
+    val failedState = rememberUpdatedState(failed)
+    val onErrorState = rememberUpdatedState(onError)
     var replayKey by remember { mutableStateOf(0) }
     var done by remember { mutableStateOf(false) }
+    var errorDone by remember { mutableStateOf(false) }
     var pct by remember { mutableStateOf(0) }
     var phase by remember { mutableStateOf("loading") }
     val sim = remember(runId * 1000 + replayKey) { BallSim() }
@@ -64,15 +67,21 @@ fun BallLoaderOverlay(runId: Int, complete: Boolean, onProceed: () -> Unit) {
 
     LaunchedEffect(runId, replayKey) {
         done = false
+        errorDone = false
         pct = 0
         phase = "loading"
         while (true) {
             withFrameNanos { now ->
+                if (failedState.value) sim.fail()
                 sim.step(now, completeState.value)
             }
             if (sim.pct != pct) pct = sim.pct
             if (sim.phase != phase) phase = sim.phase
             if (sim.phase == "done" && !done) done = true
+            if (sim.phase == "error" && sim.errorMs >= 1000f && !errorDone) {
+                errorDone = true
+                onErrorState.value()
+            }
             frameTick++
         }
     }
@@ -103,6 +112,16 @@ fun BallLoaderOverlay(runId: Int, complete: Boolean, onProceed: () -> Unit) {
                 "Подключение… " + pct + "%",
                 fontSize = 15.sp,
                 color = Color(0xFF6B7280),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 20.dp))
+        }
+        if (phase == "error") {
+            Text(
+                "Ошибка",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFB03A2E),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 20.dp))
@@ -156,6 +175,9 @@ class BallSim {
     private var inited = false
     private var lastNs = 0L
     private var burstNs = 0L
+    private var failed = false
+    var errorMs = 0f
+        private set
     private var blink = 0f
     private var blinkTimer = 2400f
     private var ptrDown = false
@@ -169,6 +191,7 @@ class BallSim {
     private val ys = FloatArray(n)
     private val pxs = FloatArray(n)
     private val pys = FloatArray(n)
+    private val homeA = FloatArray(n)
     private val pegs = arrayOf(floatArrayOf(0f, 0f, 0f, 0f), floatArrayOf(0f, 0f, 0f, 0f))
     private val dropX = ArrayList<Float>()
     private val dropY = ArrayList<Float>()
@@ -191,10 +214,17 @@ class BallSim {
         elapsed = 0.0
         lastPct = -1
         lastNs = 0L
+        errorMs = 0f
         dropX.clear(); dropY.clear(); dropVX.clear(); dropVY.clear(); dropR.clear(); dropLife.clear()
         blink = 0f
         blinkTimer = 2400f
         ptrDown = false
+    }
+
+    // Ошибка: шарик краснеет, дрожит и злится секунду, затем оверлей
+    // скрывается и пользователь видит текст ошибки на экране под ним.
+    fun fail() {
+        failed = true
     }
 
     fun dragStart(x: Float, y: Float) {
@@ -231,6 +261,7 @@ class BallSim {
     private fun initBall() {
         for (i in 0 until n) {
             val a = i.toFloat() / n * 2.0 * PI
+            homeA[i] = a.toFloat()
             xs[i] = w / 2f + cos(a).toFloat() * r
             ys[i] = -r * 2.5f + sin(a).toFloat() * r
             pxs[i] = xs[i]
@@ -264,6 +295,21 @@ class BallSim {
         if (phase == "burst") {
             stepDrops(k)
             if ((nowNs - burstNs) / 1e6 > 650.0) phase = "done"
+            return
+        }
+        if (failed && (phase == "loading" || phase == "plop")) {
+            phase = "error"
+            errorMs = 0f
+        }
+        if (phase == "error") {
+            // тремор: всё тело дрожит, но форма тянется обратно к шару
+            for (i in 0 until n) {
+                xs[i] += (Random.nextFloat() - 0.5f) * 2.6f
+                ys[i] += (Random.nextFloat() - 0.5f) * 2.6f
+            }
+            relax()
+            homeSpring()
+            errorMs += dtMs.toFloat()
             return
         }
         val c = center()
@@ -355,6 +401,23 @@ class BallSim {
             ys[j] += vy
         }
 
+        relax()
+        homeSpring()
+
+        if (phase == "plop") {
+            val cf = center()
+            if (cf.second >= burstY - r * 0.35f) burst()
+        }
+
+        blink -= dtMs.toFloat()
+        if (blink < -blinkTimer) {
+            blink = 130f
+            blinkTimer = 2400f + Random.nextFloat() * 2600f
+        }
+    }
+
+    // Ограничения формы: пружины соседей + спицы + давление площади.
+    private fun relax() {
         val restL = 2f * r * sin(PI.toFloat() / n)
         val targetArea = PI.toFloat() * r * r
         for (it in 0 until 3) {
@@ -399,16 +462,17 @@ class BallSim {
                 if (xs[i] > w - 10f) { xs[i] = w - 10f; pxs[i] = xs[i] }
             }
         }
+    }
 
-        if (phase == "plop") {
-            val cf = center()
-            if (cf.second >= burstY - r * 0.35f) burst()
-        }
-
-        blink -= dtMs.toFloat()
-        if (blink < -blinkTimer) {
-            blink = 130f
-            blinkTimer = 2400f + Random.nextFloat() * 2600f
+    // Плавный возврат формы: каждая точка тянется к своему месту на круге,
+    // поэтому даже после сильной тряски шарик возвращается в состояние шарика.
+    private fun homeSpring() {
+        val c = center()
+        for (i in 0 until n) {
+            val hx = c.first + cos(homeA[i]) * r
+            val hy = c.second + sin(homeA[i]) * r
+            xs[i] += (hx - xs[i]) * 0.02f
+            ys[i] += (hy - ys[i]) * 0.02f
         }
     }
 
@@ -491,12 +555,14 @@ class BallSim {
             path.quadraticBezierTo(xs[b], ys[b], (xs[b] + xs[nb]) / 2f, (ys[b] + ys[nb]) / 2f)
         }
         path.close()
+        val isErr = phase == "error"
         val brush = Brush.radialGradient(
-            colors = listOf(Color(0xFFB9F0D8), Color(0xFF6FD6AB), Color(0xFF3CAE87)),
+            colors = if (isErr) listOf(Color(0xFFF6B0B0), Color(0xFFE26D6D), Color(0xFFB03A2E))
+                     else listOf(Color(0xFFB9F0D8), Color(0xFF6FD6AB), Color(0xFF3CAE87)),
             center = Offset(c.first - r * 0.35f, c.second - r * 0.45f),
             radius = r * 1.4f)
         s.drawPath(path, brush)
-        s.drawPath(path, Color(0x5926785C), style = Stroke(width = 1.5f))
+        s.drawPath(path, if (isErr) Color(0x738C2020) else Color(0x5926785C), style = Stroke(width = 1.5f))
         s.drawOval(
             Color(0x8CFFFFFF),
             topLeft = Offset(c.first - r * 0.66f, c.second - r * 0.62f),
@@ -525,5 +591,29 @@ class BallSim {
             topLeft = Offset(c.first - 4.5f, c.second + r * 0.22f - 4.5f),
             size = Size(9f, 9f),
             style = Stroke(width = 1.6f, cap = StrokeCap.Round))
+        if (phase == "error") {
+            // злость: сердитые брови и недовольный рот
+            s.drawLine(
+                eyeColor,
+                start = Offset(c.first - ex - 7f, ey - 10f),
+                end = Offset(c.first - ex + 5f, ey - 3f),
+                strokeWidth = 2.4f,
+                cap = StrokeCap.Round)
+            s.drawLine(
+                eyeColor,
+                start = Offset(c.first + ex + 7f, ey - 10f),
+                end = Offset(c.first + ex - 5f, ey - 3f),
+                strokeWidth = 2.4f,
+                cap = StrokeCap.Round)
+            s.drawArc(
+                eyeColor,
+                startAngle = 207f,
+                sweepAngle = 126f,
+                useCenter = false,
+                topLeft = Offset(c.first - 5.5f, c.second + r * 0.42f - 5.5f),
+                size = Size(11f, 11f),
+                style = Stroke(width = 1.6f, cap = StrokeCap.Round))
+        }
     }
 }
+

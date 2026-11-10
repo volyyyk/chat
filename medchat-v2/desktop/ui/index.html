@@ -279,8 +279,9 @@ var BallLoader = (function () {
   var doneEl = $("bl-done"), nextBtn = $("bl-next"), replayBtn = $("bl-replay");
   var ctx = canvas.getContext("2d");
   var onProceed = null, complete = false, running = false, raf = 0, doneShown = false;
+  var failed = false, errorAt = 0, errorFired = false;
   var N = 60, r = 44, pegR = 22, pegY = 0, pegGap = 0, burstY = 0, W = 0, H = 0;
-  var pts = [], drops = [], phase = "loading", progress = 0;
+  var pts = [], drops = [], homeA = [], phase = "loading", progress = 0;
   var planIdx = 0, fromP = 0, planT = 0, elapsed = 0, lastPct = -1, burstAt = 0;
   var pegs = [{ ox: 0, oy: 0, vx: 0, vy: 0 }, { ox: 0, oy: 0, vx: 0, vy: 0 }];
   var plan = [[900, 0.18], [500, 0.22], [1400, 0.47], [700, 0.52], [1600, 0.78], [900, 0.86], [600, 0.90]];
@@ -300,8 +301,10 @@ var BallLoader = (function () {
 
   function initBall() {
     pts = [];
+    homeA = [];
     for (var i = 0; i < N; i++) {
       var a = (i / N) * Math.PI * 2;
+      homeA.push(a);
       var x = W / 2 + Math.cos(a) * r;
       var y = -r * 2.5 + Math.sin(a) * r;
       pts.push({ x: x, y: y, px: x, py: y });
@@ -348,6 +351,65 @@ var BallLoader = (function () {
     }
   }
 
+  // Ограничения формы: пружины соседей + спицы + давление площади.
+  function relax() {
+    var L = 2 * r * Math.sin(Math.PI / N);
+    var targetArea = Math.PI * r * r;
+    for (var it = 0; it < 3; it++) {
+      for (var i3 = 0; i3 < N; i3++) {
+        var a = pts[i3], b = pts[(i3 + 1) % N];
+        var ddx = b.x - a.x, ddy = b.y - a.y;
+        var dd2 = Math.hypot(ddx, ddy) || 0.001;
+        var diff = ((dd2 - L) / dd2) * 0.5;
+        a.x += ddx * diff; a.y += ddy * diff;
+        b.x -= ddx * diff; b.y -= ddy * diff;
+      }
+      var cc = center();
+      for (var i4 = 0; i4 < N; i4++) {
+        var q = pts[i4];
+        var sx = q.x - cc.x, sy = q.y - cc.y;
+        var sd = Math.hypot(sx, sy) || 0.001;
+        var sk = ((sd - r) / sd) * 0.06;
+        q.x -= sx * sk; q.y -= sy * sk;
+      }
+      var area = 0;
+      for (var i5 = 0; i5 < N; i5++) {
+        var a5 = pts[i5], b5 = pts[(i5 + 1) % N];
+        area += a5.x * b5.y - b5.x * a5.y;
+      }
+      area = Math.abs(area) / 2;
+      var scale = Math.sqrt(targetArea / Math.max(area, 1));
+      var kk2 = 1 + (scale - 1) * 0.22;
+      var c2 = center();
+      for (var i6 = 0; i6 < N; i6++) {
+        var q6 = pts[i6];
+        q6.x = c2.x + (q6.x - c2.x) * kk2;
+        q6.y = c2.y + (q6.y - c2.y) * kk2;
+      }
+      var pg0 = pegPos(0), pg1 = pegPos(1);
+      for (var i7 = 0; i7 < N; i7++) {
+        var q7 = pts[i7];
+        collidePeg(q7, pg0.x, pg0.y, pegR);
+        collidePeg(q7, pg1.x, pg1.y, pegR);
+        if (q7.y < -r * 6) q7.y = -r * 6;
+        if (q7.x < 10) { q7.x = 10; q7.px = q7.x; }
+        if (q7.x > W - 10) { q7.x = W - 10; q7.px = q7.x; }
+      }
+    }
+  }
+
+  // Плавный возврат формы: каждая точка тянется к своему месту на круге,
+  // поэтому даже после сильной тряски шарик возвращается в состояние шарика.
+  function homeSpring() {
+    var ch = center();
+    for (var i = 0; i < N; i++) {
+      var hx = ch.x + Math.cos(homeA[i]) * r;
+      var hy = ch.y + Math.sin(homeA[i]) * r;
+      pts[i].x += (hx - pts[i].x) * 0.02;
+      pts[i].y += (hy - pts[i].y) * 0.02;
+    }
+  }
+
   function step(k) {
     if (phase === "burst") {
       for (var di = 0; di < drops.length; di++) {
@@ -356,6 +418,24 @@ var BallLoader = (function () {
       }
       drops = drops.filter(function (x) { return x.life > 0; });
       if (performance.now() - burstAt > 650) phase = "done";
+      return;
+    }
+    if (failed && (phase === "loading" || phase === "plop")) {
+      phase = "error";
+      errorAt = performance.now();
+      statusEl.textContent = "Ошибка";
+      statusEl.style.color = "#b03a2e";
+      statusEl.style.fontWeight = "700";
+    }
+    if (phase === "error") {
+      // тремор: всё тело дрожит, но форма тянется обратно к шару
+      for (var ei = 0; ei < N; ei++) {
+        var qe = pts[ei];
+        qe.x += (Math.random() - 0.5) * 2.6; qe.y += (Math.random() - 0.5) * 2.6;
+      }
+      relax();
+      homeSpring();
+      if (!errorFired && performance.now() - errorAt >= 1000) { errorFired = true; hide(); }
       return;
     }
     var c = center();
@@ -418,49 +498,8 @@ var BallLoader = (function () {
       p2.x += vx; p2.y += vy;
     }
 
-    var L = 2 * r * Math.sin(Math.PI / N);
-    var targetArea = Math.PI * r * r;
-    for (var it = 0; it < 3; it++) {
-      for (var i3 = 0; i3 < N; i3++) {
-        var a = pts[i3], b = pts[(i3 + 1) % N];
-        var ddx = b.x - a.x, ddy = b.y - a.y;
-        var dd2 = Math.hypot(ddx, ddy) || 0.001;
-        var diff = ((dd2 - L) / dd2) * 0.5;
-        a.x += ddx * diff; a.y += ddy * diff;
-        b.x -= ddx * diff; b.y -= ddy * diff;
-      }
-      var cc = center();
-      for (var i4 = 0; i4 < N; i4++) {
-        var q = pts[i4];
-        var sx = q.x - cc.x, sy = q.y - cc.y;
-        var sd = Math.hypot(sx, sy) || 0.001;
-        var sk = ((sd - r) / sd) * 0.06;
-        q.x -= sx * sk; q.y -= sy * sk;
-      }
-      var area = 0;
-      for (var i5 = 0; i5 < N; i5++) {
-        var a5 = pts[i5], b5 = pts[(i5 + 1) % N];
-        area += a5.x * b5.y - b5.x * a5.y;
-      }
-      area = Math.abs(area) / 2;
-      var scale = Math.sqrt(targetArea / Math.max(area, 1));
-      var kk2 = 1 + (scale - 1) * 0.22;
-      var c2 = center();
-      for (var i6 = 0; i6 < N; i6++) {
-        var q6 = pts[i6];
-        q6.x = c2.x + (q6.x - c2.x) * kk2;
-        q6.y = c2.y + (q6.y - c2.y) * kk2;
-      }
-      var pg0 = pegPos(0), pg1 = pegPos(1);
-      for (var i7 = 0; i7 < N; i7++) {
-        var q7 = pts[i7];
-        collidePeg(q7, pg0.x, pg0.y, pegR);
-        collidePeg(q7, pg1.x, pg1.y, pegR);
-        if (q7.y < -r * 6) q7.y = -r * 6;
-        if (q7.x < 10) { q7.x = 10; q7.px = q7.x; }
-        if (q7.x > W - 10) { q7.x = W - 10; q7.px = q7.x; }
-      }
-    }
+    relax();
+    homeSpring();
 
     if (phase === "plop") {
       var cf = center();
@@ -495,10 +534,13 @@ var BallLoader = (function () {
         p2.x, p2.y);
     }
     ctx.closePath();
+    var isErr = phase === "error";
     var grad = ctx.createRadialGradient(c.x - r * 0.35, c.y - r * 0.45, r * 0.2, c.x, c.y, r * 1.4);
-    grad.addColorStop(0, "#b9f0d8"); grad.addColorStop(0.55, "#6fd6ab"); grad.addColorStop(1, "#3cae87");
+    if (isErr) { grad.addColorStop(0, "#f6b0b0"); grad.addColorStop(0.55, "#e26d6d"); grad.addColorStop(1, "#b03a2e"); }
+    else { grad.addColorStop(0, "#b9f0d8"); grad.addColorStop(0.55, "#6fd6ab"); grad.addColorStop(1, "#3cae87"); }
     ctx.fillStyle = grad; ctx.fill();
-    ctx.strokeStyle = "rgba(38,120,92,.35)"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.strokeStyle = isErr ? "rgba(140,32,32,.45)" : "rgba(38,120,92,.35)";
+    ctx.lineWidth = 1.5; ctx.stroke();
     ctx.save(); ctx.clip();
     ctx.beginPath();
     ctx.ellipse(c.x - r * 0.34, c.y - r * 0.42, r * 0.34, r * 0.2, -0.6, 0, Math.PI * 2);
@@ -522,6 +564,16 @@ var BallLoader = (function () {
     ctx.arc(c.x, c.y + r * 0.22, 4.5, 0.15 * Math.PI, 0.85 * Math.PI);
     ctx.strokeStyle = "#1f2430"; ctx.lineWidth = 1.6; ctx.lineCap = "round";
     ctx.stroke();
+    if (isErr) {
+      // злость: сердитые брови и недовольный рот
+      ctx.beginPath();
+      ctx.moveTo(c.x - ex - 7, ey - 10); ctx.lineTo(c.x - ex + 5, ey - 3);
+      ctx.moveTo(c.x + ex + 7, ey - 10); ctx.lineTo(c.x + ex - 5, ey - 3);
+      ctx.lineWidth = 2.4; ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(c.x, c.y + r * 0.42, 5.5, 1.15 * Math.PI, 1.85 * Math.PI);
+      ctx.stroke();
+    }
   }
 
   function loop(now) {
@@ -538,6 +590,7 @@ var BallLoader = (function () {
 
   function start(onP) {
     onProceed = onP; complete = false; running = true; doneShown = false;
+    failed = false; errorFired = false;
     overlay.classList.add("active");
     doneEl.classList.remove("active");
     nextBtn.classList.remove("active");
@@ -547,12 +600,18 @@ var BallLoader = (function () {
     pegs[1].ox = pegs[1].oy = pegs[1].vx = pegs[1].vy = 0;
     resize(); initBall();
     statusEl.textContent = "Подключение… 0%";
+    statusEl.style.color = "";
+    statusEl.style.fontWeight = "";
     last = performance.now();
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(loop);
   }
 
   function markComplete() { complete = true; }
+
+  // Ошибка: шарик краснеет, дрожит и злится секунду, затем оверлей
+  // скрывается и пользователь видит текст ошибки на экране под ним.
+  function fail() { failed = true; }
 
   function hide() {
     running = false;
@@ -569,7 +628,7 @@ var BallLoader = (function () {
   window.addEventListener("pointerup", function () { ptr.down = false; });
   window.addEventListener("resize", function () { if (running) resize(); });
 
-  return { start: start, markComplete: markComplete, hide: hide };
+  return { start: start, markComplete: markComplete, fail: fail, hide: hide };
 })();
 
 
@@ -601,11 +660,18 @@ async function api(path, opts) {
   opts = opts || {};
   var headers = { "Content-Type": "application/json" };
   if (state.token) headers.Authorization = "Bearer " + state.token;
-  var res = await fetch(state.server + path, {
-    method: opts.method || "GET",
-    headers: headers,
-    body: opts.body ? JSON.stringify(opts.body) : undefined
-  });
+  var res;
+  try {
+    res = await fetch(state.server + path, {
+      method: opts.method || "GET",
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+  } catch (e) {
+    console.error("[api]", opts.method || "GET", path, "-> сеть:", e.message);
+    throw new Error("сервер недоступен: " + e.message);
+  }
+  console.log("[api]", opts.method || "GET", path, "-> HTTP " + res.status);
   var data = null;
   try { data = await res.json(); } catch (e) { /* тело может быть пустым */ }
   if (!res.ok) {
@@ -615,7 +681,11 @@ async function api(path, opts) {
       show("login");
       setStatus("login-status", "Сессия истекла, войдите заново", true);
     }
-    throw new Error(data && data.message ? data.message : "HTTP " + res.status);
+    // сервер присылает причину в "error" (иногда в "message"): показываем её,
+    // а не голое "HTTP 401"
+    var em = data && (data.error || data.message);
+    if (em) console.error("[api]", opts.method || "GET", path, "-> HTTP " + res.status + ": " + em);
+    throw new Error(em ? em : "HTTP " + res.status);
   }
   return data;
 }
@@ -632,11 +702,14 @@ async function connectNext() {
   try {
     var res = await fetch(v + "/health");
     if (!res.ok) throw new Error("HTTP " + res.status);
+    var hb = await res.json().catch(function () { return null; });
+    if (!hb || hb.status !== "ok") throw new Error("это не MedChat-сервер (нет status=ok)");
     state.server = v;
     localStorage.setItem("medchat.server", v);
     BallLoader.markComplete();
   } catch (e) {
-    BallLoader.hide();
+    console.error("[connect]", v, "->", e.message);
+    BallLoader.fail();
     setStatus("connect-status", "Сервер недоступен: " + e.message, true);
   }
 }
@@ -660,7 +733,8 @@ async function doLogin() {
     localStorage.setItem("medchat.email", email);
     BallLoader.markComplete();
   } catch (e) {
-    BallLoader.hide();
+    console.error("[login]", e.message);
+    BallLoader.fail();
     setStatus("login-status", "Ошибка входа: " + e.message, true);
   }
 }

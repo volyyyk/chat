@@ -26,6 +26,27 @@ import java.net.URL
 
 class ApiError(val status: Int, message: String) : Exception(message)
 
+// Диагностический журнал сетевых запросов (in-memory, последние 200 записей).
+// Его показывает кнопка «Логи» на экранах подключения/входа; журнал можно
+// скопировать в буфер одним нажатием, чтобы понять, где и когда произошёл сбой.
+object ApiLog {
+    private const val MAX = 200
+    private val rows = ArrayDeque<String>()
+
+    @Synchronized
+    fun record(line: String) {
+        val ts = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+        rows.addLast(ts + " " + line)
+        while (rows.size > MAX) rows.removeFirst()
+    }
+
+    @Synchronized
+    fun snapshot(): List<String> = rows.toList()
+
+    @Synchronized
+    fun clear() = rows.clear()
+}
+
 data class UserProfile(
     val id: String,
     val email: String,
@@ -98,6 +119,35 @@ class ApiService private constructor(val baseUrl: String) {
         body: JSONObject? = null,
         authorized: Boolean = true
     ): JSONObject {
+        // Обёртка диагностики: пишем каждый запрос в ApiLog и переводим
+        // сетевые исключения в понятные сообщения (что именно не так).
+        val startedAt = System.currentTimeMillis()
+        try {
+            val (status, json) = doRequest(path, method, body, authorized)
+            ApiLog.record(method + " " + path + " -> HTTP " + status + " ok (" + (System.currentTimeMillis() - startedAt) + " ms)")
+            return json
+        } catch (e: ApiError) {
+            ApiLog.record(method + " " + path + " -> HTTP " + e.status + ": " + (e.message ?: "?") + " (" + (System.currentTimeMillis() - startedAt) + " ms)")
+            throw e
+        } catch (e: java.net.SocketTimeoutException) {
+            ApiLog.record(method + " " + path + " -> таймаут после " + (System.currentTimeMillis() - startedAt) + " ms")
+            throw ApiError(0, "таймаут: " + baseUrl + " не ответил за 15 с. Сервер запущен (кнопка «Запустить» в приложении сервера) и не выгружен системой?")
+        } catch (e: java.net.ConnectException) {
+            ApiLog.record(method + " " + path + " -> соединение отклонено")
+            throw ApiError(0, "соединение отклонено: на " + baseUrl + " никто не слушает. Сервер не запущен или остановлен")
+        } catch (e: java.io.IOException) {
+            ApiLog.record(method + " " + path + " -> сеть: " + (e.message ?: "?"))
+            throw ApiError(0, "сетевая ошибка: " + (e.message ?: "unknown"))
+        }
+    }
+
+    @Throws(ApiError::class)
+    private fun doRequest(
+        path: String,
+        method: String,
+        body: JSONObject?,
+        authorized: Boolean
+    ): Pair<Int, JSONObject> {
         val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
@@ -130,17 +180,26 @@ class ApiService private constructor(val baseUrl: String) {
                     token = null
                     onUnauthorized?.invoke()
                 }
-                val message = json.optString("message").ifEmpty { "HTTP " + status }
+                // Сервер присылает причину в "error" (иногда в "message"):
+                // без этого пользователь видит голое "HTTP 401" вместо причины.
+                val message = json.optString("error").ifEmpty { json.optString("message") }.ifEmpty { "HTTP " + status }
                 throw ApiError(status, message)
             }
-            return json
+            return Pair(status, json)
         } finally {
             connection.disconnect()
         }
     }
 
     fun health() {
-        request("/health", authorized = false)
+        val json = request("/health", authorized = false)
+        // Проверяем, что это действительно MedChat-сервер, а не чужой сервис,
+        // случайно слушающий тот же порт (иначе «подключение» проходит
+        // успешно, а вход потом непонятно почему падает).
+        if (json.optString("status") != "ok") {
+            ApiLog.record("GET /health -> на " + baseUrl + " отвечает не MedChat-сервер (нет status=ok)")
+            throw ApiError(0, "на " + baseUrl + " отвечает не MedChat-сервер (нет status=ok)")
+        }
     }
 
     fun login(email: String, password: String): UserProfile {
@@ -148,6 +207,7 @@ class ApiService private constructor(val baseUrl: String) {
         val json = request("/api/auth/login", "POST", body, authorized = false)
         val accessToken = json.optString("accessToken")
         if (accessToken.isEmpty()) {
+            ApiLog.record("POST /api/auth/login -> в ответе нет accessToken")
             throw ApiError(0, "сервер не вернул accessToken")
         }
         token = accessToken
@@ -259,3 +319,4 @@ class ApiService private constructor(val baseUrl: String) {
         return anyId((row.optJSONObject("user") ?: JSONObject()).opt("id"))
     }
 }
+

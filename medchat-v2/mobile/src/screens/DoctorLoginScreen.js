@@ -20,6 +20,7 @@ const DoctorLoginScreen = ({ navigation }) => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [loaderRun, setLoaderRun] = useState(0);
   const [loaderComplete, setLoaderComplete] = useState(false);
+  const [loaderFailed, setLoaderFailed] = useState(false);
 
   const { 
     values, 
@@ -44,6 +45,12 @@ const DoctorLoginScreen = ({ navigation }) => {
         setLoaderRun((v) => v + 1);
         setLoaderComplete(false);
         setTimeout(() => setLoaderComplete(true), 1000);
+      } else {
+        // ошибка: шарик на секунду краснеет и злится, потом экран входа с алертом
+        setLoaderRun((v) => v + 1);
+        setLoaderComplete(false);
+        setLoaderFailed(true);
+        setIsVerifying(true);
       }
     }
   );
@@ -54,13 +61,14 @@ const DoctorLoginScreen = ({ navigation }) => {
     return () => clearError();
   }, [clearError]);
 
-  // Show error if present
+  // Show error if present (пока злой красный шарик играет, алерт ждёт:
+  // он появится после того, как оверлей скроется)
   useEffect(() => {
-    if (error) {
+    if (error && !isVerifying) {
       Alert.alert('Ошибка', error);
       clearError();
     }
-  }, [error, clearError]);
+  }, [error, isVerifying, clearError]);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -80,6 +88,11 @@ const DoctorLoginScreen = ({ navigation }) => {
         <LoaderBall
           runId={loaderRun}
           complete={loaderComplete}
+          failed={loaderFailed}
+          onError={() => {
+            setLoaderFailed(false);
+            setIsVerifying(false);
+          }}
           onProceed={() => {
             navigation.replace('DoctorMain');
             setIsVerifying(false);
@@ -366,3 +379,4 @@ const styles = StyleSheet.create({
 });
 
 export default DoctorLoginScreen;
+

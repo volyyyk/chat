@@ -9,22 +9,28 @@
  * Props:
  *   runId     - увеличьте, чтобы запустить/перезапустить анимацию;
  *   complete  - true, когда реальная работа завершена;
+ *   failed    - true при ошибке: шарик на секунду краснеет, дрожит
+ *               и злится, затем вызывается onError;
  *   onProceed - нажатие «Перейти дальше».
  */
 import React, { useEffect, useRef, useState } from 'react';
 
 export const LOADER_MIN_MS = 5000;
 
-export default function LoaderBall({ runId, complete, onProceed }) {
+export default function LoaderBall({ runId, complete, failed, onError, onProceed }) {
   const canvasRef = useRef(null);
   const completeRef = useRef(complete);
+  const failedRef = useRef(failed);
   const proceedRef = useRef(onProceed);
+  const errorRef = useRef(onError);
   const [pct, setPct] = useState(0);
   const [phase, setPhase] = useState('loading');
   const [replayKey, setReplayKey] = useState(0);
 
   useEffect(() => { completeRef.current = complete; }, [complete]);
+  useEffect(() => { failedRef.current = failed; }, [failed]);
   useEffect(() => { proceedRef.current = onProceed; }, [onProceed]);
+  useEffect(() => { errorRef.current = onError; }, [onError]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -38,9 +44,11 @@ export default function LoaderBall({ runId, complete, onProceed }) {
     const ptr = { x: 0, y: 0, px: 0, py: 0, down: false };
     let pts = [];
     let drops = [];
+    let homeA = [];
     let phaseLocal = 'loading';
     let progress = 0; let planIdx = 0; let fromP = 0; let planT = 0; let elapsed = 0; let lastPct = -1;
     let burstAt = 0;
+    let errorAt = 0; let errorFired = false;
     let blink = 0; let blinkTimer = 2400;
     let shownPhase = 'loading';
     let last = 0;
@@ -59,8 +67,10 @@ export default function LoaderBall({ runId, complete, onProceed }) {
 
     function initBall() {
       pts = [];
+      homeA = [];
       for (let i = 0; i < N; i++) {
         const a = (i / N) * Math.PI * 2;
+        homeA.push(a);
         const x = W / 2 + Math.cos(a) * r;
         const y = -r * 2.5 + Math.sin(a) * r;
         pts.push({ x: x, y: y, px: x, py: y });
@@ -106,11 +116,85 @@ export default function LoaderBall({ runId, complete, onProceed }) {
       }
     }
 
+    // Ограничения формы: пружины соседей + спицы + давление площади.
+    function relax() {
+      const L = 2 * r * Math.sin(Math.PI / N);
+      const targetArea = Math.PI * r * r;
+      for (let it = 0; it < 3; it++) {
+        for (let i = 0; i < N; i++) {
+          const a = pts[i]; const b = pts[(i + 1) % N];
+          const ddx = b.x - a.x; const ddy = b.y - a.y;
+          const dd = Math.hypot(ddx, ddy) || 0.001;
+          const diff = ((dd - L) / dd) * 0.5;
+          a.x += ddx * diff; a.y += ddy * diff;
+          b.x -= ddx * diff; b.y -= ddy * diff;
+        }
+        const cc = center();
+        for (let i = 0; i < N; i++) {
+          const q = pts[i];
+          const sx = q.x - cc.x; const sy = q.y - cc.y;
+          const sd = Math.hypot(sx, sy) || 0.001;
+          const sk = ((sd - r) / sd) * 0.06;
+          q.x -= sx * sk; q.y -= sy * sk;
+        }
+        let area = 0;
+        for (let i = 0; i < N; i++) {
+          const a = pts[i]; const b = pts[(i + 1) % N];
+          area += a.x * b.y - b.x * a.y;
+        }
+        area = Math.abs(area) / 2;
+        const scale = Math.sqrt(targetArea / Math.max(area, 1));
+        const kk = 1 + (scale - 1) * 0.22;
+        const c2 = center();
+        for (let i = 0; i < N; i++) {
+          const q = pts[i];
+          q.x = c2.x + (q.x - c2.x) * kk;
+          q.y = c2.y + (q.y - c2.y) * kk;
+        }
+        const pg0 = pegPos(0); const pg1 = pegPos(1);
+        for (let i = 0; i < N; i++) {
+          const q = pts[i];
+          collidePeg(q, pg0.x, pg0.y, pegR);
+          collidePeg(q, pg1.x, pg1.y, pegR);
+          if (q.y < -r * 6) q.y = -r * 6;
+          if (q.x < 10) { q.x = 10; q.px = q.x; }
+          if (q.x > W - 10) { q.x = W - 10; q.px = q.x; }
+        }
+      }
+    }
+
+    // Плавный возврат формы: каждая точка тянется к своему месту на круге,
+    // поэтому даже после сильной тряски шарик возвращается в состояние шарика.
+    function homeSpring() {
+      const ch = center();
+      for (let i = 0; i < N; i++) {
+        const hx = ch.x + Math.cos(homeA[i]) * r;
+        const hy = ch.y + Math.sin(homeA[i]) * r;
+        pts[i].x += (hx - pts[i].x) * 0.02;
+        pts[i].y += (hy - pts[i].y) * 0.02;
+      }
+    }
+
     function step(k) {
       if (phaseLocal === 'burst') {
         for (const d of drops) { d.vy += 0.34 * k; d.x += d.vx * k; d.y += d.vy * k; d.life -= 0.014 * k; }
         drops = drops.filter((d) => d.life > 0);
         if (performance.now() - burstAt > 650) phaseLocal = 'done';
+        return;
+      }
+      if (failedRef.current && (phaseLocal === 'loading' || phaseLocal === 'plop')) {
+        phaseLocal = 'error';
+        errorAt = performance.now();
+      }
+      if (phaseLocal === 'error') {
+        // тремор: всё тело дрожит, но форма тянется обратно к шару
+        for (const qe of pts) { qe.x += (Math.random() - 0.5) * 2.6; qe.y += (Math.random() - 0.5) * 2.6; }
+        relax();
+        homeSpring();
+        if (!errorFired && performance.now() - errorAt >= 1000) {
+          errorFired = true;
+          if (errorRef.current) errorRef.current();
+        }
         return;
       }
       const c = center();
@@ -173,49 +257,8 @@ export default function LoaderBall({ runId, complete, onProceed }) {
         p.x += vx; p.y += vy;
       }
 
-      const L = 2 * r * Math.sin(Math.PI / N);
-      const targetArea = Math.PI * r * r;
-      for (let it = 0; it < 3; it++) {
-        for (let i = 0; i < N; i++) {
-          const a = pts[i]; const b = pts[(i + 1) % N];
-          const ddx = b.x - a.x; const ddy = b.y - a.y;
-          const dd = Math.hypot(ddx, ddy) || 0.001;
-          const diff = ((dd - L) / dd) * 0.5;
-          a.x += ddx * diff; a.y += ddy * diff;
-          b.x -= ddx * diff; b.y -= ddy * diff;
-        }
-        const cc = center();
-        for (let i = 0; i < N; i++) {
-          const q = pts[i];
-          const sx = q.x - cc.x; const sy = q.y - cc.y;
-          const sd = Math.hypot(sx, sy) || 0.001;
-          const sk = ((sd - r) / sd) * 0.06;
-          q.x -= sx * sk; q.y -= sy * sk;
-        }
-        let area = 0;
-        for (let i = 0; i < N; i++) {
-          const a = pts[i]; const b = pts[(i + 1) % N];
-          area += a.x * b.y - b.x * a.y;
-        }
-        area = Math.abs(area) / 2;
-        const scale = Math.sqrt(targetArea / Math.max(area, 1));
-        const kk = 1 + (scale - 1) * 0.22;
-        const c2 = center();
-        for (let i = 0; i < N; i++) {
-          const q = pts[i];
-          q.x = c2.x + (q.x - c2.x) * kk;
-          q.y = c2.y + (q.y - c2.y) * kk;
-        }
-        const pg0 = pegPos(0); const pg1 = pegPos(1);
-        for (let i = 0; i < N; i++) {
-          const q = pts[i];
-          collidePeg(q, pg0.x, pg0.y, pegR);
-          collidePeg(q, pg1.x, pg1.y, pegR);
-          if (q.y < -r * 6) q.y = -r * 6;
-          if (q.x < 10) { q.x = 10; q.px = q.x; }
-          if (q.x > W - 10) { q.x = W - 10; q.px = q.x; }
-        }
-      }
+      relax();
+      homeSpring();
 
       if (phaseLocal === 'plop') {
         const cf = center();
@@ -249,10 +292,13 @@ export default function LoaderBall({ runId, complete, onProceed }) {
           p2.x, p2.y);
       }
       ctx.closePath();
+      const isErr = phaseLocal === 'error';
       const grad = ctx.createRadialGradient(c.x - r * 0.35, c.y - r * 0.45, r * 0.2, c.x, c.y, r * 1.4);
-      grad.addColorStop(0, '#b9f0d8'); grad.addColorStop(0.55, '#6fd6ab'); grad.addColorStop(1, '#3cae87');
+      if (isErr) { grad.addColorStop(0, '#f6b0b0'); grad.addColorStop(0.55, '#e26d6d'); grad.addColorStop(1, '#b03a2e'); }
+      else { grad.addColorStop(0, '#b9f0d8'); grad.addColorStop(0.55, '#6fd6ab'); grad.addColorStop(1, '#3cae87'); }
       ctx.fillStyle = grad; ctx.fill();
-      ctx.strokeStyle = 'rgba(38,120,92,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = isErr ? 'rgba(140,32,32,.45)' : 'rgba(38,120,92,.35)';
+      ctx.lineWidth = 1.5; ctx.stroke();
       ctx.save(); ctx.clip();
       ctx.beginPath();
       ctx.ellipse(c.x - r * 0.34, c.y - r * 0.42, r * 0.34, r * 0.2, -0.6, 0, Math.PI * 2);
@@ -275,6 +321,16 @@ export default function LoaderBall({ runId, complete, onProceed }) {
       ctx.arc(c.x, c.y + r * 0.22, 4.5, 0.15 * Math.PI, 0.85 * Math.PI);
       ctx.strokeStyle = '#1f2430'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
       ctx.stroke();
+      if (isErr) {
+        // злость: сердитые брови и недовольный рот
+        ctx.beginPath();
+        ctx.moveTo(c.x - ex - 7, ey - 10); ctx.lineTo(c.x - ex + 5, ey - 3);
+        ctx.moveTo(c.x + ex + 7, ey - 10); ctx.lineTo(c.x + ex - 5, ey - 3);
+        ctx.lineWidth = 2.4; ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(c.x, c.y + r * 0.42, 5.5, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.stroke();
+      }
     }
 
     function loop(now) {
@@ -319,6 +375,9 @@ export default function LoaderBall({ runId, complete, onProceed }) {
       {phase === 'loading' && (
         <div style={statusStyle}>Подключение… <b>{pct}%</b></div>
       )}
+      {phase === 'error' && (
+        <div style={{ ...statusStyle, color: '#b03a2e', fontWeight: 700 }}>Ошибка</div>
+      )}
       {(phase === 'plop' || phase === 'burst' || phase === 'done') && (
         <div style={doneWrapStyle}>
           <div style={doneRowStyle}>
@@ -343,3 +402,4 @@ export default function LoaderBall({ runId, complete, onProceed }) {
     </div>
   );
 }
+

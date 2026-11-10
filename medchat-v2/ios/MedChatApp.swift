@@ -28,6 +28,7 @@ final class AppState: ObservableObject {
     @Published var loaderRun = 0
     @Published var loaderActive = false
     @Published var loaderComplete = false
+    @Published var loaderFailed = false
     var loaderNext: AppScreen?
     
     var api: ApiService?
@@ -73,13 +74,14 @@ final class AppState: ObservableObject {
         }
         loaderRun += 1
         loaderComplete = false
+        loaderFailed = false
         loaderActive = true
         loaderNext = .login
         let probe = ApiService(baseUrl: normalized)
         do {
             try await probe.health()
         } catch {
-            loaderActive = false
+            loaderFailed = true
             lastError = "Сервер недоступен: " + apiErrorMessage(error)
             return
         }
@@ -96,6 +98,7 @@ final class AppState: ObservableObject {
         }
         loaderRun += 1
         loaderComplete = false
+        loaderFailed = false
         loaderActive = true
         loaderNext = .main
         let service = ApiService(baseUrl: server)
@@ -109,7 +112,7 @@ final class AppState: ObservableObject {
             await ensureE2EKey()
             loaderComplete = true
         } catch {
-            loaderActive = false
+            loaderFailed = true
             lastError = "Ошибка входа: " + apiErrorMessage(error)
         }
     }
@@ -188,6 +191,11 @@ struct RootView: View {
                 LoaderBallView(
                     runId: app.loaderRun,
                     complete: app.loaderComplete,
+                    failed: app.loaderFailed,
+                    onError: {
+                        app.loaderFailed = false
+                        app.loaderActive = false
+                    },
                     onProceed: {
                         if let next = app.loaderNext {
                             app.screen = next
@@ -198,3 +206,4 @@ struct RootView: View {
         }
     }
 }
+

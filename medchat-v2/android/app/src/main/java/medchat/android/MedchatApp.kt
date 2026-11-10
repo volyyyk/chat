@@ -134,6 +134,7 @@ fun MedchatApp() {
         var loaderRun by remember { mutableStateOf(0) }
         var loaderActive by remember { mutableStateOf(false) }
         var loaderComplete by remember { mutableStateOf(false) }
+        var loaderFailed by remember { mutableStateOf(false) }
         var loaderNext by remember { mutableStateOf<(() -> Unit)?>(null) }
         val messages = remember { mutableStateListOf<UiMessage>() }
         val ratchet = remember { RatchetService() }
@@ -342,6 +343,7 @@ fun MedchatApp() {
                 val normalized = ApiService.normalize(url)
                 loaderRun++
                 loaderComplete = false
+                loaderFailed = false
                 loaderActive = true
                 loaderNext = {
                     loaderActive = false
@@ -357,7 +359,8 @@ fun MedchatApp() {
                         api = service
                         loaderComplete = true
                     } catch (e: Exception) {
-                        loaderActive = false
+                        ApiLog.record("connect: " + (e.message ?: "ошибка сети"))
+                        loaderFailed = true
                         status = "Сервер недоступен: " + (e.message ?: "ошибка сети") +
                             ". Сервер на этом же телефоне? Введите http://127.0.0.1:8080. " +
                             "На другом? Подключитесь к его Wi-Fi точке доступа и нажмите «Шлюз Wi-Fi»"
@@ -369,6 +372,7 @@ fun MedchatApp() {
                 val service = api ?: return@LoginScreen
                 loaderRun++
                 loaderComplete = false
+                loaderFailed = false
                 loaderActive = true
                 loaderNext = {
                     loaderActive = false
@@ -390,11 +394,13 @@ fun MedchatApp() {
                                 service.registerKey(pair.keyId, pair.publicKeyB64)
                             } catch (e: Exception) {
                                 // честно: без ключа в реестре исходящие уйдут plaintext
+                                ApiLog.record("POST /api/keys -> не критично: " + (e.message ?: "?"))
                             }
                         }
                         loaderComplete = true
                     } catch (e: Exception) {
-                        loaderActive = false
+                        ApiLog.record("login: " + (e.message ?: "ошибка входа"))
+                        loaderFailed = true
                         status = e.message ?: "ошибка входа"
                     }
                     busy = false
@@ -438,7 +444,12 @@ fun MedchatApp() {
                 BallLoaderOverlay(
                     runId = loaderRun,
                     complete = loaderComplete,
-                    onProceed = { loaderNext?.invoke() })
+                    failed = loaderFailed,
+                    onProceed = { loaderNext?.invoke() },
+                    onError = {
+                        loaderFailed = false
+                        loaderActive = false
+                    })
             }
         }
     }

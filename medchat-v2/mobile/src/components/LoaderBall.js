@@ -5,7 +5,9 @@
  * вид, что грузим дальше. На 95% шарик плюхается вниз и разбивается об
  * надпись «Загрузка завершена»; кнопка 🔃 проигрывает анимацию заново.
  *
- * Props: runId (перезапуск), complete (работа завершена), onProceed.
+ * Props: runId (перезапуск), complete (работа завершена),
+ * failed (ошибка: шарик на секунду краснеет, дрожит и злится, затем onError),
+ * onProceed.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, PanResponder } from 'react-native';
@@ -19,7 +21,8 @@ function createSim(w, h) {
     phase: 'loading', progress: 0, pct: 0, shownPct: -1,
     planIdx: 0, fromP: 0, planT: 0, elapsed: 0, lastPct: -1, inited: false,
     burstAt: 0, blink: 0, blinkTimer: 2400,
-    xs: [], ys: [], pxs: [], pys: [],
+    failed: false, errorAt: 0, errorMs: 0, errorFired: false,
+    xs: [], ys: [], pxs: [], pys: [], homeA: [],
     pegs: [{ ox: 0, oy: 0, vx: 0, vy: 0 }, { ox: 0, oy: 0, vx: 0, vy: 0 }],
     drops: [],
     ptrDown: false, ptrX: 0, ptrY: 0, lastX: 0, lastY: 0, dragX: 0, dragY: 0,
@@ -36,9 +39,10 @@ function createSim(w, h) {
     if (!sim.inited) { sim.inited = true; sim.initBall(); }
   };
   sim.initBall = function () {
-    sim.xs = []; sim.ys = []; sim.pxs = []; sim.pys = [];
+    sim.xs = []; sim.ys = []; sim.pxs = []; sim.pys = []; sim.homeA = [];
     for (let i = 0; i < sim.n; i++) {
       const a = (i / sim.n) * Math.PI * 2;
+      sim.homeA.push(a);
       const x = sim.w / 2 + Math.cos(a) * sim.r;
       const y = -sim.r * 2.5 + Math.sin(a) * sim.r;
       sim.xs.push(x); sim.ys.push(y); sim.pxs.push(x); sim.pys.push(y);
@@ -47,6 +51,7 @@ function createSim(w, h) {
   sim.reset = function () {
     sim.inited = false; sim.phase = 'loading'; sim.progress = 0; sim.pct = 0;
     sim.planIdx = 0; sim.fromP = 0; sim.planT = 0; sim.elapsed = 0; sim.lastPct = -1;
+    sim.failed = false; sim.errorAt = 0; sim.errorMs = 0; sim.errorFired = false;
     sim.drops = []; sim.blink = 0; sim.blinkTimer = 2400; sim.ptrDown = false;
   };
   sim.center = function () {
@@ -76,6 +81,60 @@ function createSim(w, h) {
     sim.lastX = x; sim.lastY = y; sim.ptrX = x; sim.ptrY = y;
   };
   sim.dragEnd = function () { sim.ptrDown = false; };
+  // Ограничения формы: пружины соседей + спицы + давление площади.
+  sim.relax = function () {
+    const L = 2 * sim.r * Math.sin(Math.PI / sim.n);
+    const targetArea = Math.PI * sim.r * sim.r;
+    for (let it = 0; it < 3; it++) {
+      for (let i = 0; i < sim.n; i++) {
+        const b = (i + 1) % sim.n;
+        const ddx = sim.xs[b] - sim.xs[i]; const ddy = sim.ys[b] - sim.ys[i];
+        const dd = Math.hypot(ddx, ddy) || 0.001;
+        const diff = ((dd - L) / dd) * 0.5;
+        sim.xs[i] += ddx * diff; sim.ys[i] += ddy * diff;
+        sim.xs[b] -= ddx * diff; sim.ys[b] -= ddy * diff;
+      }
+      const cc = sim.center();
+      for (let i = 0; i < sim.n; i++) {
+        const sx = sim.xs[i] - cc.x; const sy = sim.ys[i] - cc.y;
+        const sd = Math.hypot(sx, sy) || 0.001;
+        const sk = ((sd - sim.r) / sd) * 0.06;
+        sim.xs[i] -= sx * sk; sim.ys[i] -= sy * sk;
+      }
+      let area = 0;
+      for (let i = 0; i < sim.n; i++) {
+        const b = (i + 1) % sim.n;
+        area += sim.xs[i] * sim.ys[b] - sim.xs[b] * sim.ys[i];
+      }
+      area = Math.abs(area) / 2;
+      const scale = Math.sqrt(targetArea / Math.max(area, 1));
+      const kk = 1 + (scale - 1) * 0.22;
+      const c2 = sim.center();
+      for (let i = 0; i < sim.n; i++) {
+        sim.xs[i] = c2.x + (sim.xs[i] - c2.x) * kk;
+        sim.ys[i] = c2.y + (sim.ys[i] - c2.y) * kk;
+      }
+      const pg0 = sim.pegPos(0); const pg1 = sim.pegPos(1);
+      for (let i = 0; i < sim.n; i++) {
+        sim.collidePeg(i, pg0.x, pg0.y);
+        sim.collidePeg(i, pg1.x, pg1.y);
+        if (sim.ys[i] < -sim.r * 6) sim.ys[i] = -sim.r * 6;
+        if (sim.xs[i] < 10) { sim.xs[i] = 10; sim.pxs[i] = sim.xs[i]; }
+        if (sim.xs[i] > sim.w - 10) { sim.xs[i] = sim.w - 10; sim.pxs[i] = sim.xs[i]; }
+      }
+    }
+  };
+  // Плавный возврат формы: каждая точка тянется к своему месту на круге,
+  // поэтому даже после сильной тряски шарик возвращается в состояние шарика.
+  sim.homeSpring = function () {
+    const ch = sim.center();
+    for (let i = 0; i < sim.n; i++) {
+      const hx = ch.x + Math.cos(sim.homeA[i]) * sim.r;
+      const hy = ch.y + Math.sin(sim.homeA[i]) * sim.r;
+      sim.xs[i] += (hx - sim.xs[i]) * 0.02;
+      sim.ys[i] += (hy - sim.ys[i]) * 0.02;
+    }
+  };
   sim.burst = function () {
     sim.phase = 'burst';
     sim.burstAt = Date.now();
@@ -100,6 +159,22 @@ function createSim(w, h) {
       }
       sim.drops = alive;
       if (Date.now() - sim.burstAt > 650) sim.phase = 'done';
+      return;
+    }
+    if (sim.failed && (sim.phase === 'loading' || sim.phase === 'plop')) {
+      sim.phase = 'error';
+      sim.errorAt = Date.now();
+      sim.errorMs = 0;
+    }
+    if (sim.phase === 'error') {
+      // тремор: всё тело дрожит, но форма тянется обратно к шару
+      for (let i = 0; i < sim.n; i++) {
+        sim.xs[i] += (Math.random() - 0.5) * 2.6;
+        sim.ys[i] += (Math.random() - 0.5) * 2.6;
+      }
+      sim.relax();
+      sim.homeSpring();
+      sim.errorMs += dtMs;
       return;
     }
     const c = sim.center();
@@ -161,46 +236,8 @@ function createSim(w, h) {
       sim.xs[j] += vx; sim.ys[j] += vy;
     }
 
-    const L = 2 * sim.r * Math.sin(Math.PI / sim.n);
-    const targetArea = Math.PI * sim.r * sim.r;
-    for (let it = 0; it < 3; it++) {
-      for (let i = 0; i < sim.n; i++) {
-        const b = (i + 1) % sim.n;
-        const ddx = sim.xs[b] - sim.xs[i]; const ddy = sim.ys[b] - sim.ys[i];
-        const dd = Math.hypot(ddx, ddy) || 0.001;
-        const diff = ((dd - L) / dd) * 0.5;
-        sim.xs[i] += ddx * diff; sim.ys[i] += ddy * diff;
-        sim.xs[b] -= ddx * diff; sim.ys[b] -= ddy * diff;
-      }
-      const cc = sim.center();
-      for (let i = 0; i < sim.n; i++) {
-        const sx = sim.xs[i] - cc.x; const sy = sim.ys[i] - cc.y;
-        const sd = Math.hypot(sx, sy) || 0.001;
-        const sk = ((sd - sim.r) / sd) * 0.06;
-        sim.xs[i] -= sx * sk; sim.ys[i] -= sy * sk;
-      }
-      let area = 0;
-      for (let i = 0; i < sim.n; i++) {
-        const b = (i + 1) % sim.n;
-        area += sim.xs[i] * sim.ys[b] - sim.xs[b] * sim.ys[i];
-      }
-      area = Math.abs(area) / 2;
-      const scale = Math.sqrt(targetArea / Math.max(area, 1));
-      const kk = 1 + (scale - 1) * 0.22;
-      const c2 = sim.center();
-      for (let i = 0; i < sim.n; i++) {
-        sim.xs[i] = c2.x + (sim.xs[i] - c2.x) * kk;
-        sim.ys[i] = c2.y + (sim.ys[i] - c2.y) * kk;
-      }
-      const pg0 = sim.pegPos(0); const pg1 = sim.pegPos(1);
-      for (let i = 0; i < sim.n; i++) {
-        sim.collidePeg(i, pg0.x, pg0.y);
-        sim.collidePeg(i, pg1.x, pg1.y);
-        if (sim.ys[i] < -sim.r * 6) sim.ys[i] = -sim.r * 6;
-        if (sim.xs[i] < 10) { sim.xs[i] = 10; sim.pxs[i] = sim.xs[i]; }
-        if (sim.xs[i] > sim.w - 10) { sim.xs[i] = sim.w - 10; sim.pxs[i] = sim.xs[i]; }
-      }
-    }
+    sim.relax();
+    sim.homeSpring();
 
     if (sim.phase === 'plop') {
       const cf = sim.center();
@@ -222,9 +259,11 @@ function createSim(w, h) {
   return sim;
 }
 
-export default function LoaderBall({ runId, complete, onProceed }) {
+export default function LoaderBall({ runId, complete, failed, onError, onProceed }) {
   const completeRef = useRef(complete);
+  const failedRef = useRef(failed);
   const proceedRef = useRef(onProceed);
+  const errorRef = useRef(onError);
   const simRef = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [pct, setPct] = useState(0);
@@ -233,7 +272,9 @@ export default function LoaderBall({ runId, complete, onProceed }) {
   const [, forceRender] = useState(0);
 
   useEffect(() => { completeRef.current = complete; }, [complete]);
+  useEffect(() => { failedRef.current = failed; }, [failed]);
   useEffect(() => { proceedRef.current = onProceed; }, [onProceed]);
+  useEffect(() => { errorRef.current = onError; }, [onError]);
 
   useEffect(() => {
     if (!size.w || !size.h) return undefined;
@@ -243,13 +284,19 @@ export default function LoaderBall({ runId, complete, onProceed }) {
     let raf = 0;
     let last = Date.now();
     let shownPhase = 'loading';
+    let errorFired = false;
     const loop = () => {
       const now = Date.now();
       const dt = Math.min(34, now - last || 16.7);
       last = now;
+      sim.failed = failedRef.current;
       sim.step(dt, completeRef.current);
       if (sim.pct !== sim.shownPct) { sim.shownPct = sim.pct; setPct(sim.pct); }
       if (sim.phase !== shownPhase) { shownPhase = sim.phase; setPhase(sim.phase); }
+      if (sim.phase === 'error' && !errorFired && sim.errorMs >= 1000) {
+        errorFired = true;
+        if (errorRef.current) errorRef.current();
+      }
       forceRender((v) => v + 1);
       raf = requestAnimationFrame(loop);
     };
@@ -279,9 +326,9 @@ export default function LoaderBall({ runId, complete, onProceed }) {
           <Svg width={size.w} height={size.h}>
             <Defs>
               <RadialGradient id="ballGrad" cx="40%" cy="35%" rx="70%" ry="70%">
-                <Stop offset="0" stopColor="#b9f0d8" />
-                <Stop offset="0.55" stopColor="#6fd6ab" />
-                <Stop offset="1" stopColor="#3cae87" />
+                <Stop offset="0" stopColor={phase === 'error' ? '#f6b0b0' : '#b9f0d8'} />
+                <Stop offset="0.55" stopColor={phase === 'error' ? '#e26d6d' : '#6fd6ab'} />
+                <Stop offset="1" stopColor={phase === 'error' ? '#b03a2e' : '#3cae87'} />
               </RadialGradient>
             </Defs>
             {sim.drops.map((dr, i) => (
@@ -294,7 +341,12 @@ export default function LoaderBall({ runId, complete, onProceed }) {
               />
             ))}
             {d !== '' && (
-              <Path d={d} fill="url(#ballGrad)" stroke="rgba(38,120,92,.35)" strokeWidth={1.5} />
+              <Path
+                d={d}
+                fill="url(#ballGrad)"
+                stroke={phase === 'error' ? 'rgba(140,32,32,.45)' : 'rgba(38,120,92,.35)'}
+                strokeWidth={1.5}
+              />
             )}
             {d !== '' && (() => {
               const c = sim.center();
@@ -314,6 +366,28 @@ export default function LoaderBall({ runId, complete, onProceed }) {
                     fill="none"
                     strokeLinecap="round"
                   />
+                  {phase === 'error' && (
+                    <G>
+                      {/* злость: сердитые брови и недовольный рот */}
+                      <Path
+                        d={'M ' + (c.x - sim.r * 0.34 - 7) + ' ' + (c.y - sim.r * 0.08 - 10) +
+                          ' L ' + (c.x - sim.r * 0.34 + 5) + ' ' + (c.y - sim.r * 0.08 - 3) +
+                          ' M ' + (c.x + sim.r * 0.34 + 7) + ' ' + (c.y - sim.r * 0.08 - 10) +
+                          ' L ' + (c.x + sim.r * 0.34 - 5) + ' ' + (c.y - sim.r * 0.08 - 3)}
+                        stroke="#1f2430"
+                        strokeWidth={2.4}
+                        fill="none"
+                        strokeLinecap="round"
+                      />
+                      <Path
+                        d={'M ' + (c.x - 5.5) + ' ' + (c.y + sim.r * 0.42) + ' A 5.5 5.5 0 0 1 ' + (c.x + 5.5) + ' ' + (c.y + sim.r * 0.42)}
+                        stroke="#1f2430"
+                        strokeWidth={1.6}
+                        fill="none"
+                        strokeLinecap="round"
+                      />
+                    </G>
+                  )}
                 </G>
               );
             })()}
@@ -331,6 +405,9 @@ export default function LoaderBall({ runId, complete, onProceed }) {
       </View>
       {phase === 'loading' && (
         <Text style={styles.status}>Подключение… {pct}%</Text>
+      )}
+      {phase === 'error' && (
+        <Text style={[styles.status, { color: '#b03a2e', fontWeight: '700' }]}>Ошибка</Text>
       )}
       {(phase === 'plop' || phase === 'burst' || phase === 'done') && (
         <View style={styles.doneWrap} pointerEvents={phase === 'done' ? 'auto' : 'none'}>
@@ -407,3 +484,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
