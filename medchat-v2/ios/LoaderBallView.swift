@@ -28,12 +28,17 @@ final class BallSim {
     private var inited = false
     private var lastNow: Double = 0
     private var burstAt: Double = 0
+    var failed = false
+    var onError: (() -> Void)?
+    var errorMs: Double = 0
+    private var errorFired = false
     private var blink: Double = 0
     private var blinkTimer: Double = 2400
     private var ptrDown = false
     private var ptrX: CGFloat = 0, ptrY: CGFloat = 0
     private var dragX: CGFloat = 0, dragY: CGFloat = 0
     private var lastX: CGFloat = 0, lastY: CGFloat = 0
+    private var homeA: [CGFloat] = []
     private let plan: [(Double, CGFloat)] = [(900, 0.18), (500, 0.22), (1400, 0.47), (700, 0.52), (1600, 0.78), (900, 0.86), (600, 0.90)]
 
     init() {
@@ -53,6 +58,8 @@ final class BallSim {
         planT = 0
         elapsed = 0
         lastPct = -1
+        errorMs = 0
+        errorFired = false
         dropX.removeAll(); dropY.removeAll(); dropVX.removeAll(); dropVY.removeAll(); dropR.removeAll(); dropLife.removeAll()
         blink = 0
         blinkTimer = 2400
@@ -90,8 +97,10 @@ final class BallSim {
     }
 
     private func initBall() {
+        homeA.removeAll()
         for i in 0..<n {
             let a = CGFloat(i) / CGFloat(n) * 2 * CGFloat.pi
+            homeA.append(a)
             xs[i] = w / 2 + cos(a) * r
             ys[i] = -r * 2.5 + sin(a) * r
             pxs[i] = xs[i]
@@ -123,6 +132,26 @@ final class BallSim {
         if phase == "burst" {
             stepDrops(k)
             if now - burstAt > 0.65 { phase = "done" }
+            return
+        }
+        if failed && (phase == "loading" || phase == "plop") {
+            phase = "error"
+            errorMs = 0
+        }
+        if phase == "error" {
+            // тремор: всё тело дрожит, но форма тянется обратно к шару
+            for i in 0..<n {
+                xs[i] += CGFloat.random(in: -1.3...1.3)
+                ys[i] += CGFloat.random(in: -1.3...1.3)
+            }
+            relax()
+            homeSpring()
+            errorMs += dt
+            if !errorFired && errorMs >= 1000 {
+                errorFired = true
+                let cb = onError
+                DispatchQueue.main.async { cb?() }
+            }
             return
         }
         let c = center()
@@ -208,6 +237,23 @@ final class BallSim {
             ys[j] += vy
         }
 
+        relax()
+        homeSpring()
+
+        if phase == "plop" {
+            let cf = center()
+            if cf.1 >= burstY - r * 0.35 { burst() }
+        }
+
+        blink -= dt
+        if blink < -blinkTimer {
+            blink = 130
+            blinkTimer = 2400 + Double.random(in: 0...2600)
+        }
+    }
+
+    // Ограничения формы: пружины соседей + спицы + давление площади.
+    private func relax() {
         let restL = 2 * r * sin(CGFloat.pi / CGFloat(n))
         let targetArea = CGFloat.pi * r * r
         for _ in 0..<3 {
@@ -249,16 +295,17 @@ final class BallSim {
                 if xs[i] > w - 10 { xs[i] = w - 10; pxs[i] = xs[i] }
             }
         }
+    }
 
-        if phase == "plop" {
-            let cf = center()
-            if cf.1 >= burstY - r * 0.35 { burst() }
-        }
-
-        blink -= dt
-        if blink < -blinkTimer {
-            blink = 130
-            blinkTimer = 2400 + Double.random(in: 0...2600)
+    // Плавный возврат формы: каждая точка тянется к своему месту на круге,
+    // поэтому даже после сильной тряски шарик возвращается в состояние шарика.
+    private func homeSpring() {
+        let c = center()
+        for i in 0..<n {
+            let hx = c.0 + cos(homeA[i]) * r
+            let hy = c.1 + sin(homeA[i]) * r
+            xs[i] += (hx - xs[i]) * 0.02
+            ys[i] += (hy - ys[i]) * 0.02
         }
     }
 
@@ -327,13 +374,18 @@ final class BallSim {
             path.addQuadCurve(to: CGPoint(x: (xs[b] + xs[nb]) / 2, y: (ys[b] + ys[nb]) / 2), control: CGPoint(x: xs[b], y: ys[b]))
         }
         path.closeSubpath()
-        let grad = Gradient(colors: [
+        let isErr = phase == "error"
+        let grad = Gradient(colors: isErr ? [
+            Color(red: 0.965, green: 0.690, blue: 0.690),
+            Color(red: 0.886, green: 0.427, blue: 0.427),
+            Color(red: 0.690, green: 0.227, blue: 0.180),
+        ] : [
             Color(red: 0.725, green: 0.941, blue: 0.847),
             Color(red: 0.435, green: 0.839, blue: 0.671),
             Color(red: 0.235, green: 0.682, blue: 0.529),
         ])
         ctx.fill(path, with: .radialGradient(grad, center: CGPoint(x: c.0 - r * 0.35, y: c.1 - r * 0.45), startRadius: r * 0.2, endRadius: r * 1.4))
-        ctx.stroke(path, with: .color(Color(red: 0.149, green: 0.471, blue: 0.361).opacity(0.35)), lineWidth: 1.5)
+        ctx.stroke(path, with: .color(isErr ? Color(red: 0.549, green: 0.125, blue: 0.125).opacity(0.45) : Color(red: 0.149, green: 0.471, blue: 0.361).opacity(0.35)), lineWidth: 1.5)
         // блик
         ctx.fill(Path(ellipseIn: CGRect(x: c.0 - r * 0.66, y: c.1 - r * 0.62, width: r * 0.62, height: r * 0.34)), with: .color(.white.opacity(0.5)))
         // глазки жмурятся у точечек и моргают
@@ -352,12 +404,26 @@ final class BallSim {
         var mouth = Path()
         mouth.addArc(center: CGPoint(x: c.0, y: c.1 + r * 0.22), radius: 4.5, startAngle: .degrees(27), endAngle: .degrees(153), clockwise: false)
         ctx.stroke(mouth, with: .color(eyeColor), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+        if phase == "error" {
+            // злость: сердитые брови и недовольный рот
+            var brows = Path()
+            brows.move(to: CGPoint(x: c.0 - ex - 7, y: ey - 10))
+            brows.addLine(to: CGPoint(x: c.0 - ex + 5, y: ey - 3))
+            brows.move(to: CGPoint(x: c.0 + ex + 7, y: ey - 10))
+            brows.addLine(to: CGPoint(x: c.0 + ex - 5, y: ey - 3))
+            ctx.stroke(brows, with: .color(eyeColor), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+            var frown = Path()
+            frown.addArc(center: CGPoint(x: c.0, y: c.1 + r * 0.42), radius: 5.5, startAngle: .degrees(207), endAngle: .degrees(333), clockwise: false)
+            ctx.stroke(frown, with: .color(eyeColor), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+        }
     }
 }
 
 struct LoaderBallView: View {
     var runId: Int
     var complete: Bool
+    var failed: Bool = false
+    var onError: (() -> Void)? = nil
     var onProceed: () -> Void
 
     @State private var sim = BallSim()
@@ -369,6 +435,8 @@ struct LoaderBallView: View {
                 ZStack {
                     Canvas { ctx, size in
                         sim.resize(w: size.width, h: size.height)
+                        sim.failed = failed
+                        sim.onError = onError
                         sim.step(now: timeline.date.timeIntervalSinceReferenceDate, complete: complete)
                         sim.draw(ctx: &ctx)
                     }
@@ -382,6 +450,11 @@ struct LoaderBallView: View {
                             Text("Подключение… \(sim.pct)%")
                                 .font(.system(size: 15))
                                 .foregroundColor(Color(red: 0.42, green: 0.45, blue: 0.5))
+                        }
+                        if sim.phase == "error" {
+                            Text("Ошибка")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(Color(red: 0.690, green: 0.227, blue: 0.180))
                         }
                         Spacer()
                         if sim.phase == "plop" || sim.phase == "burst" || sim.phase == "done" {
@@ -418,3 +491,4 @@ struct LoaderBallView: View {
         .onChange(of: runId) { _ in sim.reset() }
     }
 }
+
