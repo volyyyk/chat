@@ -281,6 +281,25 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
   (POST /api/chats/invites) с показом QR-картинки.
 - E2E: гость входит без ключа устройства, поэтому сообщения врача идут в честном
   plaintext-fallback; свой ключ гость регистрирует после входа через POST /api/keys.
+- Merge (врач): `POST /api/chats/:id/merge` (chatController.merge): переносит Message и
+  File из sourceChatId в целевой чат, суммирует счётчики (Sequelize.literal), берёт более
+  свежее lastMessage*, закрывает источник (status=closed,
+  metadata.mergedIntoChatId/mergedAt), уничтожает ChatParticipant источника;
+  Socket.IO: chatMerged/chatUpdated. Валидатор: updateChatSchema допускает metadata.
+  Web: в ChatPage у врача две компактные плашки в шапке чата: «Новый пациент»
+  (PUT /api/chats/:id {metadata:{guestKind:'new'}}) и «Старый пациент» (выбор прошлого
+  чата + merge, переход в общий чат). E2E-нюанс: сообщения источника остаются
+  зашифрованы ключами гостевого устройства; у врача история видна, у второго пациента
+  честная плашка шифрования.
+- Upgrade (гость): `POST /api/guest/upgrade` (guestController.upgrade, authenticate):
+  только для email @guest.medchat.local (иначе 403 NOT_GUEST); email + password ≥ 8,
+  дубль email — 409 EMAIL_TAKEN; hashPassword, новые token/refreshToken/user.
+  Web: SettingsPage, блок «Создать аккаунт» (setToken + localStorage userData + reload).
+- Печать QR: в ChatsPage кнопка «Распечатать QR» (printInvite: window.open + печатная
+  страница с qrImage/inviteUrl/сроком + w.print()) — QR можно распечатать из личного
+  кабинета врача.
+- Фикс: в chatController.createInvite добавлен require('crypto') (без него
+  ReferenceError в runtime при создании инвайта).
 
 ### E2E-контракт (сквозное шифрование сообщений и файлов, d11762c → ed9a661)
 **Модель доверия**: сервер — реестр публичных ключей и транспорт; plaintext содержимого

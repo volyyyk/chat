@@ -601,6 +601,41 @@ Content-Type: application/json
 Для промышленной эксплуатации рекомендуется SMS-верификация гостя
 (149-ФЗ ст. 10.1), см. LEGAL.md §5.
 
+#### Слить чаты пациента (врач)
+
+Объединяет гостевой чат с предыдущим чатом того же пациента: сообщения и
+файлы переносятся в целевой чат, счётчики суммируются, источник закрывается
+(status=closed, metadata.mergedIntoChatId/mergedAt). Участники источника
+отсоединяются. Socket.IO: события chatMerged и chatUpdated.
+
+```http
+POST /api/chats/:id/merge
+Authorization: Bearer <doctor_token>
+Content-Type: application/json
+
+{ "sourceChatId": "<uuid исходного чата>" }
+```
+
+Ответ 200: обновлённый целевой чат (как GET /api/chats/:id).
+Ошибки: 400 VALIDATION_ERROR / SAME_CHAT, 403 (не врач или не участник), 404 NOT_FOUND.
+
+#### Создать аккаунт из гостевого (пациент)
+
+Закрепляет гостевой профиль за настоящим аккаунтом: email + пароль, история
+чатов и файлы остаются за тем же userId. Только для гостей
+(@guest.medchat.local), иначе 403 NOT_GUEST.
+
+```http
+POST /api/guest/upgrade
+Authorization: Bearer <guest_token>
+Content-Type: application/json
+
+{ "email": "patient@example.com", "password": "SecurePass123!" }
+```
+
+Ответ 200: `{ token, refreshToken, user }` (новые JWT уже для аккаунта).
+Ошибки: 400 VALIDATION_ERROR, 403 NOT_GUEST, 409 EMAIL_TAKEN.
+
 ### Messages
 
 #### GET /api/chats/:chatId/messages
