@@ -775,6 +775,7 @@ jobs:
               ../ios/MedChatApp.swift ../ios/ApiService.swift ../ios/KeychainStore.swift \
               ../ios/CryptoService.swift ../ios/RatchetService.swift ../ios/AuthViews.swift \
               ../ios/ChatListView.swift ../ios/ChatView.swift \
+              ../ios/LoaderBallView.swift \
               -import-objc-header "$HEADER"
           echo "[ci-ios] typecheck: ok"
 
