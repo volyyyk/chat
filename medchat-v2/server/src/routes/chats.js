@@ -445,6 +445,31 @@ router.get('/:id/qrcode', isDoctor(), ChatController.generateQRCode);
 
 /**
  * @swagger
+ * /api/chats/invites:
+ *   post:
+ *     summary: Создать QR-приглашение для пациента (гостевой вход без регистрации)
+ *     tags: [Chats]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               expiresInDays:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 90
+ *                 default: 7
+ *     responses:
+ *       201:
+ *         description: Одноразовый инвайт: ссылка + QR-картинка (data URL)
+ */
+router.post('/invites', isDoctor(), ChatController.createInvite);
+
+/**
+ * @swagger
  * /api/chats/{id}/settings:
  *   get:
  *     summary: Get chat settings

@@ -659,6 +659,71 @@ class ChatController {
   }
 
   /**
+   * QR-приглашение для пациента без регистрации (гостевой вход).
+   * Врач получает одноразовую ссылку-инвайт и QR-картинку (data URL);
+   * пациент сканирует её, открывается /connect?token=... (web), там
+   * согласие на обработку персональных данных, затем POST /api/guest/join.
+   */
+  static async createInvite(req, res, next) {
+    try {
+      const doctorId = req.user.doctorId;
+      if (!doctorId) {
+        throw new AppError('Doctor profile not found in token', 403, 'AUTHORIZATION_ERROR');
+      }
+
+      const doctor = await models.Doctor.findByPk(doctorId, {
+        include: [
+          { model: models.User, as: 'user' },
+          { model: models.Clinic, as: 'clinic' },
+        ],
+      });
+      if (!doctor || !doctor.user || doctor.user.status !== 'active') {
+        throw new AppError('Doctor profile not found or inactive', 404, 'NOT_FOUND');
+      }
+
+      // Срок жизни: 1..90 дней, по умолчанию 7 (QR в регистратуре должен
+      // жить долго; одноразовость обеспечивает привязка инвайта к гостю).
+      const days = Math.min(Math.max(parseInt(req.body && req.body.expiresInDays, 10) || 7, 1), 90);
+
+      // У врача один активный инвайт: предыдущие неиспользованные отзываем.
+      await models.ChatInvite.update(
+        { revokedAt: new Date() },
+        { where: { doctorId, revokedAt: null, usedAt: null } }
+      );
+
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      await models.ChatInvite.create({ token, doctorId, expiresAt });
+
+      const base = process.env.FRONTEND_URL || 'https://medchat.ru';
+      const inviteUrl = base.replace(/\/+$/, '') + '/connect?token=' + token;
+
+      // QR-картинка генерируется на сервере (пакет qrcode, CJS), чтобы
+      // web/desktop/mobile показывали готовый <img> без своих QR-библиотек.
+      const QRCode = require('qrcode');
+      const qrImage = await QRCode.toDataURL(inviteUrl, {
+        width: 512,
+        margin: 2,
+        errorCorrectionLevel: 'M',
+      });
+
+      res.status(201).json({
+        token,
+        inviteUrl,
+        qrImage,
+        expiresAt: expiresAt.toISOString(),
+        doctor: {
+          id: doctor.id,
+          fullName: doctor.user.fullName,
+          clinic: doctor.clinic ? { id: doctor.clinic.id, name: doctor.clinic.name } : null,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Get chat settings
    */
   static async getSettings(req, res, next) {

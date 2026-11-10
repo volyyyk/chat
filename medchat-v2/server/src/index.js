@@ -60,6 +60,8 @@ const reminderRoutes = require('./routes/reminders');
 const webhookRoutes = require('./routes/webhooks');
 // E2E encryption: public key registry (private keys never leave devices)
 const keyRoutes = require('./routes/keys');
+// Гостевой вход по QR-инвайту: публичный роутер (без authenticate)
+const guestRoutes = require('./routes/guest');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -297,6 +299,9 @@ app.use('/api/eprescriptions', authMiddleware.authenticate(), eprescriptionRoute
 app.use('/api/reminders', authMiddleware.authenticate(), reminderRoutes);
 app.use('/api/keys', authMiddleware.authenticate(), keyRoutes);
 app.use('/api/webhooks', webhookRoutes);
+
+// QR-приглашения: guest-роутер публичный, глобальный rateLimiter применён выше
+app.use('/api/guest', guestRoutes);
 
 // 404 handler
 app.use(errorHandler.notFound);
