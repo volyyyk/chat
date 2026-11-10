@@ -46,12 +46,10 @@ import androidx.compose.runtime.withFrameNanos
 // Физичный шарик-загрузчик (референс: cgw334.mount.jp): желейный шарик
 // (verlet, 60 точек) минимум 5 секунд протискивается между двумя
 // точечками; если реальная работа (подключение/вход) завершилась раньше,
-// делаем вид, что грузим дальше. На 95% шарик плюхается вниз и
-// разбивается об надпись «Загрузка завершена»; кнопка 🔃 проигрывает
+// не задерживаем пользователя после завершения запроса. Шарик
+// остаётся в центральной зоне и мягко завершает движение; кнопка 🔃 проигрывает
 // анимацию заново, «Перейти дальше» продолжает сценарий. Палец лишь
 // немного тянет шарик в сторону.
-private const val LOADER_MIN_MS = 5000.0
-
 @Composable
 fun BallLoaderOverlay(runId: Int, complete: Boolean, failed: Boolean, onProceed: () -> Unit, onError: () -> Unit) {
     val completeState = rememberUpdatedState(complete)
@@ -200,8 +198,8 @@ class BallSim {
     private val dropR = ArrayList<Float>()
     private val dropLife = ArrayList<Float>()
     private val plan = listOf(
-        900.0 to 0.18f, 500.0 to 0.22f, 1400.0 to 0.47f, 700.0 to 0.52f,
-        1600.0 to 0.78f, 900.0 to 0.86f, 600.0 to 0.90f)
+        350.0 to 0.18f, 250.0 to 0.22f, 500.0 to 0.47f, 250.0 to 0.52f,
+        500.0 to 0.78f, 300.0 to 0.86f, 200.0 to 0.90f)
 
     fun reset() {
         inited = false
@@ -247,11 +245,11 @@ class BallSim {
         if (width <= 0f || height <= 0f) return
         w = width
         h = height
-        r = (w * 0.085f).coerceIn(32f, 52f)
+        r = (min(w, h) * 0.10f).coerceIn(52f, 112f)
         pegR = r * 0.5f
-        pegY = h * 0.38f
+        pegY = h * 0.44f
         pegGap = 2f * (r * 0.55f + pegR)
-        burstY = h - 150f
+        burstY = h * 0.64f
         if (!inited) {
             inited = true
             initBall()
@@ -263,7 +261,7 @@ class BallSim {
             val a = i.toFloat() / n * 2.0 * PI
             homeA[i] = a.toFloat()
             xs[i] = w / 2f + cos(a).toFloat() * r
-            ys[i] = -r * 2.5f + sin(a).toFloat() * r
+            ys[i] = h * 0.32f + sin(a).toFloat() * r
             pxs[i] = xs[i]
             pys[i] = ys[i]
         }
@@ -313,7 +311,7 @@ class BallSim {
             return
         }
         val c = center()
-        val startY = -r * 2.5f
+        val startY = h * 0.32f
         val holdY = pegY + pegR + r * 0.92f
         var pull = 0.045f
         var grav = 0.10f
@@ -338,9 +336,9 @@ class BallSim {
                     planIdx++
                     planT = 0.0
                 }
-            } else if (complete && elapsed >= LOADER_MIN_MS) {
-                // реальная работа уже завершена, но 5 секунд держим вид загрузки
-                progress = min(0.96f, progress + 0.02f * k)
+            } else if (complete) {
+                // Не задерживаем готовый экран искусственными пятью секундами.
+                progress = min(0.96f, progress + 0.16f * k)
             }
             val p = (progress * 100f).toInt()
             if (p != lastPct) {

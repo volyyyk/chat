@@ -9,6 +9,8 @@
          (NanoHTTPD, medchat-v2/server-mock-android). Прод-контур работает
          за nginx/TLS; здесь осознанный компромисс для тестов с телефона. -->
     <application
+        android:icon="@drawable/ic_medchat_launcher"
+        android:roundIcon="@drawable/ic_medchat_launcher"
         android:allowBackup="false"
         android:label="MedChat"
         android:usesCleartextTraffic="true"
