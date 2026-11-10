@@ -23,13 +23,11 @@ module.exports = (sequelize, DataTypes) => {
       provider: {
         type: DataTypes.ENUM('telegram', 'vk', 'max', 'whatsapp'),
         allowNull: false,
-        comment: 'Внешний провайдер входа',
       },
       providerId: {
         type: DataTypes.STRING(128),
         allowNull: false,
         field: 'provider_id',
-        comment: 'Идентификатор пользователя у провайдера',
       },
       providerUsername: {
         type: DataTypes.STRING(128),
@@ -39,7 +37,6 @@ module.exports = (sequelize, DataTypes) => {
       profile: {
         type: DataTypes.JSONB,
         allowNull: true,
-        comment: 'Неперсональные данные профиля провайдера (имя и т.п.)',
       },
     },
     {
