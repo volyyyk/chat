@@ -6,12 +6,10 @@ on:
   pull_request:
     branches: [main]
 
-# CI нужен доступ на запись, чтобы при падении опубликовать логи шагов
-# обратно в репозиторий (папка ci-logs/). Пуши от GITHUB_TOKEN по правилам
-# GitHub сами по себе НЕ запускают новые прогоны CI, а сообщение коммита
-# дополнительно содержит [skip ci] — рекурсии нет.
+# CI runs repository code, including code from pull requests. Keep its token
+# read-only; diagnostics are uploaded as short-lived workflow artifacts.
 permissions:
-  contents: write
+  contents: read
 
 # concurrency: свежий прогон того же ref отменяет устаревший (урок
 # первого запуска Dependabot: 20 одиночных PR x 14 джоб переполнили
@@ -74,27 +72,16 @@ jobs:
           JWT_EXPIRES_IN: 15m
           JWT_REFRESH_EXPIRES_IN: 30d
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-jest.log ]; then
-            cp ci-jest.log ci-logs/ci-jest.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   e2e-smoke:
     name: E2E smoke (seed + все стороны, real-time, платежи)
     runs-on: ubuntu-latest
@@ -171,30 +158,16 @@ jobs:
           set -o pipefail
           { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; npm run test:smoke; } 2>&1 | tee ../../ci-smoke.log
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-seed.log ]; then
-            cp ci-seed.log ci-logs/ci-seed.log
-          fi
-          if [ -f ci-smoke.log ]; then
-            cp ci-smoke.log ci-logs/ci-smoke.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Print server logs on failure
         if: failure()
         run: |
@@ -229,27 +202,16 @@ jobs:
           set -o pipefail
           { CI=false npm run build; } 2>&1 | tee ../../ci-web-build.log
 
-      - name: Publish build log to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-web-build.log ]; then
-            cp ci-web-build.log ci-logs/ci-web-build.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no web build log to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): web-build log from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload static bundle
         uses: actions/upload-artifact@v7
         with:
@@ -296,28 +258,16 @@ jobs:
           set -o pipefail
           { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo test --no-default-features --features serde; } 2>&1 | tee -a ../../ci-rust.log
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-rust.log ]; then
-            cp ci-rust.log ci-logs/ci-rust.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
-
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   core-bench:
     name: Core benchmarks (Rust criterion vs Node, DoD ≥ x10)
     runs-on: ubuntu-latest
@@ -355,27 +305,16 @@ jobs:
       # Лог бенчмарков публикуется ВСЕГДА (не только при падении): числа
       # нужны для сверки DoD из репозитория. [skip ci] — пуш GITHUB_TOKEN
       # не запускает новые прогоны (см. комментарий в шапке workflow).
-      - name: Publish bench log to the repo
+      - name: Upload CI diagnostic logs
         if: always()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-bench.log ]; then
-            cp ci-bench.log ci-logs/ci-bench.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no bench log to publish"
-            exit 0
-          fi
-          git commit -m "bench(ci): crypto benchmark log from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   napi-build:
     name: N-API artifact (.node) + Node-интеграция обёрток
     runs-on: ubuntu-latest
@@ -427,27 +366,16 @@ jobs:
           path: medchat-v2/core/medchat-core.linux-x64-gnu.node
           if-no-files-found: error
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-napi.log ]; then
-            cp ci-napi.log ci-logs/ci-napi.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   fuzz-smoke:
     name: Fuzz smoke (cargo-fuzz, nightly + ASan, ограниченные итерации)
     runs-on: ubuntu-latest
@@ -491,38 +419,16 @@ jobs:
           set -o pipefail
           cargo fuzz run ratchet_roundtrip_fuzz -- -runs=5000 2>&1 | tee -a ../../ci-fuzz.log
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-fuzz.log ]; then
-            cp ci-fuzz.log ci-logs/ci-fuzz.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
-  # §4 ROADMAP_NATIVE («Зависимости: cargo audit / cargo deny, Dependabot»):
-  # аудит безопасности зависимостей ядра против advisory-базы RUSTSEC.
-  # Cargo.lock в репо отсутствует (библиотечный крейт, лок в gitignore) —
-  # лок-файл генерируется в джобе свежим: аудит проверяет те semver-
-  # совместимые версии, которые реально резолвит сборка. Уязвимости
-  # (error) роняют джобу; unmaintained/warnings печатаются в лог, но не
-  # фейлят (уровень warnings, без --deny warnings). Dependabot
-  # (.github/dependabot.yml: cargo core / npm server / github-actions,
-  # группы — один PR на экосистему; замороженная RN-мобилка обновляется
-  # вручную) держит версии свежими между прогонами: PR проходят тот же
-  # CI до слияния; concurrency-группа отменяет устаревшие прогоны.
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   core-audit:
     name: Rust dependency audit (cargo-audit, §4 ROADMAP)
     runs-on: ubuntu-latest
@@ -547,27 +453,16 @@ jobs:
           set -o pipefail
           { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo audit; } 2>&1 | tee ../../ci-audit.log
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-audit.log ]; then
-            cp ci-audit.log ci-logs/ci-audit.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   uniffi-bindings:
     name: UniFFI bindings (Swift/Kotlin generation smoke)
     runs-on: ubuntu-latest
@@ -654,40 +549,16 @@ jobs:
           path: medchat-v2/core/uniffi-out/
           if-no-files-found: error
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-uniffi.log ]; then
-            cp ci-uniffi.log ci-logs/ci-uniffi.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
-  # Этап 3 ROADMAP_NATIVE: iOS-инструментальная цепочка на macOS-раннере
-  # (первая джоба CI на macOS). UniFFI Swift-обвязка компилируется swiftc
-  # вместе с medchat-v2/ios/MedchatCoreSmoke.swift (runtime-зеркало
-  # napi-smoke.js: конверт roundtrip, бокс отправителя, битые длины,
-  # Double Ratchet in-order/wire/skip-store/replay, save/restore, bcrypt
-  # KAT) против host-cdylib и запускается в настоящем Swift-процессе.
-  # Плюс кросс-компиляция aarch64-apple-ios + aarch64-apple-ios-sim
-  # (staticlib — dylib в App Store запрещены) и сборка MedchatCore.xcframework
-  # — артефакт для Xcode-проекта оператора. Компиляция SwiftUI-клиента,
-  # TestFlight и APNs требуют Xcode-проекта и аккаунта оператора (Apple
-  # Developer, сертификаты подписи) — секреты оператора, как Authenticode
-  # в desktop (DESKTOP_RELEASE.md): здесь гейтится всё, что секретов
-  # не требует.
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   ios-smoke:
     name: iOS smoke (UniFFI Swift, этап 3)
     runs-on: macos-latest
@@ -836,39 +707,16 @@ jobs:
           path: medchat-v2/core/MedchatCore.xcframework
           if-no-files-found: error
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-ios.log ]; then
-            cp ci-ios.log ci-logs/ci-ios.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
-  # Этап 4 ROADMAP_NATIVE: Android-инструментальная цепочка — зеркало
-  # ios-smoke на ubuntu. UniFFI Kotlin-обвязка компилируется kotlinc 2.0.21
-  # вместе с medchat-v2/android/MedchatCoreSmoke.kt (runtime-зеркало
-  # napi-smoke.js: конверт roundtrip, бокс отправителя, битые длины,
-  # Double Ratchet in-order/wire/skip-store/replay, save/restore, bcrypt
-  # KAT) и исполняется в JVM через JNA против host-cdylib. Плюс
-  # кросс-компиляция NDK (arm64-v8a / armeabi-v7a / x86_64, api 21,
-  # cargo-ndk) — .so для jniLibs, артефакт medchat-core-android.
-  # Gradle-сборка приложения — джоба android-build (assembleDebug, без
-  # секретов); Play Console и подписи — на машине оператора (секреты
-  # оператора, паттерн честности DESKTOP_RELEASE.md): здесь гейтится всё,
-  # что секретов не требует.
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   android-smoke:
     name: Android smoke (UniFFI Kotlin, этап 4)
     runs-on: ubuntu-latest
@@ -1087,34 +935,16 @@ jobs:
             medchat-v2/core/target/x86_64-linux-android/release/libmedchat_core.so
           if-no-files-found: error
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-android.log ]; then
-            cp ci-android.log ci-logs/ci-android.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
-  # Этап 4 ч.3 (ROADMAP_NATIVE): Gradle-проект + Compose UI. Джоба
-  # собирает debug-APK: UniFFI-обвязка и .so (3 ABI) берутся из
-  # артефактов джоб uniffi-bindings / android-smoke того же прогона и
-  # раскладываются в src/main/java и src/main/jniLibs; Gradle 8.9 +
-  # AGP 8.5.2 + Kotlin 2.0.21 + Compose BOM собирают unsigned debug-APK
-  # без секретов оператора (debug-keystore локальный). Release-подпись
-  # и Play Console — оператор (паттерн честности DESKTOP_RELEASE.md).
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   android-build:
     name: Android Gradle build (Compose UI, этап 4 ч.3)
     needs: [uniffi-bindings, android-smoke]
@@ -1193,32 +1023,16 @@ jobs:
           path: medchat-v2/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-android-build.log ]; then
-            cp ci-android-build.log ci-logs/ci-android-build.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
-  # Тестовый сервер MedChat внутри APK (medchat-v2/server-mock-android):
-  # лёгкая эмуляция API для проверки клиентов с телефона (смок-тесты
-  # мобилки/web/десктопа против адреса на устройстве). Отдельный
-  # Gradle-проект, секретов и Rust-артефактов не требует; артефакт —
-  # unsigned debug-APK medchat-server-mock-apk.
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   server-mock-apk:
     name: Server mock APK (тестовый сервер для телефонов)
     runs-on: ubuntu-latest
@@ -1261,26 +1075,16 @@ jobs:
           path: medchat-v2/server-mock-android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-server-mock.log ]; then
-            cp ci-server-mock.log ci-logs/ci-server-mock.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): server-mock log from run \${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   desktop-check:
     name: Desktop check (Tauri 2 scaffold, этап 5 ROADMAP_NATIVE)
     runs-on: ubuntu-latest
@@ -1323,33 +1127,16 @@ jobs:
           set -o pipefail
           { cargo check --all-targets; } 2>&1 | tee -a ../../../ci-desktop.log
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        run: |
-          set -e
-          cd ../../..
-          mkdir -p ci-logs
-          if [ -f ci-desktop.log ]; then
-            cp ci-desktop.log ci-logs/ci-desktop.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): failure logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
-
-  # Этап 5 ROADMAP_NATIVE: сборка установщиков desktop. Matrix:
-  # ubuntu-latest → .deb + AppImage (tauri-bundler; для запуска
-  # скачанного AppImage-тулинга добавлен libfuse2; hicolor-иконки из build.rs),
-  # windows-latest → NSIS .exe (иконка icon.ico из build.rs; NSIS CLI
-  # докачивает сам). CLI — из npm (npx, без глобальной установки),
-  # версия мажора 2 совпадает с крейтом tauri 2. Артефакты — Actions.
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   desktop-bundle:
     name: Desktop installers (Tauri 2, matrix ubuntu/windows)
     strategy:
@@ -1462,51 +1249,16 @@ jobs:
             medchat-v2/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
             medchat-v2/desktop/src-tauri/target/release/bundle/nsis/*.exe
 
-      - name: Publish failure logs to the repo
-        if: failure()
-        shell: bash
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-desktop-bundle.log ]; then
-            cp ci-desktop-bundle.log ci-logs/ci-desktop-bundle.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no logs to publish"
-            exit 0
-          fi
-          git commit -m "chore(ci): desktop-bundle logs from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          # гонка пушей с bench/load-репортерами того же прогона
-          # (run 42569564665: лог упавшей джобы так и не попал в репо) —
-          # push с рефетчем и ретраями.
-          for attempt in 1 2 3; do
-            if git push origin HEAD:main; then
-              echo "[ci-desktop-bundle] log published (attempt $attempt)"
-              exit 0
-            fi
-            echo "[ci-desktop-bundle] push attempt $attempt failed, refetch and rebase"
-            git fetch origin main
-            git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          done
-          echo "push failed (non-fatal)"
-
-
-  # Этап 6 ROADMAP_NATIVE (DoD «нагрузочный тест без деградации p95»):
-  # k6-профиль против настоящего сервера (Postgres + Redis + seed),
-  # поднятого на том же раннере. Сценарий server/load/k6-smoke.js:
-  # /health (лёгкий путь, вне rate limit) + /api/auth/login (тяжёлый:
-  # bcrypt cost 12 + JWT). Профиль фиксированный (ramping 2 -> 10 VUs,
-  # ~60 с) и одинаковый от коммита к коммиту: деградация p95 видна по
-  # логу. Лог публикуется ВСЕГДА (как ci-bench.log), а не только при
-  # падении. RATE_LIMIT_* повышены ТОЛЬКО в env этого стенда, чтобы
-  # поток логинов не упирался в брутфорс-лимит; прод-дефолты
-  # middleware/rateLimiter.js не тронуты.
+      - name: Upload CI diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   k6-load:
     name: k6 load smoke (этап 6 DoD, fixed profile)
     runs-on: ubuntu-latest
@@ -1612,26 +1364,13 @@ jobs:
           echo "k6 failed. Server output:"
           tail -n 100 k6-server.log
 
-      - name: Publish k6 log to the repo
+      - name: Upload CI diagnostic logs
         if: always()
-        run: |
-          set -e
-          cd ../..
-          mkdir -p ci-logs
-          if [ -f ci-k6.log ]; then
-            cp ci-k6.log ci-logs/ci-k6.log
-          fi
-          if [ -f medchat-v2/server/k6-server.log ]; then
-            cp medchat-v2/server/k6-server.log ci-logs/ci-k6-server.log
-          fi
-          git config user.name "ci-reporter"
-          git config user.email "ci-reporter@users.noreply.github.com"
-          git add ci-logs
-          if git diff --cached --quiet; then
-            echo "no k6 log to publish"
-            exit 0
-          fi
-          git commit -m "load(ci): k6 log from run ${GITHUB_RUN_ID} [skip ci]"
-          git fetch origin main
-          git rebase origin/main || { git rebase --abort; echo "rebase conflict, skipping publish"; exit 0; }
-          git push origin HEAD:main || echo "push failed (non-fatal)"
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-diagnostics-${{ github.job }}
+          path: |
+            ci-*.log
+            **/ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
