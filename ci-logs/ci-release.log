@@ -1,4 +1,4 @@
-Using artifacts of CI run: 42786075870
+Using artifacts of CI run: 42796656800
 [release] download medchat-android-debug-apk -> dist/android: attempt 1
 [release] download medchat-desktop-linux -> dist/desktop-linux: attempt 1
 [release] download medchat-desktop-nsis -> dist/desktop-nsis: attempt 1
@@ -32,235 +32,235 @@ dist/web/static/css/main.17fc4dba.css.map
 dist/web/static/js/main.c4400ce6.js
 dist/web/static/js/main.c4400ce6.js.LICENSE.txt
 dist/web/static/js/main.c4400ce6.js.map
-total 127004
-drwxr-xr-x 2 runner runner     4096 Nov 10 09:00 .
-drwxr-xr-x 9 runner runner     4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner 12249639 Nov 10 09:00 MedChat-Android-debug-unsigned.apk
--rw-r--r-- 1 runner runner  8802516 Nov 10 09:00 MedChat-ServerMock-Android-debug.apk
--rw-r--r-- 1 runner runner   440644 Nov 10 09:00 MedChat-Web-static.zip
--rw-r--r-- 1 runner runner  1960227 Nov 10 09:00 MedChat-Windows-Setup-unsigned.exe
--rw-r--r-- 1 runner runner 15425859 Nov 10 09:00 MedChat-iOS-MedchatCore-xcframework.zip
--rwxr-xr-x 1 runner runner 86764024 Nov 10 09:00 MedChat_2.0.1_amd64.AppImage
--rw-r--r-- 1 runner runner  3345996 Nov 10 09:00 MedChat_2.0.1_amd64.deb
--rw-r--r-- 1 runner runner      882 Nov 10 09:00 SHA256SUMS.txt
--rw-r--r-- 1 runner runner    33139 Nov 10 09:00 medchat-core-uniffi-bindings.zip
--rwxr-xr-x 1 runner runner   997568 Nov 10 09:00 medchat-core.linux-x64-gnu.node
-=== release run 42787027394 outcome=success Tue Nov 10 09:00:31 UTC 2026 ===
+total 127020
+drwxr-xr-x 2 runner runner     4096 Nov 10 11:01 .
+drwxr-xr-x 9 runner runner     4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner 12266062 Nov 10 11:01 MedChat-Android-debug-unsigned.apk
+-rw-r--r-- 1 runner runner  8802523 Nov 10 11:01 MedChat-ServerMock-Android-debug.apk
+-rw-r--r-- 1 runner runner   440644 Nov 10 11:01 MedChat-Web-static.zip
+-rw-r--r-- 1 runner runner  1958378 Nov 10 11:01 MedChat-Windows-Setup-unsigned.exe
+-rw-r--r-- 1 runner runner 15425861 Nov 10 11:01 MedChat-iOS-MedchatCore-xcframework.zip
+-rwxr-xr-x 1 runner runner 86764024 Nov 10 11:01 MedChat_2.0.1_amd64.AppImage
+-rw-r--r-- 1 runner runner  3345994 Nov 10 11:01 MedChat_2.0.1_amd64.deb
+-rw-r--r-- 1 runner runner      882 Nov 10 11:01 SHA256SUMS.txt
+-rw-r--r-- 1 runner runner    33139 Nov 10 11:01 medchat-core-uniffi-bindings.zip
+-rwxr-xr-x 1 runner runner   997568 Nov 10 11:01 medchat-core.linux-x64-gnu.node
+=== release run 42804027671 outcome=success Tue Nov 10 11:01:54 UTC 2026 ===
 total 56
-drwxr-xr-x  9 runner runner  4096 Nov 10 09:00 .
-drwxr-xr-x  3 runner runner  4096 Nov 10 09:00 ..
-drwxr-xr-x  7 runner runner  4096 Nov 10 09:00 .git
-drwxr-xr-x  3 runner runner  4096 Nov 10 09:00 .github
--rw-r--r--  1 runner runner 14604 Nov 10 09:00 README.md
-drwxr-xr-x  2 runner runner  4096 Nov 10 09:00 assets
-drwxr-xr-x  2 runner runner  4096 Nov 10 09:00 ci-logs
-drwxr-xr-x 11 runner runner  4096 Nov 10 09:00 dist
-drwxr-xr-x  5 runner runner  4096 Nov 10 09:00 medchat
-drwxr-xr-x 14 runner runner  4096 Nov 10 09:00 medchat-v2
--rw-r--r--  1 runner runner  2617 Nov 10 09:00 release-build.log
+drwxr-xr-x  9 runner runner  4096 Nov 10 11:01 .
+drwxr-xr-x  3 runner runner  4096 Nov 10 11:01 ..
+drwxr-xr-x  7 runner runner  4096 Nov 10 11:01 .git
+drwxr-xr-x  3 runner runner  4096 Nov 10 11:01 .github
+-rw-r--r--  1 runner runner 14604 Nov 10 11:01 README.md
+drwxr-xr-x  2 runner runner  4096 Nov 10 11:01 assets
+drwxr-xr-x  2 runner runner  4096 Nov 10 11:01 ci-logs
+drwxr-xr-x 11 runner runner  4096 Nov 10 11:01 dist
+drwxr-xr-x  5 runner runner  4096 Nov 10 11:01 medchat
+drwxr-xr-x 14 runner runner  4096 Nov 10 11:01 medchat-v2
+-rw-r--r--  1 runner runner  2617 Nov 10 11:01 release-build.log
 dist:
 total 44
-drwxr-xr-x 11 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x  9 runner runner 4096 Nov 10 09:00 ..
-drwxr-xr-x  2 runner runner 4096 Nov 10 09:00 android
-drwxr-xr-x  4 runner runner 4096 Nov 10 09:00 desktop-linux
-drwxr-xr-x  3 runner runner 4096 Nov 10 09:00 desktop-nsis
-drwxr-xr-x  3 runner runner 4096 Nov 10 09:00 ios
-drwxr-xr-x  4 runner runner 4096 Nov 10 09:00 ios-content
-drwxr-xr-x  2 runner runner 4096 Nov 10 09:00 node
-drwxr-xr-x  2 runner runner 4096 Nov 10 09:00 server-mock
-drwxr-xr-x  4 runner runner 4096 Nov 10 09:00 uniffi
-drwxr-xr-x  3 runner runner 4096 Nov 10 09:00 web
+drwxr-xr-x 11 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x  9 runner runner 4096 Nov 10 11:01 ..
+drwxr-xr-x  2 runner runner 4096 Nov 10 11:01 android
+drwxr-xr-x  4 runner runner 4096 Nov 10 11:01 desktop-linux
+drwxr-xr-x  3 runner runner 4096 Nov 10 11:01 desktop-nsis
+drwxr-xr-x  3 runner runner 4096 Nov 10 11:01 ios
+drwxr-xr-x  4 runner runner 4096 Nov 10 11:01 ios-content
+drwxr-xr-x  2 runner runner 4096 Nov 10 11:01 node
+drwxr-xr-x  2 runner runner 4096 Nov 10 11:01 server-mock
+drwxr-xr-x  4 runner runner 4096 Nov 10 11:01 uniffi
+drwxr-xr-x  3 runner runner 4096 Nov 10 11:01 web
 
 dist/android:
-total 11972
-drwxr-xr-x  2 runner runner     4096 Nov 10 09:00 .
-drwxr-xr-x 11 runner runner     4096 Nov 10 09:00 ..
--rw-r--r--  1 runner runner 12249639 Nov 10 09:00 app-debug.apk
+total 11988
+drwxr-xr-x  2 runner runner     4096 Nov 10 11:01 .
+drwxr-xr-x 11 runner runner     4096 Nov 10 11:01 ..
+-rw-r--r--  1 runner runner 12266062 Nov 10 11:01 app-debug.apk
 
 dist/desktop-linux:
 total 16
-drwxr-xr-x  4 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x 11 runner runner 4096 Nov 10 09:00 ..
-drwxr-xr-x  2 runner runner 4096 Nov 10 09:00 appimage
-drwxr-xr-x  2 runner runner 4096 Nov 10 09:00 deb
+drwxr-xr-x  4 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x 11 runner runner 4096 Nov 10 11:01 ..
+drwxr-xr-x  2 runner runner 4096 Nov 10 11:01 appimage
+drwxr-xr-x  2 runner runner 4096 Nov 10 11:01 deb
 
 dist/desktop-linux/appimage:
 total 84740
-drwxr-xr-x 2 runner runner     4096 Nov 10 09:00 .
-drwxr-xr-x 4 runner runner     4096 Nov 10 09:00 ..
--rwxr-xr-x 1 runner runner 86764024 Nov 10 09:00 MedChat_2.0.1_amd64.AppImage
+drwxr-xr-x 2 runner runner     4096 Nov 10 11:01 .
+drwxr-xr-x 4 runner runner     4096 Nov 10 11:01 ..
+-rwxr-xr-x 1 runner runner 86764024 Nov 10 11:01 MedChat_2.0.1_amd64.AppImage
 
 dist/desktop-linux/deb:
 total 3276
-drwxr-xr-x 2 runner runner    4096 Nov 10 09:00 .
-drwxr-xr-x 4 runner runner    4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner 3345996 Nov 10 09:00 MedChat_2.0.1_amd64.deb
+drwxr-xr-x 2 runner runner    4096 Nov 10 11:01 .
+drwxr-xr-x 4 runner runner    4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner 3345994 Nov 10 11:01 MedChat_2.0.1_amd64.deb
 
 dist/desktop-nsis:
 total 12
-drwxr-xr-x  3 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x 11 runner runner 4096 Nov 10 09:00 ..
-drwxr-xr-x  2 runner runner 4096 Nov 10 09:00 nsis
+drwxr-xr-x  3 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x 11 runner runner 4096 Nov 10 11:01 ..
+drwxr-xr-x  2 runner runner 4096 Nov 10 11:01 nsis
 
 dist/desktop-nsis/nsis:
 total 1924
-drwxr-xr-x 2 runner runner    4096 Nov 10 09:00 .
-drwxr-xr-x 3 runner runner    4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner 1960227 Nov 10 09:00 MedChat_2.0.1_x64-setup.exe
+drwxr-xr-x 2 runner runner    4096 Nov 10 11:01 .
+drwxr-xr-x 3 runner runner    4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner 1958378 Nov 10 11:01 MedChat_2.0.1_x64-setup.exe
 
 dist/ios:
 total 12
-drwxr-xr-x  3 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x 11 runner runner 4096 Nov 10 09:00 ..
-drwxr-xr-x  4 runner runner 4096 Nov 10 09:00 MedchatCore.xcframework
+drwxr-xr-x  3 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x 11 runner runner 4096 Nov 10 11:01 ..
+drwxr-xr-x  4 runner runner 4096 Nov 10 11:01 MedchatCore.xcframework
 
 dist/ios/MedchatCore.xcframework:
 total 20
-drwxr-xr-x 4 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x 3 runner runner 4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner 1241 Nov 10 09:00 Info.plist
-drwxr-xr-x 3 runner runner 4096 Nov 10 09:00 ios-arm64
-drwxr-xr-x 3 runner runner 4096 Nov 10 09:00 ios-arm64-simulator
+drwxr-xr-x 4 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x 3 runner runner 4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner 1241 Nov 10 11:01 Info.plist
+drwxr-xr-x 3 runner runner 4096 Nov 10 11:01 ios-arm64
+drwxr-xr-x 3 runner runner 4096 Nov 10 11:01 ios-arm64-simulator
 
 dist/ios/MedchatCore.xcframework/ios-arm64:
 total 22496
-drwxr-xr-x 3 runner runner     4096 Nov 10 09:00 .
-drwxr-xr-x 4 runner runner     4096 Nov 10 09:00 ..
-drwxr-xr-x 2 runner runner     4096 Nov 10 09:00 Headers
--rw-r--r-- 1 runner runner 23023232 Nov 10 09:00 libmedchat_core.a
+drwxr-xr-x 3 runner runner     4096 Nov 10 11:01 .
+drwxr-xr-x 4 runner runner     4096 Nov 10 11:01 ..
+drwxr-xr-x 2 runner runner     4096 Nov 10 11:01 Headers
+-rw-r--r-- 1 runner runner 23023232 Nov 10 11:01 libmedchat_core.a
 
 dist/ios/MedchatCore.xcframework/ios-arm64/Headers:
 total 44
-drwxr-xr-x 2 runner runner  4096 Nov 10 09:00 .
-drwxr-xr-x 3 runner runner  4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner 30293 Nov 10 09:00 medchat_coreFFI.h
--rw-r--r-- 1 runner runner   140 Nov 10 09:00 medchat_coreFFI.modulemap
+drwxr-xr-x 2 runner runner  4096 Nov 10 11:01 .
+drwxr-xr-x 3 runner runner  4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner 30293 Nov 10 11:01 medchat_coreFFI.h
+-rw-r--r-- 1 runner runner   140 Nov 10 11:01 medchat_coreFFI.modulemap
 
 dist/ios/MedchatCore.xcframework/ios-arm64-simulator:
 total 22484
-drwxr-xr-x 3 runner runner     4096 Nov 10 09:00 .
-drwxr-xr-x 4 runner runner     4096 Nov 10 09:00 ..
-drwxr-xr-x 2 runner runner     4096 Nov 10 09:00 Headers
--rw-r--r-- 1 runner runner 23010720 Nov 10 09:00 libmedchat_core.a
+drwxr-xr-x 3 runner runner     4096 Nov 10 11:01 .
+drwxr-xr-x 4 runner runner     4096 Nov 10 11:01 ..
+drwxr-xr-x 2 runner runner     4096 Nov 10 11:01 Headers
+-rw-r--r-- 1 runner runner 23010720 Nov 10 11:01 libmedchat_core.a
 
 dist/ios/MedchatCore.xcframework/ios-arm64-simulator/Headers:
 total 44
-drwxr-xr-x 2 runner runner  4096 Nov 10 09:00 .
-drwxr-xr-x 3 runner runner  4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner 30293 Nov 10 09:00 medchat_coreFFI.h
--rw-r--r-- 1 runner runner   140 Nov 10 09:00 medchat_coreFFI.modulemap
+drwxr-xr-x 2 runner runner  4096 Nov 10 11:01 .
+drwxr-xr-x 3 runner runner  4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner 30293 Nov 10 11:01 medchat_coreFFI.h
+-rw-r--r-- 1 runner runner   140 Nov 10 11:01 medchat_coreFFI.modulemap
 
 dist/ios-content:
 total 20
-drwxr-xr-x  4 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x 11 runner runner 4096 Nov 10 09:00 ..
--rw-r--r--  1 runner runner 1241 Nov 10 09:00 Info.plist
-drwxr-xr-x  3 runner runner 4096 Nov 10 09:00 ios-arm64
-drwxr-xr-x  3 runner runner 4096 Nov 10 09:00 ios-arm64-simulator
+drwxr-xr-x  4 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x 11 runner runner 4096 Nov 10 11:01 ..
+-rw-r--r--  1 runner runner 1241 Nov 10 11:01 Info.plist
+drwxr-xr-x  3 runner runner 4096 Nov 10 11:01 ios-arm64
+drwxr-xr-x  3 runner runner 4096 Nov 10 11:01 ios-arm64-simulator
 
 dist/ios-content/ios-arm64:
 total 22496
-drwxr-xr-x 3 runner runner     4096 Nov 10 09:00 .
-drwxr-xr-x 4 runner runner     4096 Nov 10 09:00 ..
-drwxr-xr-x 2 runner runner     4096 Nov 10 09:00 Headers
--rw-r--r-- 1 runner runner 23023232 Nov 10 09:00 libmedchat_core.a
+drwxr-xr-x 3 runner runner     4096 Nov 10 11:01 .
+drwxr-xr-x 4 runner runner     4096 Nov 10 11:01 ..
+drwxr-xr-x 2 runner runner     4096 Nov 10 11:01 Headers
+-rw-r--r-- 1 runner runner 23023232 Nov 10 11:01 libmedchat_core.a
 
 dist/ios-content/ios-arm64/Headers:
 total 44
-drwxr-xr-x 2 runner runner  4096 Nov 10 09:00 .
-drwxr-xr-x 3 runner runner  4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner 30293 Nov 10 09:00 medchat_coreFFI.h
--rw-r--r-- 1 runner runner   140 Nov 10 09:00 medchat_coreFFI.modulemap
+drwxr-xr-x 2 runner runner  4096 Nov 10 11:01 .
+drwxr-xr-x 3 runner runner  4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner 30293 Nov 10 11:01 medchat_coreFFI.h
+-rw-r--r-- 1 runner runner   140 Nov 10 11:01 medchat_coreFFI.modulemap
 
 dist/ios-content/ios-arm64-simulator:
 total 22484
-drwxr-xr-x 3 runner runner     4096 Nov 10 09:00 .
-drwxr-xr-x 4 runner runner     4096 Nov 10 09:00 ..
-drwxr-xr-x 2 runner runner     4096 Nov 10 09:00 Headers
--rw-r--r-- 1 runner runner 23010720 Nov 10 09:00 libmedchat_core.a
+drwxr-xr-x 3 runner runner     4096 Nov 10 11:01 .
+drwxr-xr-x 4 runner runner     4096 Nov 10 11:01 ..
+drwxr-xr-x 2 runner runner     4096 Nov 10 11:01 Headers
+-rw-r--r-- 1 runner runner 23010720 Nov 10 11:01 libmedchat_core.a
 
 dist/ios-content/ios-arm64-simulator/Headers:
 total 44
-drwxr-xr-x 2 runner runner  4096 Nov 10 09:00 .
-drwxr-xr-x 3 runner runner  4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner 30293 Nov 10 09:00 medchat_coreFFI.h
--rw-r--r-- 1 runner runner   140 Nov 10 09:00 medchat_coreFFI.modulemap
+drwxr-xr-x 2 runner runner  4096 Nov 10 11:01 .
+drwxr-xr-x 3 runner runner  4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner 30293 Nov 10 11:01 medchat_coreFFI.h
+-rw-r--r-- 1 runner runner   140 Nov 10 11:01 medchat_coreFFI.modulemap
 
 dist/node:
 total 984
-drwxr-xr-x  2 runner runner   4096 Nov 10 09:00 .
-drwxr-xr-x 11 runner runner   4096 Nov 10 09:00 ..
--rwxr-xr-x  1 runner runner 997568 Nov 10 09:00 medchat-core.linux-x64-gnu.node
+drwxr-xr-x  2 runner runner   4096 Nov 10 11:01 .
+drwxr-xr-x 11 runner runner   4096 Nov 10 11:01 ..
+-rwxr-xr-x  1 runner runner 997568 Nov 10 11:01 medchat-core.linux-x64-gnu.node
 
 dist/server-mock:
 total 8608
-drwxr-xr-x  2 runner runner    4096 Nov 10 09:00 .
-drwxr-xr-x 11 runner runner    4096 Nov 10 09:00 ..
--rw-r--r--  1 runner runner 8802516 Nov 10 09:00 app-debug.apk
+drwxr-xr-x  2 runner runner    4096 Nov 10 11:01 .
+drwxr-xr-x 11 runner runner    4096 Nov 10 11:01 ..
+-rw-r--r--  1 runner runner 8802523 Nov 10 11:01 app-debug.apk
 
 dist/uniffi:
 total 16
-drwxr-xr-x  4 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x 11 runner runner 4096 Nov 10 09:00 ..
-drwxr-xr-x  3 runner runner 4096 Nov 10 09:00 kotlin
-drwxr-xr-x  2 runner runner 4096 Nov 10 09:00 swift
+drwxr-xr-x  4 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x 11 runner runner 4096 Nov 10 11:01 ..
+drwxr-xr-x  3 runner runner 4096 Nov 10 11:01 kotlin
+drwxr-xr-x  2 runner runner 4096 Nov 10 11:01 swift
 
 dist/uniffi/kotlin:
 total 12
-drwxr-xr-x 3 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x 4 runner runner 4096 Nov 10 09:00 ..
-drwxr-xr-x 3 runner runner 4096 Nov 10 09:00 uniffi
+drwxr-xr-x 3 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x 4 runner runner 4096 Nov 10 11:01 ..
+drwxr-xr-x 3 runner runner 4096 Nov 10 11:01 uniffi
 
 dist/uniffi/kotlin/uniffi:
 total 12
-drwxr-xr-x 3 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x 3 runner runner 4096 Nov 10 09:00 ..
-drwxr-xr-x 2 runner runner 4096 Nov 10 09:00 medchat_core
+drwxr-xr-x 3 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x 3 runner runner 4096 Nov 10 11:01 ..
+drwxr-xr-x 2 runner runner 4096 Nov 10 11:01 medchat_core
 
 dist/uniffi/kotlin/uniffi/medchat_core:
 total 96
-drwxr-xr-x 2 runner runner  4096 Nov 10 09:00 .
-drwxr-xr-x 3 runner runner  4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner 88001 Nov 10 09:00 medchat_core.kt
+drwxr-xr-x 2 runner runner  4096 Nov 10 11:01 .
+drwxr-xr-x 3 runner runner  4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner 88001 Nov 10 11:01 medchat_core.kt
 
 dist/uniffi/swift:
 total 96
-drwxr-xr-x 2 runner runner  4096 Nov 10 09:00 .
-drwxr-xr-x 4 runner runner  4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner 51505 Nov 10 09:00 medchat_core.swift
--rw-r--r-- 1 runner runner 30293 Nov 10 09:00 medchat_coreFFI.h
--rw-r--r-- 1 runner runner   140 Nov 10 09:00 medchat_coreFFI.modulemap
+drwxr-xr-x 2 runner runner  4096 Nov 10 11:01 .
+drwxr-xr-x 4 runner runner  4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner 51505 Nov 10 11:01 medchat_core.swift
+-rw-r--r-- 1 runner runner 30293 Nov 10 11:01 medchat_coreFFI.h
+-rw-r--r-- 1 runner runner   140 Nov 10 11:01 medchat_coreFFI.modulemap
 
 dist/web:
 total 20
-drwxr-xr-x  3 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x 11 runner runner 4096 Nov 10 09:00 ..
--rw-r--r--  1 runner runner  369 Nov 10 09:00 asset-manifest.json
--rw-r--r--  1 runner runner  395 Nov 10 09:00 index.html
-drwxr-xr-x  4 runner runner 4096 Nov 10 09:00 static
+drwxr-xr-x  3 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x 11 runner runner 4096 Nov 10 11:01 ..
+-rw-r--r--  1 runner runner  369 Nov 10 11:01 asset-manifest.json
+-rw-r--r--  1 runner runner  395 Nov 10 11:01 index.html
+drwxr-xr-x  4 runner runner 4096 Nov 10 11:01 static
 
 dist/web/static:
 total 16
-drwxr-xr-x 4 runner runner 4096 Nov 10 09:00 .
-drwxr-xr-x 3 runner runner 4096 Nov 10 09:00 ..
-drwxr-xr-x 2 runner runner 4096 Nov 10 09:00 css
-drwxr-xr-x 2 runner runner 4096 Nov 10 09:00 js
+drwxr-xr-x 4 runner runner 4096 Nov 10 11:01 .
+drwxr-xr-x 3 runner runner 4096 Nov 10 11:01 ..
+drwxr-xr-x 2 runner runner 4096 Nov 10 11:01 css
+drwxr-xr-x 2 runner runner 4096 Nov 10 11:01 js
 
 dist/web/static/css:
 total 28
-drwxr-xr-x 2 runner runner  4096 Nov 10 09:00 .
-drwxr-xr-x 4 runner runner  4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner  6099 Nov 10 09:00 main.17fc4dba.css
--rw-r--r-- 1 runner runner 10343 Nov 10 09:00 main.17fc4dba.css.map
+drwxr-xr-x 2 runner runner  4096 Nov 10 11:01 .
+drwxr-xr-x 4 runner runner  4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner  6099 Nov 10 11:01 main.17fc4dba.css
+-rw-r--r-- 1 runner runner 10343 Nov 10 11:01 main.17fc4dba.css.map
 
 dist/web/static/js:
 total 1548
-drwxr-xr-x 2 runner runner    4096 Nov 10 09:00 .
-drwxr-xr-x 4 runner runner    4096 Nov 10 09:00 ..
--rw-r--r-- 1 runner runner  306524 Nov 10 09:00 main.c4400ce6.js
--rw-r--r-- 1 runner runner    1652 Nov 10 09:00 main.c4400ce6.js.LICENSE.txt
--rw-r--r-- 1 runner runner 1264446 Nov 10 09:00 main.c4400ce6.js.map
+drwxr-xr-x 2 runner runner    4096 Nov 10 11:01 .
+drwxr-xr-x 4 runner runner    4096 Nov 10 11:01 ..
+-rw-r--r-- 1 runner runner  306524 Nov 10 11:01 main.c4400ce6.js
+-rw-r--r-- 1 runner runner    1652 Nov 10 11:01 main.c4400ce6.js.LICENSE.txt
+-rw-r--r-- 1 runner runner 1264446 Nov 10 11:01 main.c4400ce6.js.map
 ?? assets/
 ?? dist/
 ?? release-build.log
