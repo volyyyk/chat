@@ -1,169 +1,212 @@
-=== run 42759504598 job server-tests Tue Nov 10 05:02:55 UTC 2026 ===
+=== run 42770103491 job server-tests Tue Nov 10 06:41:24 UTC 2026 ===
 
 > medchat-server@2.0.1 test
 > jest --ci --runInBand
 
-FAIL tests/integration/auth.test.js
-  ● Test suite failed to run
+PASS tests/integration/auth.test.js
+  POST /api/auth/login
+    ✓ rejects an invalid body with 400 (validation layer) (30 ms)
+    ✓ logs in an active patient and returns tokens (12 ms)
+    ✓ returns 401 for a wrong password (6 ms)
+    ✓ returns 401 for an unknown email (no user enumeration) (4 ms)
+    ✓ blocks a doctor whose clinic has not verified them yet (6 ms)
+    ✓ blocks an inactive account (4 ms)
+  POST /api/auth/register
+    ✓ registers a patient and returns tokens (201) (262 ms)
+    ✓ rejects a doctor registration without a clinic code (400) (5 ms)
+    ✓ rejects a doctor registration with an unknown clinic code (400) (6 ms)
+    ✓ rejects a weak password (400) (4 ms)
+  POST /api/auth/phone/* (идентификация 149-ФЗ ст. 10.1)
+    ✓ rejects a request without an access token (401) (12 ms)
+    ✓ requests a code for a new phone number and returns devCode in test mode (9 ms)
+    ✓ rejects a request when no phone is provided and none is stored (400) (7 ms)
+    ✓ verifies a valid code and marks the phone verified (7 ms)
+    ✓ rejects a wrong code (400) (7 ms)
+    ✓ rejects an expired code (400) (7 ms)
+    ✓ rejects a non-6-digit code body (400, validation layer) (7 ms)
+  unknown routes
+    ✓ falls through to the 404 handler with structured JSON (3 ms)
 
-    Must use import to load ES Module: /home/runner/work/chat/chat/medchat-v2/server/node_modules/uuid/dist-node/index.js
+FAIL tests/security/fileAccess.test.js
+  File isolation (controllers/fileController.js)
+    ✓ чужой гость не может скачать shared-файл из чужого чата (403) (4 ms)
+    ✓ чужой гость не может прочитать метаданные файла (403) (2 ms)
+    ✓ владелец файла из своего чата получает доступ (200) (1 ms)
+    ✓ shared-файл без чата недоступен постороннему (403) (2 ms)
+    ✓ public-файл доступен любому авторизованному (200) (2 ms)
+    ✓ список файлов не отдаёт чужие shared-файлы (2 ms)
+  Data transfer (controllers/guestController.js)
+    ✕ init создаёт 256-бит токен и гасит предыдущие (201) (5 ms)
+    ✕ blob чужого токена недоступен (404) (4 ms)
+    ✕ повторное потребление токена запрещено (410) (6 ms)
+    ✓ потребление отдаёт сессию и шифрованный blob, гасит токен (3 ms)
+    ✓ потребление без загруженного blob отклоняется (409) (2 ms)
 
-    The file contains ESM syntax (import/export) that could not be executed as CommonJS. Either:
-      - Configure a transform (e.g. babel-jest) that compiles this file to CommonJS (see https://jestjs.io/docs/code-transformation)
-      - If the file is in "node_modules", allow it to be transformed by adjusting "transformIgnorePatterns" (see https://jestjs.io/docs/configuration#transformignorepatterns-arraystring)
-      - Use Node v24.9+ where Jest supports require(esm) natively (see https://jestjs.io/docs/ecmascript-modules#require-of-esm)
+  ● Data transfer (controllers/guestController.js) › init создаёт 256-бит токен и гасит предыдущие (201)
 
-    [0m [90m  7 |[39m [36mconst[39m bcrypt [33m=[39m require([32m'bcrypt'[39m)[33m;[39m
-     [90m  8 |[39m [36mconst[39m crypto [33m=[39m require([32m'crypto'[39m)[33m;[39m
-    [31m[1m>[22m[39m[90m  9 |[39m [36mconst[39m { v4[33m:[39m uuidv4 } [33m=[39m require([32m'uuid'[39m)[33m;[39m
-     [90m    |[39m                        [31m[1m^[22m[39m
-     [90m 10 |[39m [36mconst[39m models [33m=[39m require([32m'../models'[39m)[33m;[39m
-     [90m 11 |[39m
-     [90m 12 |[39m [90m// Safe logger: never crash auth flows if winston is not loadable[39m[0m
+    expect(received).toBe(expected) // Object.is equality
 
-      at createRequireEsmError (node_modules/jest-runtime/build/index.js:452:17)
-      at Object.require (src/services/authService.js:9:24)
-      at Object.require (src/routes/auth.js:8:21)
-      at Object.require (tests/integration/auth.test.js:40:20)
+    Expected: 201
+    Received: 500
 
-FAIL tests/security/transactionsIdor.test.js
-  ● Test suite failed to run
+    [0m [90m 146 |[39m     models[33m.[39m[33mUser[39m[33m.[39mfindByPk[33m.[39mmockResolvedValue({ id[33m:[39m [33mME[39m[33m,[39m status[33m:[39m [32m'active'[39m })[33m;[39m
+     [90m 147 |[39m     [36mconst[39m res [33m=[39m [36mawait[39m request(guestApp)[33m.[39mpost([32m'/api/guest/transfer/init'[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 148 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m201[39m)[33m;[39m
+     [90m     |[39m                        [31m[1m^[22m[39m
+     [90m 149 |[39m     expect(res[33m.[39mbody[33m.[39mtoken)[33m.[39mtoMatch([35m/^[a-f0-9]{64}$/[39m)[33m;[39m
+     [90m 150 |[39m     expect(models[33m.[39m[33mDataTransfer[39m[33m.[39mupdate)[33m.[39mtoHaveBeenCalled()[33m;[39m
+     [90m 151 |[39m     expect(models[33m.[39m[33mDataTransfer[39m[33m.[39mcreate)[33m.[39mtoHaveBeenCalled()[33m;[39m[0m
 
-    Must use import to load ES Module: /home/runner/work/chat/chat/medchat-v2/server/node_modules/uuid/dist-node/index.js
+      at Object.toBe (tests/security/fileAccess.test.js:148:24)
 
-    The file contains ESM syntax (import/export) that could not be executed as CommonJS. Either:
-      - Configure a transform (e.g. babel-jest) that compiles this file to CommonJS (see https://jestjs.io/docs/code-transformation)
-      - If the file is in "node_modules", allow it to be transformed by adjusting "transformIgnorePatterns" (see https://jestjs.io/docs/configuration#transformignorepatterns-arraystring)
-      - Use Node v24.9+ where Jest supports require(esm) natively (see https://jestjs.io/docs/ecmascript-modules#require-of-esm)
+  ● Data transfer (controllers/guestController.js) › blob чужого токена недоступен (404)
 
-    [0m [90m 4 |[39m [90m */[39m
-     [90m 5 |[39m
-    [31m[1m>[22m[39m[90m 6 |[39m [36mconst[39m { v4[33m:[39m uuidv4 } [33m=[39m require([32m'uuid'[39m)[33m;[39m
-     [90m   |[39m                        [31m[1m^[22m[39m
-     [90m 7 |[39m
-     [90m 8 |[39m [90m// Safe logger: a bare `logger.warn` here previously crashed on unknown fields[39m
-     [90m 9 |[39m [90m// and left the request hanging without a response.[39m[0m
+    expect(received).toBe(expected) // Object.is equality
 
-      at createRequireEsmError (node_modules/jest-runtime/build/index.js:452:17)
-      at Object.require (src/middleware/validation.js:6:24)
-      at Object.require (src/routes/transactions.js:11:22)
-      at Object.require (tests/security/transactionsIdor.test.js:56:18)
+    Expected: 404
+    Received: 400
+
+    [0m [90m 158 |[39m       [33m.[39mpost([32m'/api/guest/transfer/blob'[39m)
+     [90m 159 |[39m       [33m.[39msend({ payload[33m:[39m [32m'AAAA'[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 160 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m404[39m)[33m;[39m
+     [90m     |[39m                        [31m[1m^[22m[39m
+     [90m 161 |[39m   })[33m;[39m
+     [90m 162 |[39m
+     [90m 163 |[39m   test([32m'повторное потребление токена запрещено (410)'[39m[33m,[39m [36masync[39m () [33m=>[39m {[0m
+
+      at Object.toBe (tests/security/fileAccess.test.js:160:24)
+
+  ● Data transfer (controllers/guestController.js) › повторное потребление токена запрещено (410)
+
+    TypeError: Cannot read properties of undefined (reading 'code')
+
+    [0m [90m 167 |[39m       [33m.[39msend({ token[33m:[39m [32m'a'[39m[33m.[39mrepeat([35m64[39m) })[33m;[39m
+     [90m 168 |[39m     expect(res[33m.[39mstatus)[33m.[39mtoBe([35m410[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 169 |[39m     expect(res[33m.[39mbody[33m.[39merror[33m.[39mcode)[33m.[39mtoBe([32m'TRANSFER_USED'[39m)[33m;[39m
+     [90m     |[39m                           [31m[1m^[22m[39m
+     [90m 170 |[39m   })[33m;[39m
+     [90m 171 |[39m
+     [90m 172 |[39m   test([32m'потребление отдаёт сессию и шифрованный blob, гасит токен'[39m[33m,[39m [36masync[39m () [33m=>[39m {[0m
+
+      at Object.code (tests/security/fileAccess.test.js:169:27)
+
+PASS tests/security/transactionsIdor.test.js
+  Transaction IDOR (controllers/transactionController.js)
+    ✓ refund of a foreign transaction is forbidden (403) (11 ms)
+    ✓ cancel of a foreign transaction is forbidden (403) (3 ms)
+    ✓ reading a foreign transaction is forbidden (403) (3 ms)
+    ✓ refund of your own completed transaction succeeds (200) (2 ms)
+    ✓ test-balance deposit rejects a negative amount (400) (2 ms)
+  canAccessChat (utils/chatAccess.js)
+    ✓ a stranger gets false
+    ✓ an explicit participant gets true
+    ✓ the doctor of the chat gets true
+    ✓ the clinic admin of the chat clinic gets true
+    ✓ a clinic admin of another clinic gets false
+    ✓ a system admin gets true without any DB checks
 
 PASS tests/paymentService.test.js
   PaymentService
     findChat
-      ✓ resolves a chat by UUID primary key (3 ms)
-      ✓ resolves a chat by public chatId string without touching findByPk (1 ms)
+      ✓ resolves a chat by UUID primary key (1 ms)
+      ✓ resolves a chat by public chatId string without touching findByPk
     resolveMessageFree
-      ✓ doctor messages are always free (doctor_initiated) (1 ms)
-      ✓ first message in a chat is free (1 ms)
+      ✓ doctor messages are always free (doctor_initiated)
+      ✓ first message in a chat is free
       ✓ completed appointment within the window makes messages free (1 ms)
-      ✓ without appointment in the window the message is paid (1 ms)
+      ✓ without appointment in the window the message is paid
     chargeMessagePayment
       ✓ returns failure when the patient has insufficient balance (1 ms)
-      ✓ charges the default price and creates a completed transaction (1 ms)
-      ✓ credits the doctor share after a successful charge
+      ✓ charges the default price and creates a completed transaction
+      ✓ credits the doctor share after a successful charge (1 ms)
     isMessageFree
       ✓ returns paid for an unknown chat without throwing
 
 PASS tests/errorHandler.test.js
   errorHandler middleware
     notFound
-      ✓ returns 404 with structured JSON and endpoint info (1 ms)
+      ✓ returns 404 with structured JSON and endpoint info
     errorHandler
-      ✓ uses the error status and code when provided (1 ms)
-      ✓ logs the error with request context (method, url, code, status) (4 ms)
-      ✓ includes the stack trace in the log for 500 errors
-      ✓ defaults to 500 INTERNAL_ERROR for unknown errors (1 ms)
+      ✓ uses the error status and code when provided
+      ✓ logs the error with request context (method, url, code, status) (6 ms)
+      ✓ includes the stack trace in the log for 500 errors (1 ms)
+      ✓ defaults to 500 INTERNAL_ERROR for unknown errors
       ✓ hides internal error messages from clients in production (1 ms)
       ✓ never leaks error messages with status < 500 even in production
     wrapAsync
-      ✓ passes errors from rejected async handlers to next() (1 ms)
+      ✓ passes errors from rejected async handlers to next()
       ✓ does not call next for successful handlers
 
 PASS tests/security/paymentsSecurity.test.js
   Server-side price pinning (services/paymentService.js)
-    ✓ a message payment cannot be made cheaper by the client (2 ms)
+    ✓ a message payment cannot be made cheaper by the client (1 ms)
     ✓ a file payment cannot be made cheaper by the client (1 ms)
-    ✓ subscription prices are fixed (monthly=500, yearly=5000)
+    ✓ subscription prices are fixed (monthly=500, yearly=5000) (1 ms)
     ✓ chargeMessagePayment ignores the amount option
   Payment schema validation
-    ✓ rejects zero, negative, string amounts and invalid types (6 ms)
-    ✓ test-balance deposit is capped at 100000 (1 ms)
+    ✓ rejects zero, negative, string amounts and invalid types (2 ms)
+    ✓ test-balance deposit is capped at 100000
   HTTP hardening
-    ✓ oversized JSON bodies are rejected with 413 (default 100kb limit) (22 ms)
+    ✓ oversized JSON bodies are rejected with 413 (default 100kb limit) (11 ms)
 
 PASS tests/backupIntegrity.test.js
   backup integrity (этап 6: SHA-256 чексуммы)
-    ✓ positive: чексумма совпала — restore проходит до конца (41 ms)
-    ✓ битый файл — 422 INTEGRITY_ERROR, до update дело не доходит (20 ms)
-    ✓ старый бэкап без чексуммы — проверка пропускается, restore работает (37 ms)
-    ✓ сжатый бэкап (gzip до шифрования) — restore разжимает и проходит (38 ms)
-    ✓ verifyBackupPassword: битый файл не валиден, целостный — валиден (56 ms)
+    ✓ positive: чексумма совпала — restore проходит до конца (30 ms)
+    ✓ битый файл — 422 INTEGRITY_ERROR, до update дело не доходит (14 ms)
+    ✓ старый бэкап без чексуммы — проверка пропускается, restore работает (26 ms)
+    ✓ сжатый бэкап (gzip до шифрования) — restore разжимает и проходит (28 ms)
+    ✓ verifyBackupPassword: битый файл не валиден, целостный — валиден (41 ms)
 
-FAIL tests/security/registerSecurity.test.js
-  ● Test suite failed to run
-
-    Must use import to load ES Module: /home/runner/work/chat/chat/medchat-v2/server/node_modules/uuid/dist-node/index.js
-
-    The file contains ESM syntax (import/export) that could not be executed as CommonJS. Either:
-      - Configure a transform (e.g. babel-jest) that compiles this file to CommonJS (see https://jestjs.io/docs/code-transformation)
-      - If the file is in "node_modules", allow it to be transformed by adjusting "transformIgnorePatterns" (see https://jestjs.io/docs/configuration#transformignorepatterns-arraystring)
-      - Use Node v24.9+ where Jest supports require(esm) natively (see https://jestjs.io/docs/ecmascript-modules#require-of-esm)
-
-    [0m [90m  7 |[39m [36mconst[39m bcrypt [33m=[39m require([32m'bcrypt'[39m)[33m;[39m
-     [90m  8 |[39m [36mconst[39m crypto [33m=[39m require([32m'crypto'[39m)[33m;[39m
-    [31m[1m>[22m[39m[90m  9 |[39m [36mconst[39m { v4[33m:[39m uuidv4 } [33m=[39m require([32m'uuid'[39m)[33m;[39m
-     [90m    |[39m                        [31m[1m^[22m[39m
-     [90m 10 |[39m [36mconst[39m models [33m=[39m require([32m'../models'[39m)[33m;[39m
-     [90m 11 |[39m
-     [90m 12 |[39m [90m// Safe logger: never crash auth flows if winston is not loadable[39m[0m
-
-      at createRequireEsmError (node_modules/jest-runtime/build/index.js:452:17)
-      at Object.require (src/services/authService.js:9:24)
-      at Object.require (src/routes/auth.js:8:21)
-      at Object.require (tests/security/registerSecurity.test.js:32:20)
+PASS tests/security/registerSecurity.test.js
+  Privilege escalation via role (validators/auth.js)
+    ✓ rejects self-registration as clinic_admin (10 ms)
+    ✓ rejects self-registration as system_admin (2 ms)
+    ✓ a normal patient registration still works (201) (244 ms)
+  Mass assignment / unknown fields
+    ✓ unknown fields (isAdmin, status) never reach User.create (228 ms)
+  Prototype pollution via __proto__
+    ✓ a __proto__ payload neither poisons Object.prototype nor crashes (no 500) (228 ms)
 
 PASS tests/coreAesGcm.test.js
   E2E cross-platform contract (AES-256-GCM known-answer vectors)
     ✓ фикстура — векторы ожидаемой формы (размеры полей) (1 ms)
-    ✓ Node crypto воспроизводит ct и tag вектора v1 (1 ms)
+    ✓ Node crypto воспроизводит ct и tag вектора v1
     ✓ Node crypto воспроизводит ct и tag вектора v2
     ✓ Node crypto воспроизводит ct и tag вектора v3
     ✓ Node crypto расшифровывает эталонный вектор v1
-    ✓ Node crypto расшифровывает эталонный вектор v2 (1 ms)
+    ✓ Node crypto расшифровывает эталонный вектор v2
     ✓ Node crypto расшифровывает эталонный вектор v3
     ✓ подделанный тег отклоняется AEAD (2 ms)
 
 PASS tests/security/jwtSecurity.test.js
   JWT security (middleware/auth.js)
-    ✓ accepts a valid HS256 token (16 ms)
-    ✓ rejects a forged alg:none token (4 ms)
-    ✓ rejects a token signed with the wrong secret (4 ms)
-    ✓ rejects an expired token (4 ms)
-    ✓ rejects a tampered payload (signature mismatch) (3 ms)
-    ✓ rejects a missing or malformed Authorization header (5 ms)
+    ✓ accepts a valid HS256 token (4 ms)
+    ✓ rejects a forged alg:none token (1 ms)
+    ✓ rejects a token signed with the wrong secret (1 ms)
+    ✓ rejects an expired token (2 ms)
+    ✓ rejects a tampered payload (signature mismatch) (2 ms)
+    ✓ rejects a missing or malformed Authorization header (2 ms)
 
 PASS tests/e2eEnvelope.test.js
   validateE2EEnvelope
     ✓ accepts a well-formed envelope
     ✓ accepts multiple recipients up to the limit
     ✓ rejects non-object, null and undefined envelopes
-    ✓ rejects wrong version or algorithm
+    ✓ rejects wrong version or algorithm (1 ms)
     ✓ rejects malformed ephemeral public key
-    ✓ rejects malformed nonce
+    ✓ rejects malformed nonce (1 ms)
     ✓ rejects missing, empty or oversized boxes (1 ms)
     ✓ rejects an envelope larger than the total limit (1 ms)
 
 PASS tests/cryptoService.test.js
   CryptoService
-    ✓ generates a valid X25519 key pair (54 ms)
-    ✓ both sides derive the same shared secret (ECDH) (101 ms)
+    ✓ generates a valid X25519 key pair (39 ms)
+    ✓ both sides derive the same shared secret (ECDH) (85 ms)
     ✓ encrypts and decrypts a message (3 ms)
     ✓ rejects decryption with a wrong key (2 ms)
-    ✓ encrypts and decrypts objects (JSON)
+    ✓ encrypts and decrypts objects (JSON) (1 ms)
     ✓ encrypts and decrypts file buffers
-    ✓ hash functions are deterministic (1 ms)
+    ✓ hash functions are deterministic
     ✓ HMAC verify works and rejects tampering
 
   console.log
@@ -203,37 +246,37 @@ PASS tests/cryptoService.test.js
 
 PASS tests/fileCleanupService.test.js
   FileCleanupService.cleanupExpiredFiles
-    ✓ uses deleteAt and a 3-day fallback only for autoDelete legacy rows (2 ms)
+    ✓ uses deleteAt and a 3-day fallback only for autoDelete legacy rows (1 ms)
     ✓ deletes only rows returned as expired and marks them deleted after MinIO succeeds (3 ms)
-    ✓ does not mark a row deleted if MinIO removal fails (11 ms)
+    ✓ does not mark a row deleted if MinIO removal fails (7 ms)
 
 PASS tests/coreInterop.test.js
   E2E cross-platform contract (canonical NaCl crypto_box vector)
-    ✓ фикстура — канонический вектор NaCl (размеры полей)
-    ✓ tweetnacl воспроизводит эталонный шифртекст байт-в-байт (46 ms)
-    ✓ tweetnacl открывает эталонный бокс ключом получателя Bob (26 ms)
+    ✓ фикстура — канонический вектор NaCl (размеры полей) (1 ms)
+    ✓ tweetnacl воспроизводит эталонный шифртекст байт-в-байт (39 ms)
+    ✓ tweetnacl открывает эталонный бокс ключом получателя Bob (28 ms)
 
 PASS tests/compress.test.js
   compress hot-path (этап 6: gzip бэкапов)
-    ✓ backend экспортируется: native | fallback (23 ms)
-    ✓ roundtrip: типичный JSON бэкапа сжимается и восстанавливается (2 ms)
-    ✓ gzip-заголовок RFC 1952 (1f 8b 08); пустой буфер тоже валиден (1 ms)
-    ✓ parity с node:zlib в обе стороны (1 ms)
-    ✓ битый/обрезанный поток — исключение, не паника (4 ms)
+    ✓ backend экспортируется: native | fallback (1 ms)
+    ✓ roundtrip: типичный JSON бэкапа сжимается и восстанавливается (1 ms)
+    ✓ gzip-заголовок RFC 1952 (1f 8b 08); пустой буфер тоже валиден
+    ✓ parity с node:zlib в обе стороны
+    ✓ битый/обрезанный поток — исключение, не паника (3 ms)
     ✓ честно: если native-аддон доступен — cross-parity и на нём
 
 PASS tests/checksum.test.js
   checksum hot-path (этап 6)
-    ✓ backend экспортируется: native | fallback
+    ✓ backend экспортируется: native | fallback (1 ms)
     ✓ KAT FIPS 180-4: SHA-256("abc") и пустой буфер (1 ms)
-    ✓ parity с node:crypto на произвольном буфере (1 ms)
+    ✓ parity с node:crypto на произвольном буфере
     ✓ sha256Verify: совпадение (в т.ч. uppercase/пробелы), несовпадение (1 ms)
     ✓ честно: если native-аддон доступен — parity с node:crypto и на нём
 
 PASS tests/bcryptInterop.test.js
   Контрактные векторы bcrypt (OpenBSD KAT, фикстура core/tests)
-    ✓ вектор v1: серверный bcrypt верифицирует KAT (3 ms)
-    ✓ вектор v2: серверный bcrypt верифицирует KAT (3 ms)
+    ✓ вектор v1: серверный bcrypt верифицирует KAT (2 ms)
+    ✓ вектор v2: серверный bcrypt верифицирует KAT (2 ms)
     ✓ вектор v3: серверный bcrypt верифицирует KAT (2 ms)
     ✓ вектор v4: серверный bcrypt верифицирует KAT (2 ms)
     ✓ неверный пароль отклоняется (2 ms)
@@ -241,12 +284,12 @@ PASS tests/bcryptInterop.test.js
 PASS tests/fileRetention.test.js
   parseFileRetention
     ✓ does not treat multipart string "false" as enabled (1 ms)
-    ✓ creates deleteAt only for explicit true and uses requested days (1 ms)
-    ✓ defaults invalid retention values and caps excessive values
-    ✓ defaults missing retention to three days when auto-delete is enabled (1 ms)
+    ✓ creates deleteAt only for explicit true and uses requested days
+    ✓ defaults invalid retention values and caps excessive values (1 ms)
+    ✓ defaults missing retention to three days when auto-delete is enabled
 
-Test Suites: 3 failed, 14 passed, 17 total
-Tests:       87 passed, 87 total
+Test Suites: 1 failed, 17 passed, 18 total
+Tests:       3 failed, 129 passed, 132 total
 Snapshots:   0 total
-Time:        2.385 s
+Time:        3.241 s
 Ran all test suites.
