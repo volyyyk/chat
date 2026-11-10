@@ -4,15 +4,21 @@ import android.content.Context
 import android.net.wifi.WifiManager
 import android.util.Base64
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -28,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
@@ -124,6 +131,10 @@ fun MedchatApp() {
         var ratchetNote by remember { mutableStateOf<String?>(null) }
         var olderRemaining by remember { mutableStateOf(0) }
         var loadingOlder by remember { mutableStateOf(false) }
+        var loaderRun by remember { mutableStateOf(0) }
+        var loaderActive by remember { mutableStateOf(false) }
+        var loaderComplete by remember { mutableStateOf(false) }
+        var loaderNext by remember { mutableStateOf<(() -> Unit)?>(null) }
         val messages = remember { mutableStateListOf<UiMessage>() }
         val ratchet = remember { RatchetService() }
 
@@ -325,9 +336,17 @@ fun MedchatApp() {
             }
         }
 
+        Box {
         when (screen) {
             "connect" -> ConnectScreen(busy, status) { url ->
                 val normalized = ApiService.normalize(url)
+                loaderRun++
+                loaderComplete = false
+                loaderActive = true
+                loaderNext = {
+                    loaderActive = false
+                    screen = "login"
+                }
                 busy = true
                 status = null
                 Thread {
@@ -336,8 +355,9 @@ fun MedchatApp() {
                         service.health()
                         SecureStore.set(normalized, KEY_SERVER)
                         api = service
-                        screen = "login"
+                        loaderComplete = true
                     } catch (e: Exception) {
+                        loaderActive = false
                         status = "Сервер недоступен: " + (e.message ?: "ошибка сети") +
                             ". Сервер на этом же телефоне? Введите http://127.0.0.1:8080. " +
                             "На другом? Подключитесь к его Wi-Fi точке доступа и нажмите «Шлюз Wi-Fi»"
@@ -347,6 +367,13 @@ fun MedchatApp() {
             }
             "login" -> LoginScreen(busy, status) { email, password ->
                 val service = api ?: return@LoginScreen
+                loaderRun++
+                loaderComplete = false
+                loaderActive = true
+                loaderNext = {
+                    loaderActive = false
+                    screen = "chats"
+                }
                 busy = true
                 status = null
                 Thread {
@@ -365,8 +392,9 @@ fun MedchatApp() {
                                 // честно: без ключа в реестре исходящие уйдут plaintext
                             }
                         }
-                        screen = "chats"
+                        loaderComplete = true
                     } catch (e: Exception) {
+                        loaderActive = false
                         status = e.message ?: "ошибка входа"
                     }
                     busy = false
@@ -404,6 +432,13 @@ fun MedchatApp() {
                         onSend = { text -> sendText(chat, text) },
                         onBack = { openChat = null; screen = "chats" })
                 }
+            }
+            }
+            if (loaderActive) {
+                BallLoaderOverlay(
+                    runId = loaderRun,
+                    complete = loaderComplete,
+                    onProceed = { loaderNext?.invoke() })
             }
         }
     }
@@ -444,8 +479,13 @@ private fun ConnectScreen(busy: Boolean, status: String?, onConnect: (String) ->
                 Text("Шлюз Wi-Fi")
             }
         }
-        Button(onClick = { onConnect(url) }, enabled = !busy) {
-            Text(if (busy) "Подключение..." else "Подключиться")
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onConnect(url) }, enabled = !busy) {
+                Text(if (busy) "Подключение..." else "Подключиться")
+            }
+            if (busy) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            }
         }
         hint?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         Text(
@@ -455,6 +495,7 @@ private fun ConnectScreen(busy: Boolean, status: String?, onConnect: (String) ->
                 "сети оператора и с другого телефона не работают.",
             style = MaterialTheme.typography.bodySmall)
         status?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        LogsButton()
     }
 }
 
@@ -484,12 +525,18 @@ private fun LoginScreen(busy: Boolean, status: String?, onLogin: (String, String
             enabled = !busy,
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth())
-        Button(
-            onClick = { onLogin(email, password) },
-            enabled = !busy && email.isNotEmpty() && password.isNotEmpty()) {
-            Text(if (busy) "Вход..." else "Войти")
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { onLogin(email, password) },
+                enabled = !busy && email.isNotEmpty() && password.isNotEmpty()) {
+                Text(if (busy) "Вход..." else "Войти")
+            }
+            if (busy) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            }
         }
         status?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        LogsButton()
     }
 }
 
@@ -501,6 +548,7 @@ private fun ChatsScreen(chats: List<ChatSummary>, busy: Boolean, status: String?
             CircularProgressIndicator()
         }
         status?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        LogsButton()
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -589,4 +637,54 @@ private fun ChatScreen(
             "🔒 E2E при полном покрытии ключами + Double Ratchet (honest-fallback)",
             style = MaterialTheme.typography.bodySmall)
     }
+}
+
+// Кнопка «Логи»: диагностический журнал сети (ApiLog) с копированием
+// одним нажатием, чтобы видеть, какой URL, статус и ошибка были при сбое.
+@Composable
+private fun LogsButton() {
+    var show by remember { mutableStateOf(false) }
+    OutlinedButton(onClick = { show = true }) {
+        Text("Логи")
+    }
+    if (show) {
+        LogsDialog(onClose = { show = false })
+    }
+}
+
+@Composable
+private fun LogsDialog(onClose: () -> Unit) {
+    val context = LocalContext.current
+    val rows = remember { ApiLog.snapshot() }
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = {
+            TextButton(onClick = {
+                val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                    as android.content.ClipboardManager
+                cm.setPrimaryClip(
+                    android.content.ClipData.newPlainText("MedChat logs", rows.joinToString("\n")))
+                android.widget.Toast.makeText(
+                    context, "Логи скопированы", android.widget.Toast.LENGTH_SHORT).show()
+                onClose()
+            }) { Text("Скопировать") }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("Закрыть") } },
+        title = { Text("Логи сети") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())) {
+                if (rows.isEmpty()) {
+                    Text("(пусто)", style = MaterialTheme.typography.bodySmall)
+                }
+                rows.forEach { line ->
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace)
+                }
+            }
+        })
 }

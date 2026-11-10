@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import LoaderBall from '../components/LoaderBall';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { useForm } from '../hooks/useForm';
@@ -17,6 +18,8 @@ const DoctorLoginScreen = ({ navigation }) => {
   const { login, isLoading, error, clearError } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [loaderRun, setLoaderRun] = useState(0);
+  const [loaderComplete, setLoaderComplete] = useState(false);
 
   const { 
     values, 
@@ -36,15 +39,11 @@ const DoctorLoginScreen = ({ navigation }) => {
       
       if (result.success) {
         // Check if doctor is verified
-        setIsVerifying(true);
-        
-        // Simulate verification check
-        setTimeout(async () => {
-          // In real app, this would be an API call
-          // For now, just navigate to main screen
-          navigation.replace('DoctorMain');
-          setIsVerifying(false);
-        }, 1000);
+        // Проверка данных: шарик-загрузчик играет минимум 5 секунд,
+        // «Перейти дальше» открывает основной экран.
+        setLoaderRun((v) => v + 1);
+        setLoaderComplete(false);
+        setTimeout(() => setLoaderComplete(true), 1000);
       }
     }
   );
@@ -78,12 +77,14 @@ const DoctorLoginScreen = ({ navigation }) => {
   if (isVerifying) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary[600]} />
-          <Text style={[textStyles.body, styles.loadingText]}>
-            Проверка данных...
-          </Text>
-        </View>
+        <LoaderBall
+          runId={loaderRun}
+          complete={loaderComplete}
+          onProceed={() => {
+            navigation.replace('DoctorMain');
+            setIsVerifying(false);
+          }}
+        />
       </SafeAreaView>
     );
   }

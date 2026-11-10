@@ -140,9 +140,30 @@
   #msg-form button { width: auto; margin: 0; }
   #ratchet-toggle { flex: 0 0 auto; padding: 6px 10px; font-size: 12px; font-weight: 500; }
   #send-status { margin: 0; padding: 4px 16px 8px; }
+  /* Шарик-загрузчик: желейный шарик минимум 5 секунд протискивается
+     между двумя точечками, в конце плюхается и разбивается об надпись. */
+  #ball-loader { position: fixed; inset: 0; z-index: 50; display: none; background: var(--bg); }
+  #ball-loader.active { display: block; }
+  #ball-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  #bl-status { position: absolute; top: 18px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 15px; }
+  #bl-done { position: absolute; left: 0; right: 0; bottom: 56px; display: none; flex-direction: column; align-items: center; gap: 12px; }
+  #bl-done.active { display: flex; }
+  #bl-done-row { display: flex; align-items: center; gap: 10px; font-size: 24px; font-weight: 700; color: var(--ink); }
+  #bl-replay { width: auto; margin: 0; padding: 6px 12px; font-size: 16px; border-radius: 999px; background: transparent; border: 1px solid var(--line); color: var(--ink); cursor: pointer; }
+  #bl-next { display: none; width: auto; margin: 0; padding: 12px 40px; }
+  #bl-next.active { display: block; }
 </style>
 </head>
 <body>
+
+<div id="ball-loader">
+  <canvas id="ball-canvas"></canvas>
+  <div id="bl-status">Подключение… 0%</div>
+  <div id="bl-done">
+    <div id="bl-done-row"><span>Загрузка завершена ✓</span><button id="bl-replay" title="Проиграть заново">🔃</button></div>
+    <button id="bl-next">Перейти дальше</button>
+  </div>
+</div>
 
 <div id="connect" class="screen active">
   <div class="card">
@@ -247,6 +268,311 @@ var RENDER_CAP = 300;
 
 function $(id) { return document.getElementById(id); }
 
+// ----- Шарик-загрузчик (референс: cgw334.mount.jp): желейный шарик
+// (verlet, 60 точек) минимум 5 секунд протискивается между двумя
+// точечками; если реальная работа завершилась раньше, делаем вид, что
+// грузим дальше. На 95% шарик плюхается вниз и разбивается об надпись
+// «Загрузка завершена»; кнопка 🔃 проигрывает анимацию заново.
+var BallLoader = (function () {
+  var MIN_MS = 5000;
+  var overlay = $("ball-loader"), canvas = $("ball-canvas"), statusEl = $("bl-status");
+  var doneEl = $("bl-done"), nextBtn = $("bl-next"), replayBtn = $("bl-replay");
+  var ctx = canvas.getContext("2d");
+  var onProceed = null, complete = false, running = false, raf = 0, doneShown = false;
+  var N = 60, r = 44, pegR = 22, pegY = 0, pegGap = 0, burstY = 0, W = 0, H = 0;
+  var pts = [], drops = [], phase = "loading", progress = 0;
+  var planIdx = 0, fromP = 0, planT = 0, elapsed = 0, lastPct = -1, burstAt = 0;
+  var pegs = [{ ox: 0, oy: 0, vx: 0, vy: 0 }, { ox: 0, oy: 0, vx: 0, vy: 0 }];
+  var plan = [[900, 0.18], [500, 0.22], [1400, 0.47], [700, 0.52], [1600, 0.78], [900, 0.86], [600, 0.90]];
+  var ptr = { x: 0, y: 0, px: 0, py: 0, down: false };
+  var blink = 0, blinkTimer = 2400, last = 0;
+
+  function resize() {
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    r = Math.max(32, Math.min(52, W * 0.085));
+    pegR = r * 0.5; pegY = H * 0.38;
+    pegGap = 2 * (r * 0.55 + pegR);
+    burstY = H - 150;
+  }
+
+  function initBall() {
+    pts = [];
+    for (var i = 0; i < N; i++) {
+      var a = (i / N) * Math.PI * 2;
+      var x = W / 2 + Math.cos(a) * r;
+      var y = -r * 2.5 + Math.sin(a) * r;
+      pts.push({ x: x, y: y, px: x, py: y });
+    }
+  }
+
+  function center() {
+    var cx = 0, cy = 0;
+    for (var i = 0; i < N; i++) { cx += pts[i].x; cy += pts[i].y; }
+    return { x: cx / N, y: cy / N };
+  }
+
+  function pegPos(i) {
+    var s = i === 0 ? -1 : 1;
+    return { x: W / 2 + (s * pegGap) / 2 + pegs[i].ox, y: pegY + pegs[i].oy };
+  }
+
+  function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+  function collidePeg(p, cx, cy, pr) {
+    var dx = p.x - cx, dy = p.y - cy;
+    var d = Math.hypot(dx, dy);
+    if (d < pr) {
+      var inv = d > 0.001 ? 1 / d : 0;
+      p.x = cx + dx * inv * pr; p.y = cy + dy * inv * pr;
+      p.px = p.x - (p.x - p.px) * 0.5;
+      p.py = p.y - (p.y - p.py) * 0.5;
+    }
+  }
+
+  function burst() {
+    phase = "burst";
+    burstAt = performance.now();
+    var c = center();
+    for (var i = 0; i < N; i++) {
+      var p = pts[i];
+      drops.push({
+        x: p.x, y: p.y,
+        vx: (p.x - p.px) * 2.2 + (p.x - c.x) * 0.16 + (Math.random() - 0.5) * 2.4,
+        vy: (p.y - p.py) * 2.2 - Math.random() * 3.2,
+        rr: 1.6 + Math.random() * 2.6,
+        life: 1
+      });
+    }
+  }
+
+  function step(k) {
+    if (phase === "burst") {
+      for (var di = 0; di < drops.length; di++) {
+        var d = drops[di];
+        d.vy += 0.34 * k; d.x += d.vx * k; d.y += d.vy * k; d.life -= 0.014 * k;
+      }
+      drops = drops.filter(function (x) { return x.life > 0; });
+      if (performance.now() - burstAt > 650) phase = "done";
+      return;
+    }
+    var c = center();
+    var startY = -r * 2.5;
+    var holdY = pegY + pegR + r * 0.92;
+    var pull = 0.045, grav = 0.10, targetY;
+    if (phase === "plop") { targetY = burstY - r * 0.2; pull = 0.11; grav = 0.55; }
+    else targetY = startY + (holdY - startY) * ease(progress);
+
+    if (phase === "loading") {
+      planT += 16.7 * k; elapsed += 16.7 * k;
+      var st = plan[planIdx];
+      if (st) {
+        var kk = Math.min(1, planT / st[0]);
+        progress = fromP + (st[1] - fromP) * kk;
+        if (kk >= 1) { fromP = st[1]; planIdx++; planT = 0; }
+      } else if (complete && elapsed >= MIN_MS) {
+        // реальная работа уже завершена, но 5 секунд держим вид загрузки
+        progress = Math.min(0.96, progress + 0.02 * k);
+      }
+      var p = Math.round(progress * 100);
+      if (p !== lastPct) { lastPct = p; statusEl.textContent = "Подключение… " + p + "%"; }
+      if (progress >= 0.95) { phase = "plop"; statusEl.textContent = ""; }
+    }
+
+    // точечки пружинят, когда шарик давит на них
+    for (var i2 = 0; i2 < 2; i2++) {
+      var g = pegs[i2], pp = pegPos(i2);
+      var dd0 = Math.hypot(c.x - pp.x, c.y - pp.y);
+      var tx = 0, ty = 0;
+      if (dd0 < r + pegR && dd0 > 0.001) {
+        var f0 = Math.min(7, (r + pegR - dd0) * 0.35);
+        tx = ((c.x - pp.x) / dd0) * f0; ty = ((c.y - pp.y) / dd0) * f0;
+      }
+      g.vx += (tx - g.ox) * 0.3; g.vy += (ty - g.oy) * 0.3;
+      g.vx *= 0.72; g.vy *= 0.72;
+      g.ox += g.vx; g.oy += g.vy;
+    }
+
+    // палец лишь немного тянет шарик в сторону
+    var pvx = 0, pvy = 0;
+    if (ptr.down) { pvx = ptr.x - ptr.px; pvy = ptr.y - ptr.py; ptr.px = ptr.x; ptr.py = ptr.y; }
+
+    for (var j = 0; j < N; j++) {
+      var p2 = pts[j];
+      var ax = (W / 2 - c.x) * 0.010;
+      var ay = (targetY - c.y) * pull + grav;
+      var vx = (p2.x - p2.px) * 0.988 + ax;
+      var vy = (p2.y - p2.py) * 0.988 + ay;
+      if (ptr.down) {
+        var dx = p2.x - ptr.x, dy = p2.y - ptr.y;
+        var dd1 = Math.hypot(dx, dy);
+        if (dd1 < 110) {
+          var f1 = 1 - dd1 / 110, inv = dd1 > 0.001 ? 1 / dd1 : 0;
+          vx += pvx * 0.14 * f1 + dx * inv * 0.9 * f1;
+          vy += pvy * 0.14 * f1 + dy * inv * 0.9 * f1;
+        }
+      }
+      p2.px = p2.x; p2.py = p2.y;
+      p2.x += vx; p2.y += vy;
+    }
+
+    var L = 2 * r * Math.sin(Math.PI / N);
+    var targetArea = Math.PI * r * r;
+    for (var it = 0; it < 3; it++) {
+      for (var i3 = 0; i3 < N; i3++) {
+        var a = pts[i3], b = pts[(i3 + 1) % N];
+        var ddx = b.x - a.x, ddy = b.y - a.y;
+        var dd2 = Math.hypot(ddx, ddy) || 0.001;
+        var diff = ((dd2 - L) / dd2) * 0.5;
+        a.x += ddx * diff; a.y += ddy * diff;
+        b.x -= ddx * diff; b.y -= ddy * diff;
+      }
+      var cc = center();
+      for (var i4 = 0; i4 < N; i4++) {
+        var q = pts[i4];
+        var sx = q.x - cc.x, sy = q.y - cc.y;
+        var sd = Math.hypot(sx, sy) || 0.001;
+        var sk = ((sd - r) / sd) * 0.06;
+        q.x -= sx * sk; q.y -= sy * sk;
+      }
+      var area = 0;
+      for (var i5 = 0; i5 < N; i5++) {
+        var a5 = pts[i5], b5 = pts[(i5 + 1) % N];
+        area += a5.x * b5.y - b5.x * a5.y;
+      }
+      area = Math.abs(area) / 2;
+      var scale = Math.sqrt(targetArea / Math.max(area, 1));
+      var kk2 = 1 + (scale - 1) * 0.22;
+      var c2 = center();
+      for (var i6 = 0; i6 < N; i6++) {
+        var q6 = pts[i6];
+        q6.x = c2.x + (q6.x - c2.x) * kk2;
+        q6.y = c2.y + (q6.y - c2.y) * kk2;
+      }
+      var pg0 = pegPos(0), pg1 = pegPos(1);
+      for (var i7 = 0; i7 < N; i7++) {
+        var q7 = pts[i7];
+        collidePeg(q7, pg0.x, pg0.y, pegR);
+        collidePeg(q7, pg1.x, pg1.y, pegR);
+        if (q7.y < -r * 6) q7.y = -r * 6;
+        if (q7.x < 10) { q7.x = 10; q7.px = q7.x; }
+        if (q7.x > W - 10) { q7.x = W - 10; q7.px = q7.x; }
+      }
+    }
+
+    if (phase === "plop") {
+      var cf = center();
+      if (cf.y >= burstY - r * 0.35) burst();
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (var i = 0; i < 2; i++) {
+      var pp = pegPos(i);
+      ctx.beginPath(); ctx.arc(pp.x, pp.y, pegR, 0, Math.PI * 2);
+      ctx.fillStyle = "#2f3542"; ctx.fill();
+      ctx.beginPath(); ctx.arc(pp.x - pegR * 0.3, pp.y - pegR * 0.3, pegR * 0.28, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.fill();
+    }
+    for (var di = 0; di < drops.length; di++) {
+      var d = drops[di];
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.rr * Math.max(0.2, d.life), 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(78,190,146," + (0.85 * d.life).toFixed(3) + ")"; ctx.fill();
+    }
+    if (phase === "burst" || phase === "done") return;
+    var c = center();
+    ctx.beginPath();
+    for (var i2 = 0; i2 < N; i2++) {
+      var p0 = pts[(i2 - 1 + N) % N], p1 = pts[i2];
+      var p2 = pts[(i2 + 1) % N], p3 = pts[(i2 + 2) % N];
+      if (i2 === 0) ctx.moveTo(p1.x, p1.y);
+      ctx.bezierCurveTo(
+        p1.x + (p2.x - p0.x) / 6, p1.y + (p2.y - p0.y) / 6,
+        p2.x - (p3.x - p1.x) / 6, p2.y - (p3.y - p1.y) / 6,
+        p2.x, p2.y);
+    }
+    ctx.closePath();
+    var grad = ctx.createRadialGradient(c.x - r * 0.35, c.y - r * 0.45, r * 0.2, c.x, c.y, r * 1.4);
+    grad.addColorStop(0, "#b9f0d8"); grad.addColorStop(0.55, "#6fd6ab"); grad.addColorStop(1, "#3cae87");
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.strokeStyle = "rgba(38,120,92,.35)"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.save(); ctx.clip();
+    ctx.beginPath();
+    ctx.ellipse(c.x - r * 0.34, c.y - r * 0.42, r * 0.34, r * 0.2, -0.6, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.fill();
+    ctx.restore();
+    // глазки жмурятся у точечек и моргают
+    var ex = r * 0.34, ey = c.y - r * 0.08;
+    var pg = pegPos(0);
+    var d0 = Math.hypot(c.x - pg.x, c.y - pegY);
+    var squeeze = d0 < r * 1.3 ? 0.55 : 1;
+    blink -= 16;
+    if (blink < -blinkTimer) { blink = 130; blinkTimer = 2400 + Math.random() * 2600; }
+    var open = blink > 0 ? 0.12 : 1;
+    ctx.fillStyle = "#1f2430";
+    for (var s = -1; s <= 1; s += 2) {
+      ctx.beginPath();
+      ctx.ellipse(c.x + s * ex, ey, 3.4, 4.6 * open * squeeze, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(c.x, c.y + r * 0.22, 4.5, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.strokeStyle = "#1f2430"; ctx.lineWidth = 1.6; ctx.lineCap = "round";
+    ctx.stroke();
+  }
+
+  function loop(now) {
+    var dt = Math.min(34, now - last || 16.7); last = now;
+    step(dt / 16.7);
+    draw();
+    if (phase === "done" && !doneShown) {
+      doneShown = true;
+      doneEl.classList.add("active");
+      nextBtn.classList.add("active");
+    }
+    raf = requestAnimationFrame(loop);
+  }
+
+  function start(onP) {
+    onProceed = onP; complete = false; running = true; doneShown = false;
+    overlay.classList.add("active");
+    doneEl.classList.remove("active");
+    nextBtn.classList.remove("active");
+    phase = "loading"; progress = 0; planIdx = 0; fromP = 0; planT = 0; elapsed = 0; lastPct = -1;
+    drops = []; blink = 0; blinkTimer = 2400;
+    pegs[0].ox = pegs[0].oy = pegs[0].vx = pegs[0].vy = 0;
+    pegs[1].ox = pegs[1].oy = pegs[1].vx = pegs[1].vy = 0;
+    resize(); initBall();
+    statusEl.textContent = "Подключение… 0%";
+    last = performance.now();
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(loop);
+  }
+
+  function markComplete() { complete = true; }
+
+  function hide() {
+    running = false;
+    cancelAnimationFrame(raf);
+    overlay.classList.remove("active");
+    doneEl.classList.remove("active");
+    nextBtn.classList.remove("active");
+  }
+
+  nextBtn.addEventListener("click", function () { var f = onProceed; hide(); if (f) f(); });
+  replayBtn.addEventListener("click", function () { start(onProceed); });
+  canvas.addEventListener("pointerdown", function (e) { ptr.down = true; ptr.x = ptr.px = e.clientX; ptr.y = ptr.py = e.clientY; });
+  canvas.addEventListener("pointermove", function (e) { if (ptr.down) { ptr.px = ptr.x; ptr.py = ptr.y; ptr.x = e.clientX; ptr.y = e.clientY; } });
+  window.addEventListener("pointerup", function () { ptr.down = false; });
+  window.addEventListener("resize", function () { if (running) resize(); });
+
+  return { start: start, markComplete: markComplete, hide: hide };
+})();
+
+
 function show(name) {
   ["connect", "login", "main"].forEach(function (n) {
     $(n).classList.toggle("active", n === name);
@@ -298,15 +624,19 @@ async function connectNext() {
   var v = trimValue($("server-url").value).replace(/\/+$/, "");
   if (!v) { setStatus("connect-status", "Введите адрес сервера", true); return; }
   setStatus("connect-status", "Проверяем соединение...");
+  BallLoader.start(function () {
+    setStatus("connect-status", "");
+    $("login-server").textContent = "Сервер: " + v;
+    show("login");
+  });
   try {
     var res = await fetch(v + "/health");
     if (!res.ok) throw new Error("HTTP " + res.status);
     state.server = v;
     localStorage.setItem("medchat.server", v);
-    setStatus("connect-status", "");
-    $("login-server").textContent = "Сервер: " + v;
-    show("login");
+    BallLoader.markComplete();
   } catch (e) {
+    BallLoader.hide();
     setStatus("connect-status", "Сервер недоступен: " + e.message, true);
   }
 }
@@ -316,6 +646,11 @@ async function doLogin() {
   var password = $("password").value;
   if (!email || !password) { setStatus("login-status", "Введите email и пароль", true); return; }
   setStatus("login-status", "Входим...");
+  BallLoader.start(async function () {
+    setStatus("login-status", "");
+    $("password").value = "";
+    await enterMain();
+  });
   try {
     var r = await api("/api/auth/login", { method: "POST", body: { email: email, password: password } });
     state.token = r.accessToken;
@@ -323,10 +658,9 @@ async function doLogin() {
     state.email = email;
     localStorage.setItem("medchat.token", r.accessToken);
     localStorage.setItem("medchat.email", email);
-    $("password").value = "";
-    setStatus("login-status", "");
-    await enterMain();
+    BallLoader.markComplete();
   } catch (e) {
+    BallLoader.hide();
     setStatus("login-status", "Ошибка входа: " + e.message, true);
   }
 }

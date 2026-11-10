@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { setToken } from '../services/api';
+import LoaderBall from '../components/LoaderBall';
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -15,16 +16,23 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loaderRun, setLoaderRun] = useState(0);
+  const [loaderActive, setLoaderActive] = useState(false);
+  const [loaderComplete, setLoaderComplete] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setNotice('');
     setIsLoading(true);
+    setLoaderRun((v) => v + 1);
+    setLoaderComplete(false);
+    setLoaderActive(true);
     try {
       await login({ email, password, clinicCode });
-      navigate('/');
+      setLoaderComplete(true);
     } catch (err) {
+      setLoaderActive(false);
       if (err.message && (err.message.includes('подтвержд') || err.message.includes('verif'))) {
         setNotice('Ваш аккаунт не подтвержден. Обратитесь к руководству клиники.');
       } else {
@@ -206,6 +214,13 @@ const LoginPage = () => {
           Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
         </p>
       </form>
+      {loaderActive && (
+        <LoaderBall
+          runId={loaderRun}
+          complete={loaderComplete}
+          onProceed={() => { setLoaderActive(false); navigate('/'); }}
+        />
+      )}
     </div>
   );
 };
