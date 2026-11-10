@@ -178,6 +178,7 @@ fun MedchatApp() {
         }
 
         fun loadMessages(chat: ChatSummary, before: String? = null) {
+            if (selectedChatId != chat.chatId) return
             val service = api ?: return
             val uid = userId ?: return
             busy = true
