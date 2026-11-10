@@ -692,6 +692,58 @@ TRANSFER_EXPIRED.
 > (tests/security/fileAccess.test.js).
 
 
+### Внешний вход (OAuth: Telegram, VK ID)
+
+Бесплатные провайдеры входа/регистрации пациента. Привязки хранит модель
+UserIdentity (таблица user_identities, unique (provider, provider_id), связь
+с User). Включённость определяется env: TELEGRAM_BOT_TOKEN (+TELEGRAM_BOT_USERNAME),
+VK_CLIENT_ID (+VK_CLIENT_SECRET опционально). Без них эндпоинты отвечают 501,
+а клиенты (GET /config) не показывают кнопки.
+
+#### GET /api/auth/oauth/config (публично)
+
+```json
+{
+  "telegram": { "enabled": true, "botUsername": "medchat_bot" },
+  "vk": { "enabled": true, "clientId": "123456" },
+  "max": { "enabled": false },
+  "whatsapp": { "enabled": false }
+}
+```
+
+#### POST /api/auth/oauth/telegram (публично)
+
+Принимает поля Telegram Login Widget как есть (id, first_name, last_name,
+username, auth_date, hash, ...). Сервер проверяет подпись
+HMAC-SHA256(data-check-string, SHA256(bot_token)) и окно свежести сутки
+(utils/oauthVerify). Ответ 200: как POST /api/auth/login
+({ user, accessToken, refreshToken, expiresIn }).
+Ошибки: 401 (подпись неверна или данные устарели), 501 (не настроен).
+
+#### POST /api/auth/oauth/vk (публично)
+
+Обмен authorization_code VK ID (OAuth 2.1 + PKCE):
+
+```json
+{ "code": "...", "codeVerifier": "...", "deviceId": "..." }
+```
+
+Сервер обменивает код на https://id.vk.ru/oauth2/auth, берёт профиль
+(https://id.vk.ru/oauth2/user_info, best-effort) и входит. Ответ 200: как login.
+Ошибки: 400 (нет code/codeVerifier), 401 (обмен не удался), 501 (не настроен).
+
+Логика oauthLogin (authService): вход по существующей привязке; привязка к
+аккаунту по верифицированному email (только VK ID отдаёт email); иначе новый
+пользователь-пациент с synthetic email @oauth.medchat.local (парольный вход
+невозможен, ключи x25519 генерируются, Patient addedBy='patient').
+
+Отложено: MAX (Bot API есть, но публикация ботов только через верифицированное
+юрлицо РФ, публичного OAuth нет), WhatsApp (официального бесплатного входа нет,
+только платные OTP-сервисы). Клиенты: web LoginPage показывает кнопки только
+включённых провайдеров (Telegram Login Widget, VK ID с PKCE и страницей
+/vk-callback для обмена кода); Telegram требует домена сайта в настройках бота;
+на десктопе OAuth не включён (origin Tauri). Тесты: tests/unit/oauth.test.js.
+
 ### Messages
 
 #### GET /api/chats/:chatId/messages
