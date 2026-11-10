@@ -586,7 +586,7 @@ jobs:
         with:
           workspaces: medchat-v2/core
 
-      # Установка CLI из git-тега v0.32.1 (прогоны #105–#107: семейство
+      # Установка CLI из git-тега v0.32.2 (прогоны #105–#107: семейство
       # uniffi-крейтов отсутствует в sparse-индексе crates.io — cargo
       # «could not find uniffi-bindgen in registry crates-io» на любую
       # версию, ни --version, ни фолбэк без --locked не спасают: нет самой
@@ -598,17 +598,19 @@ jobs:
       # пишется в ci-uniffi.log с первой команды (заголовок прогона для
       # сверки метки времени, cargo --version для контекста).
       # Прогон #108 (run 42479207992): тег резолвится, но пакета
-      # uniffi-bindgen в workspace v0.32.1 НЕТ — имя пакета crates.io
+      # uniffi-bindgen в workspace v0.32.2 НЕТ — имя пакета crates.io
       # не обязано совпадать с git-workspace: CLI на этом теге —
       # пакет uniffi-bindgen-cli (member examples/app/uniffi-bindgen-cli,
-      # publish=false), бинарь называется uniffi-bindgen ([[bin]] name).
+      # publish=false), бинарь называется uniffi-bindgen-cli ([[bin]] name).
       # cargo install ищет ПАКЕТ по имени среди workspace-мемберов;
-      # ставим uniffi-bindgen-cli — в PATH появляется тот же бинарь
-      # uniffi-bindgen, остальные шаги джобы не меняются.
-      - name: Install uniffi-bindgen (v0.32.1 from git)
+      # ставим uniffi-bindgen-cli и вызываем генерацию именно этим бинарем:
+      # прогон #208 (run 42591454597) вызывал несуществующий uniffi-bindgen —
+      # в PATH находился чужой/устаревший бинарь 0.28.3-эры, его читатель
+      # метаданных падал («Invalid string data», ios/android).
+      - name: Install uniffi-bindgen (v0.32.2 from git)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.1 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-uniffi.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.2 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-uniffi.log
 
       # cdylib с UniFFI-scaffolding (без napi): release нужен для runtime smoke,
       # debug (без LTO) — для bindgen metadata extraction; serde добавляет
@@ -706,12 +708,12 @@ jobs:
         with:
           workspaces: medchat-v2/core
 
-      # Тот же git-тег v0.32.1, что в джобе uniffi-bindings и Cargo.toml
+      # Тот же git-тег v0.32.2, что в джобе uniffi-bindings и Cargo.toml
       # ядра: формат metadata привязан к версии крейта и CLI.
-      - name: Install uniffi-bindgen (v0.32.1 from git)
+      - name: Install uniffi-bindgen (v0.32.2 from git)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.1 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-ios.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.2 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-ios.log
 
       # host-cdylib: debug cdylib используется bindgen для metadata extraction,
       # release cdylib — для runtime-smoke ниже.
@@ -892,12 +894,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # Тот же git-тег v0.32.1, что в uniffi-bindings/ios-smoke и Cargo.toml
+      # Тот же git-тег v0.32.2, что в uniffi-bindings/ios-smoke и Cargo.toml
       # ядра: формат metadata привязан к версии крейта и CLI.
-      - name: Install uniffi-bindgen (v0.32.1 from git)
+      - name: Install uniffi-bindgen (v0.32.2 from git)
         run: |
           set -o pipefail
-          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.1 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-android.log
+          { echo "=== run ${GITHUB_RUN_ID} job ${GITHUB_JOB} $(date -u) ==="; cargo --version; cargo install --git https://github.com/mozilla/uniffi-rs --tag v0.32.2 uniffi-bindgen-cli; } 2>&1 | tee ../../ci-android.log
 
       # host-cdylib: по нему bindgen читает metadata (library mode) и против
       # него исполняется runtime-smoke ниже (JNA грузит libmedchat_core.so).
