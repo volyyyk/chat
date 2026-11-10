@@ -9,6 +9,7 @@ const { AppError } = require('../middleware/errorHandler');
 const CryptoService = require('../services/cryptoService');
 const fs = require('fs');
 const path = require('path');
+const { parseFileRetention } = require('../utils/fileRetention');
 
 class FileController {
   /**
@@ -19,6 +20,7 @@ class FileController {
   static async upload(req, res, next) {
     try {
       const { chatId, messageId, type, category, description, tags, visibility, autoDelete, deleteAfterDays } = req.body;
+      const retention = parseFileRetention(autoDelete, deleteAfterDays);
       const userId = req.user.id;
 
       // multer's upload.single('file') sets req.file; upload.array sets req.files.
@@ -122,21 +124,14 @@ class FileController {
         visibility: visibility || 'shared',
         category: category || 'document',
         isEncrypted: true,
-        autoDelete: autoDelete || false,
-        deleteAfterDays: deleteAfterDays || 3,
-        deleteAt: autoDelete ? new Date(Date.now() + deleteAfterDays * 24 * 60 * 60 * 1000) : null,
+        autoDelete: retention.autoDelete,
+        deleteAfterDays: retention.deleteAfterDays,
+        deleteAt: retention.deleteAt,
         description: description || null,
         tags: tags || [],
         checksum,
         virusScanStatus: 'pending',
       });
-
-      // Set deleteAt if autoDelete is true
-      if (autoDelete) {
-        await fileRecord.update({
-          deleteAt: new Date(Date.now() + deleteAfterDays * 24 * 60 * 60 * 1000),
-        });
-      }
 
       // Clean up temporary file
       try {
@@ -354,14 +349,19 @@ class FileController {
         throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
+      const retention = parseFileRetention(
+        Object.prototype.hasOwnProperty.call(req.body, 'autoDelete') ? autoDelete : file.autoDelete,
+        deleteAfterDays ?? file.deleteAfterDays
+      );
+
       await file.update({
         description,
         tags,
         category,
         visibility,
-        autoDelete,
-        deleteAfterDays,
-        deleteAt: autoDelete ? new Date(Date.now() + deleteAfterDays * 24 * 60 * 60 * 1000) : null,
+        autoDelete: retention.autoDelete,
+        deleteAfterDays: retention.deleteAfterDays,
+        deleteAt: retention.deleteAt,
       });
 
       res.json(file);
