@@ -636,6 +636,62 @@ Content-Type: application/json
 Ответ 200: `{ token, refreshToken, user }` (новые JWT уже для аккаунта).
 Ошибки: 400 VALIDATION_ERROR, 403 NOT_GUEST, 409 EMAIL_TAKEN.
 
+#### Перенос данных на другое устройство
+
+Одноразовый перенос профиля (сессия + приватные E2E-ключи) со старого
+устройства на новое. Модель доверия E2E: сервер хранит только шифротекст
+blob'а (nacl.secretbox), ключ шифрования передаётся ТОЛЬКО внутри QR между
+устройствами. Токен 256 бит, живёт 10 минут, одноразовый, blob стирается
+после потребления. Модель: DataTransfer (таблица data_transfers).
+
+##### Инициировать перенос (со старого устройства)
+
+```http
+POST /api/guest/transfer/init
+Authorization: Bearer <token>
+```
+
+Ответ 201:
+
+```json
+{ "token": "<64 hex-символа>", "expiresAt": "2026-11-10T12:10:00.000Z" }
+```
+
+Новый init гасит предыдущие незавершённые токены пользователя.
+
+##### Загрузить blob (со старого устройства)
+
+```http
+POST /api/guest/transfer/:token/blob
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "payload": "<base64: nonce || secretbox-шифротекст>" }
+```
+
+Только владелец токена (record.userId === user.id), иначе 404. Лимит 200KB.
+
+##### Потребить перенос (на новом устройстве, публично)
+
+```http
+POST /api/guest/transfer/consume
+Content-Type: application/json
+
+{ "token": "<64 hex-символа>" }
+```
+
+Аутентификация не нужна: 256-битный токен сам является секретом. Ответ 200:
+`{ token, refreshToken, user, payload }`. Токен гасится, blob уничтожается.
+Ошибки: 409 TRANSFER_NOT_READY (blob ещё не загружен), 410 TRANSFER_USED /
+TRANSFER_EXPIRED.
+
+> Изоляция файлов (security-фикс): доступ к файлу теперь единый
+> (utils/chatAccess): владелец, public, или файл в чате, к которому есть
+> доступ (canAccessChat). Раньше файлы visibility 'shared' мог скачать любой
+> авторизованный по id - утечка между гостями закрыта
+> (tests/security/fileAccess.test.js).
+
+
 ### Messages
 
 #### GET /api/chats/:chatId/messages

@@ -52,8 +52,9 @@ fileApp.use(errorHandler);
 
 const guestApp = express();
 guestApp.use(express.json());
+guestApp.use((req, res, next) => { req.user = currentUser; next(); });
 guestApp.post('/api/guest/transfer/init', (req, res, next) => GuestController.transferInit(req, res, next));
-guestApp.post('/api/guest/transfer/blob', (req, res, next) => GuestController.transferBlob(req, res, next));
+guestApp.post('/api/guest/transfer/:token/blob', (req, res, next) => GuestController.transferBlob(req, res, next));
 guestApp.post('/api/guest/transfer/consume', (req, res, next) => GuestController.transferConsume(req, res, next));
 guestApp.use(notFound);
 guestApp.use(errorHandler);
@@ -155,7 +156,7 @@ describe('Data transfer (controllers/guestController.js)', () => {
     currentUser = { id: 'user-B' };
     models.DataTransfer.findOne.mockResolvedValue(transfer());
     const res = await request(guestApp)
-      .post('/api/guest/transfer/blob')
+      .post('/api/guest/transfer/' + 'a'.repeat(64) + '/blob')
       .send({ payload: 'AAAA' });
     expect(res.status).toBe(404);
   });
@@ -166,7 +167,7 @@ describe('Data transfer (controllers/guestController.js)', () => {
       .post('/api/guest/transfer/consume')
       .send({ token: 'a'.repeat(64) });
     expect(res.status).toBe(410);
-    expect(res.body.error.code).toBe('TRANSFER_USED');
+    expect(res.body.code).toBe('TRANSFER_USED');
   });
 
   test('потребление отдаёт сессию и шифрованный blob, гасит токен', async () => {

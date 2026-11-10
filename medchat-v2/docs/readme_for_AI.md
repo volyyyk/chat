@@ -301,6 +301,40 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
 - Фикс: в chatController.createInvite добавлен require('crypto') (без него
   ReferenceError в runtime при создании инвайта).
 
+- Изоляция файлов гостей (security-фикс, файл-контроллер): раньше файлы
+  visibility 'shared'/'public' мог скачать ЛЮБОЙ авторизованный пользователь
+  по id и увидеть в списке - утечка данных между гостями. Теперь единые
+  правила (utils/chatAccess): system_admin, владелец (userId ИЛИ профиль
+  doctor/patient), public, либо файл в чате с доступом canAccessChat;
+  'shared' без чата = запрет. Затронуты getById/download/preview/url/
+  getMetadata/update/delete/updateMetadata/list. Тест:
+  tests/security/fileAccess.test.js.
+- Перенос данных на другое устройство (DataTransfer, таблица data_transfers):
+  одноразовый 256-бит токен (crypto.randomBytes(32), TTL 10 минут,
+  consumedAt), payload TEXT - ТОЛЬКО шифротекст (base64 nonce||secretbox).
+  Эндпоинты: POST /api/guest/transfer/init (authenticate, новый init гасит
+  предыдущие), POST /api/guest/transfer/:token/blob (только владелец,
+  лимит 200KB), POST /api/guest/transfer/consume (публично: токен сам
+  секрет; возвращает {token, refreshToken, user, payload}, гасит токен и
+  стирает payload; ошибки 409 TRANSFER_NOT_READY, 410 TRANSFER_USED/
+  TRANSFER_EXPIRED). E2E-модель доверия: приватные ключи шифруются НА
+  старом устройстве случайным 32-байт ключом (nacl.secretbox), ключ
+  шифрования едет ТОЛЬКО в QR (формат medchat-transfer://t/<64hex>#k=<b64>),
+  сервер расшифровать blob не может; РИСК: увидевший QR (скриншот/фото),
+  пока токен жив, забирает сессию и ключи.
+- Mobile (RN): transferService.js (createTransfer/receiveTransfer/
+  parseTransferQr), TransferExportScreen.js (QR + предупреждение о риске),
+  в AddChatScreen переключатель сценариев «Добавить чат / Перенос данных»
+  (mode state, в режиме переноса QR запускает восстановление с
+  Alert-подтверждением); e2eCryptoService.js: exportKeyPair/importKeyPair
+  (импорт перезаписывает локальную пару - новое устройство расшифровывает
+  старую историю); AuthContext.applySession (переключение профиля без
+  перезапуска); SettingsScreen: пункт «Перенос на новое устройство» у
+  пациента и врача. ПОПУТНЫЙ ФИКС: AppNavigator читал несуществующий
+  state в AuthContext (навигация по роли была сломана) - исправлено на
+  деструктуризацию контекста. Mobile в CI НЕ собирается (джоб нет) -
+  проверять локально.
+
 ### E2E-контракт (сквозное шифрование сообщений и файлов, d11762c → ed9a661)
 **Модель доверия**: сервер — реестр публичных ключей и транспорт; plaintext содержимого
 E2E-сообщений серверу недоступен (хранится только шифротекст). Метаданные (участники,
