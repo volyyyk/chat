@@ -1,4 +1,4 @@
-=== run 42758545570 job server-tests Tue Nov 10 04:53:38 UTC 2026 ===
+=== run 42758859998 job server-tests Tue Nov 10 04:57:06 UTC 2026 ===
 
 > medchat-server@2.0.1 test
 > jest --ci --runInBand
@@ -52,15 +52,15 @@ FAIL tests/security/transactionsIdor.test.js
 PASS tests/paymentService.test.js
   PaymentService
     findChat
-      ✓ resolves a chat by UUID primary key (3 ms)
-      ✓ resolves a chat by public chatId string without touching findByPk
+      ✓ resolves a chat by UUID primary key (4 ms)
+      ✓ resolves a chat by public chatId string without touching findByPk (1 ms)
     resolveMessageFree
       ✓ doctor messages are always free (doctor_initiated)
       ✓ first message in a chat is free
-      ✓ completed appointment within the window makes messages free (1 ms)
+      ✓ completed appointment within the window makes messages free
       ✓ without appointment in the window the message is paid
     chargeMessagePayment
-      ✓ returns failure when the patient has insufficient balance
+      ✓ returns failure when the patient has insufficient balance (1 ms)
       ✓ charges the default price and creates a completed transaction (1 ms)
       ✓ credits the doctor share after a successful charge (1 ms)
     isMessageFree
@@ -69,14 +69,14 @@ PASS tests/paymentService.test.js
 PASS tests/errorHandler.test.js
   errorHandler middleware
     notFound
-      ✓ returns 404 with structured JSON and endpoint info (1 ms)
+      ✓ returns 404 with structured JSON and endpoint info (2 ms)
     errorHandler
       ✓ uses the error status and code when provided (1 ms)
-      ✓ logs the error with request context (method, url, code, status) (3 ms)
-      ✓ includes the stack trace in the log for 500 errors (1 ms)
+      ✓ logs the error with request context (method, url, code, status) (4 ms)
+      ✓ includes the stack trace in the log for 500 errors (2 ms)
       ✓ defaults to 500 INTERNAL_ERROR for unknown errors (1 ms)
-      ✓ hides internal error messages from clients in production
-      ✓ never leaks error messages with status < 500 even in production (1 ms)
+      ✓ hides internal error messages from clients in production (1 ms)
+      ✓ never leaks error messages with status < 500 even in production
     wrapAsync
       ✓ passes errors from rejected async handlers to next()
       ✓ does not call next for successful handlers (1 ms)
@@ -84,22 +84,22 @@ PASS tests/errorHandler.test.js
 PASS tests/security/paymentsSecurity.test.js
   Server-side price pinning (services/paymentService.js)
     ✓ a message payment cannot be made cheaper by the client (1 ms)
-    ✓ a file payment cannot be made cheaper by the client (1 ms)
+    ✓ a file payment cannot be made cheaper by the client
     ✓ subscription prices are fixed (monthly=500, yearly=5000)
-    ✓ chargeMessagePayment ignores the amount option (1 ms)
+    ✓ chargeMessagePayment ignores the amount option
   Payment schema validation
-    ✓ rejects zero, negative, string amounts and invalid types (4 ms)
-    ✓ test-balance deposit is capped at 100000 (1 ms)
+    ✓ rejects zero, negative, string amounts and invalid types (6 ms)
+    ✓ test-balance deposit is capped at 100000
   HTTP hardening
-    ✓ oversized JSON bodies are rejected with 413 (default 100kb limit) (22 ms)
+    ✓ oversized JSON bodies are rejected with 413 (default 100kb limit) (27 ms)
 
 PASS tests/backupIntegrity.test.js
   backup integrity (этап 6: SHA-256 чексуммы)
-    ✓ positive: чексумма совпала — restore проходит до конца (31 ms)
-    ✓ битый файл — 422 INTEGRITY_ERROR, до update дело не доходит (14 ms)
-    ✓ старый бэкап без чексуммы — проверка пропускается, restore работает (26 ms)
-    ✓ сжатый бэкап (gzip до шифрования) — restore разжимает и проходит (27 ms)
-    ✓ verifyBackupPassword: битый файл не валиден, целостный — валиден (40 ms)
+    ✓ positive: чексумма совпала — restore проходит до конца (37 ms)
+    ✓ битый файл — 422 INTEGRITY_ERROR, до update дело не доходит (17 ms)
+    ✓ старый бэкап без чексуммы — проверка пропускается, restore работает (33 ms)
+    ✓ сжатый бэкап (gzip до шифрования) — restore разжимает и проходит (33 ms)
+    ✓ verifyBackupPassword: битый файл не валиден, целостный — валиден (49 ms)
 
 FAIL tests/security/registerSecurity.test.js
   ● Test suite failed to run
@@ -126,9 +126,9 @@ FAIL tests/security/registerSecurity.test.js
 
 PASS tests/coreAesGcm.test.js
   E2E cross-platform contract (AES-256-GCM known-answer vectors)
-    ✓ фикстура — векторы ожидаемой формы (размеры полей) (4 ms)
-    ✓ Node crypto воспроизводит ct и tag вектора v1 (1 ms)
-    ✓ Node crypto воспроизводит ct и tag вектора v2
+    ✓ фикстура — векторы ожидаемой формы (размеры полей) (5 ms)
+    ✓ Node crypto воспроизводит ct и tag вектора v1
+    ✓ Node crypto воспроизводит ct и tag вектора v2 (1 ms)
     ✓ Node crypto воспроизводит ct и tag вектора v3
     ✓ Node crypto расшифровывает эталонный вектор v1 (1 ms)
     ✓ Node crypto расшифровывает эталонный вектор v2
@@ -137,12 +137,12 @@ PASS tests/coreAesGcm.test.js
 
 PASS tests/security/jwtSecurity.test.js
   JWT security (middleware/auth.js)
-    ✓ accepts a valid HS256 token (7 ms)
-    ✓ rejects a forged alg:none token (2 ms)
-    ✓ rejects a token signed with the wrong secret (2 ms)
-    ✓ rejects an expired token (2 ms)
-    ✓ rejects a tampered payload (signature mismatch) (2 ms)
-    ✓ rejects a missing or malformed Authorization header (3 ms)
+    ✓ accepts a valid HS256 token (9 ms)
+    ✓ rejects a forged alg:none token (3 ms)
+    ✓ rejects a token signed with the wrong secret (3 ms)
+    ✓ rejects an expired token (3 ms)
+    ✓ rejects a tampered payload (signature mismatch) (3 ms)
+    ✓ rejects a missing or malformed Authorization header (4 ms)
 
 PASS tests/e2eEnvelope.test.js
   validateE2EEnvelope
@@ -150,19 +150,19 @@ PASS tests/e2eEnvelope.test.js
     ✓ accepts multiple recipients up to the limit
     ✓ rejects non-object, null and undefined envelopes (1 ms)
     ✓ rejects wrong version or algorithm
-    ✓ rejects malformed ephemeral public key
-    ✓ rejects malformed nonce (1 ms)
-    ✓ rejects missing, empty or oversized boxes
+    ✓ rejects malformed ephemeral public key (1 ms)
+    ✓ rejects malformed nonce
+    ✓ rejects missing, empty or oversized boxes (1 ms)
     ✓ rejects an envelope larger than the total limit (2 ms)
 
 PASS tests/cryptoService.test.js
   CryptoService
-    ✓ generates a valid X25519 key pair (38 ms)
-    ✓ both sides derive the same shared secret (ECDH) (79 ms)
-    ✓ encrypts and decrypts a message (2 ms)
+    ✓ generates a valid X25519 key pair (48 ms)
+    ✓ both sides derive the same shared secret (ECDH) (108 ms)
+    ✓ encrypts and decrypts a message (3 ms)
     ✓ rejects decryption with a wrong key (2 ms)
-    ✓ encrypts and decrypts objects (JSON)
-    ✓ encrypts and decrypts file buffers (1 ms)
+    ✓ encrypts and decrypts objects (JSON) (1 ms)
+    ✓ encrypts and decrypts file buffers
     ✓ hash functions are deterministic
     ✓ HMAC verify works and rejects tampering (1 ms)
 
@@ -203,50 +203,50 @@ PASS tests/cryptoService.test.js
 
 PASS tests/fileCleanupService.test.js
   FileCleanupService.cleanupExpiredFiles
-    ✓ uses deleteAt and a 3-day fallback only for autoDelete legacy rows (1 ms)
-    ✓ deletes only rows returned as expired and marks them deleted after MinIO succeeds (2 ms)
-    ✓ does not mark a row deleted if MinIO removal fails (3 ms)
+    ✓ uses deleteAt and a 3-day fallback only for autoDelete legacy rows (2 ms)
+    ✓ deletes only rows returned as expired and marks them deleted after MinIO succeeds (3 ms)
+    ✓ does not mark a row deleted if MinIO removal fails (5 ms)
 
 PASS tests/coreInterop.test.js
   E2E cross-platform contract (canonical NaCl crypto_box vector)
     ✓ фикстура — канонический вектор NaCl (размеры полей) (1 ms)
-    ✓ tweetnacl воспроизводит эталонный шифртекст байт-в-байт (41 ms)
-    ✓ tweetnacl открывает эталонный бокс ключом получателя Bob (21 ms)
+    ✓ tweetnacl воспроизводит эталонный шифртекст байт-в-байт (43 ms)
+    ✓ tweetnacl открывает эталонный бокс ключом получателя Bob (32 ms)
 
 PASS tests/compress.test.js
   compress hot-path (этап 6: gzip бэкапов)
-    ✓ backend экспортируется: native | fallback
+    ✓ backend экспортируется: native | fallback (1 ms)
     ✓ roundtrip: типичный JSON бэкапа сжимается и восстанавливается (1 ms)
     ✓ gzip-заголовок RFC 1952 (1f 8b 08); пустой буфер тоже валиден
     ✓ parity с node:zlib в обе стороны
-    ✓ битый/обрезанный поток — исключение, не паника (2 ms)
+    ✓ битый/обрезанный поток — исключение, не паника (4 ms)
     ✓ честно: если native-аддон доступен — cross-parity и на нём
 
 PASS tests/checksum.test.js
   checksum hot-path (этап 6)
     ✓ backend экспортируется: native | fallback (1 ms)
     ✓ KAT FIPS 180-4: SHA-256("abc") и пустой буфер
-    ✓ parity с node:crypto на произвольном буфере
-    ✓ sha256Verify: совпадение (в т.ч. uppercase/пробелы), несовпадение (1 ms)
-    ✓ честно: если native-аддон доступен — parity с node:crypto и на нём
+    ✓ parity с node:crypto на произвольном буфере (1 ms)
+    ✓ sha256Verify: совпадение (в т.ч. uppercase/пробелы), несовпадение
+    ✓ честно: если native-аддон доступен — parity с node:crypto и на нём (1 ms)
 
 PASS tests/bcryptInterop.test.js
   Контрактные векторы bcrypt (OpenBSD KAT, фикстура core/tests)
     ✓ вектор v1: серверный bcrypt верифицирует KAT (2 ms)
-    ✓ вектор v2: серверный bcrypt верифицирует KAT (1 ms)
-    ✓ вектор v3: серверный bcrypt верифицирует KAT (1 ms)
+    ✓ вектор v2: серверный bcrypt верифицирует KAT (3 ms)
+    ✓ вектор v3: серверный bcrypt верифицирует KAT (2 ms)
     ✓ вектор v4: серверный bcrypt верифицирует KAT (2 ms)
-    ✓ неверный пароль отклоняется (2 ms)
+    ✓ неверный пароль отклоняется (3 ms)
 
 PASS tests/fileRetention.test.js
   parseFileRetention
     ✓ does not treat multipart string "false" as enabled (1 ms)
-    ✓ creates deleteAt only for explicit true and uses requested days (1 ms)
-    ✓ defaults invalid retention values and caps excessive values
+    ✓ creates deleteAt only for explicit true and uses requested days
+    ✓ defaults invalid retention values and caps excessive values (1 ms)
     ✓ defaults missing retention to three days when auto-delete is enabled (1 ms)
 
 Test Suites: 3 failed, 14 passed, 17 total
 Tests:       87 passed, 87 total
 Snapshots:   0 total
-Time:        1.865 s
+Time:        2.41 s
 Ran all test suites.
