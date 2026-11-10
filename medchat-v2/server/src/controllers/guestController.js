@@ -284,6 +284,122 @@ class GuestController {
       next(error);
     }
   }
+
+  /**
+   * POST /api/guest/transfer/init
+   * Старое устройство: создать одноразовый токен переноса данных (10 минут).
+   * Секретные ключи через сервер НЕ передаются: сервер получит только
+   * шифротекст blob'а, ключ шифрования едет в QR между устройствами.
+   */
+  static async transferInit(req, res, next) {
+    try {
+      const user = await models.User.findByPk(req.user.id);
+      if (!user || user.status !== 'active') {
+        throw new AppError('Пользователь не найден', 404, 'NOT_FOUND');
+      }
+      // Новый init гасит предыдущие незавершённые токены: активный один.
+      await models.DataTransfer.update(
+        { consumedAt: new Date() },
+        { where: { userId: user.id, consumedAt: null } }
+      );
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      await models.DataTransfer.create({ token, userId: user.id, expiresAt });
+      res.status(201).json({ token, expiresAt: expiresAt.toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/guest/transfer/:token/blob { payload }
+   * Старое устройство загружает ЗАШИФРОВАННЫЙ на устройстве blob
+   * (base64: nonce || secretbox-шифротекст). Ключа у сервера нет:
+   * приватные E2E-ключи для сервера недоступны.
+   */
+  static async transferBlob(req, res, next) {
+    try {
+      const token = String(req.params.token || '').toLowerCase().trim();
+      if (!TOKEN_RE.test(token)) {
+        throw new AppError('Некорректный токен переноса', 400, 'VALIDATION_ERROR');
+      }
+      const payload = String((req.body && req.body.payload) || '');
+      if (!payload || payload.length > 200 * 1024) {
+        throw new AppError('Некорректный payload переноса', 400, 'VALIDATION_ERROR');
+      }
+      const record = await models.DataTransfer.findOne({ where: { token } });
+      if (!record || record.userId !== req.user.id) {
+        throw new AppError('Перенос не найден', 404, 'NOT_FOUND');
+      }
+      if (record.consumedAt || record.expiresAt <= new Date()) {
+        throw new AppError('Срок действия переноса истёк', 410, 'TRANSFER_EXPIRED');
+      }
+      await record.update({ payload });
+      res.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/guest/transfer/consume { token }
+   * Новое устройство: одноразовое потребление токена переноса. Вход не
+   * требуется: 256-битный токен сам является секретом. Возвращает новую
+   * сессию (token/refreshToken/user) и шифрованный blob. Токен гасится,
+   * blob уничтожается: второй раз перенос не сработает.
+   */
+  static async transferConsume(req, res, next) {
+    try {
+      const token = String((req.body && req.body.token) || '').toLowerCase().trim();
+      if (!TOKEN_RE.test(token)) {
+        throw new AppError('Некорректный токен переноса', 400, 'VALIDATION_ERROR');
+      }
+      const record = await models.DataTransfer.findOne({ where: { token } });
+      if (!record) {
+        throw new AppError('Перенос не найден', 404, 'NOT_FOUND');
+      }
+      if (record.consumedAt) {
+        throw new AppError('Токен переноса уже использован', 410, 'TRANSFER_USED');
+      }
+      if (record.expiresAt <= new Date()) {
+        throw new AppError('Срок действия переноса истёк', 410, 'TRANSFER_EXPIRED');
+      }
+      if (!record.payload) {
+        throw new AppError('Данные переноса ещё не загружены со старого устройства', 409, 'TRANSFER_NOT_READY');
+      }
+      const user = await models.User.findByPk(record.userId);
+      if (!user || user.status !== 'active') {
+        throw new AppError('Пользователь недоступен', 410, 'GUEST_INACTIVE');
+      }
+      const patient = await models.Patient.findOne({ where: { userId: user.id } });
+      const payload = record.payload;
+      await record.update({ consumedAt: new Date(), payload: null });
+
+      const tokenPayload = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        clinicId: user.clinicId || null,
+        patientId: patient ? patient.id : null,
+      };
+      const accessToken = AuthService.generateToken(tokenPayload);
+      const refreshToken = await AuthService.generateRefreshToken({
+        id: user.id,
+        email: user.email,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+      });
+
+      res.json({
+        token: accessToken,
+        refreshToken,
+        user: sanitizeUser(user),
+        payload,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = GuestController;

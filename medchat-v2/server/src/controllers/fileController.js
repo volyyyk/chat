@@ -10,6 +10,45 @@ const CryptoService = require('../services/cryptoService');
 const fs = require('fs');
 const path = require('path');
 const { parseFileRetention } = require('../utils/fileRetention');
+const { canAccessChat, getAccessibleChatIds } = require('../utils/chatAccess');
+
+/**
+ * Владелец файла: сравниваем и с userId, и с профилями doctor/patient
+ * (ownerId для загрузок пациента/врача - это id профиля, не user.id).
+ */
+function isFileOwner(user, file) {
+  if (!user || !file) return false;
+  return !!(
+    user.id === file.ownerId ||
+    user.id === file.uploaderId ||
+    (user.doctorId && String(user.doctorId) === String(file.ownerId)) ||
+    (user.patientId && String(user.patientId) === String(file.ownerId))
+  );
+}
+
+/**
+ * Единые правила доступа к файлу (изоляция гостей и пользователей):
+ *  - system_admin: всё;
+ *  - владелец файла и тот, кто его загрузил: всё;
+ *  - visibility 'public': любой авторизованный пользователь;
+ *  - файл в чате (chatId): участники чата (canAccessChat). 'shared'
+ *    означает «общий внутри чата», а НЕ «общий для всего сервера»;
+ *  - 'shared'/'doctor_only'/'patient_only' без чата и без прав владельца:
+ *    доступ запрещён.
+ * Раньше 'shared'/'public' файлы мог скачать ЛЮБОЙ авторизованный
+ * пользователь по id (и увидеть в списке) - утечка данных между гостями.
+ */
+async function canAccessFile(user, file) {
+  if (!user || !file) return false;
+  if (user.role === 'system_admin') return true;
+  if (isFileOwner(user, file)) return true;
+  if (file.visibility === 'public') return true;
+  if (file.chatId) {
+    const chat = await models.Chat.findByPk(file.chatId);
+    return chat ? canAccessChat(user, chat) : false;
+  }
+  return false;
+}
 
 class FileController {
   /**
@@ -176,19 +215,9 @@ class FileController {
         throw new AppError('File not found', 404, 'NOT_FOUND');
       }
 
-      // Check access based on visibility
-      if (file.visibility === 'private') {
-        if (req.user.role !== 'system_admin' && req.user.id !== file.ownerId && req.user.id !== file.uploaderId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
-      } else if (file.visibility === 'doctor_only') {
-        if (req.user.role !== 'system_admin' && req.user.role !== 'doctor' && req.user.id !== file.ownerId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
-      } else if (file.visibility === 'patient_only') {
-        if (req.user.role !== 'system_admin' && req.user.role !== 'patient' && req.user.id !== file.ownerId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
+      const allowed = await canAccessFile(req.user, file);
+      if (!allowed) {
+        throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
       // Increment download count
@@ -217,19 +246,9 @@ class FileController {
         throw new AppError('File not found', 404, 'NOT_FOUND');
       }
 
-      // Check access based on visibility
-      if (file.visibility === 'private') {
-        if (req.user.role !== 'system_admin' && req.user.id !== file.ownerId && req.user.id !== file.uploaderId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
-      } else if (file.visibility === 'doctor_only') {
-        if (req.user.role !== 'system_admin' && req.user.role !== 'doctor' && req.user.id !== file.ownerId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
-      } else if (file.visibility === 'patient_only') {
-        if (req.user.role !== 'system_admin' && req.user.role !== 'patient' && req.user.id !== file.ownerId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
+      const allowed = await canAccessFile(req.user, file);
+      if (!allowed) {
+        throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
       // Check if file is expired
@@ -293,13 +312,17 @@ class FileController {
         where.originalFilename = { [models.Sequelize.Op.iLike]: `%${search}%` };
       }
 
-      // For non-admin users, only show their files or files they have access to
+      // Non-admins: свои файлы, файлы своих профилей, public и файлы
+      // чатов, к которым есть доступ. Общий 'shared' без чата больше
+      // НЕ делает файл видимым всему серверу (изоляция гостей).
       if (req.user.role !== 'system_admin') {
+        const accessibleChatIds = await getAccessibleChatIds(req.user);
+        const ownerIds = [req.user.id, req.user.doctorId, req.user.patientId].filter(Boolean);
         where[models.Sequelize.Op.or] = [
-          { ownerId: req.user.id },
+          { ownerId: ownerIds },
           { uploaderId: req.user.id },
-          { visibility: 'shared' },
           { visibility: 'public' },
+          { chatId: { [models.Sequelize.Op.in]: accessibleChatIds } },
         ];
       }
 
@@ -345,7 +368,7 @@ class FileController {
       }
 
       // Check access (owner or system admin)
-      if (req.user.role !== 'system_admin' && req.user.id !== file.ownerId && req.user.id !== file.uploaderId) {
+      if (req.user.role !== 'system_admin' && !isFileOwner(req.user, file)) {
         throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
@@ -385,7 +408,7 @@ class FileController {
       }
 
       // Check access (owner or system admin)
-      if (req.user.role !== 'system_admin' && req.user.id !== file.ownerId && req.user.id !== file.uploaderId) {
+      if (req.user.role !== 'system_admin' && !isFileOwner(req.user, file)) {
         throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
@@ -425,11 +448,9 @@ class FileController {
         throw new AppError('File not found', 404, 'NOT_FOUND');
       }
 
-      // Check access based on visibility
-      if (file.visibility === 'private') {
-        if (req.user.role !== 'system_admin' && req.user.id !== file.ownerId && req.user.id !== file.uploaderId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
+      const allowed = await canAccessFile(req.user, file);
+      if (!allowed) {
+        throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
       // Generate presigned URL
@@ -455,11 +476,9 @@ class FileController {
         throw new AppError('File not found', 404, 'NOT_FOUND');
       }
 
-      // Check access
-      if (req.user.role !== 'system_admin') {
-        if (req.user.id !== file.ownerId && req.user.id !== file.uploaderId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
+      const allowed = await canAccessFile(req.user, file);
+      if (!allowed) {
+        throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
       res.json({
@@ -593,7 +612,7 @@ class FileController {
       }
 
       // Only the owner/uploader or a system admin may edit metadata
-      if (req.user.role !== 'system_admin' && req.user.id !== file.ownerId && req.user.id !== file.uploaderId) {
+      if (req.user.role !== 'system_admin' && !isFileOwner(req.user, file)) {
         throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
@@ -626,19 +645,9 @@ class FileController {
         throw new AppError('File not found', 404, 'NOT_FOUND');
       }
 
-      // Same access rules as download
-      if (file.visibility === 'private') {
-        if (req.user.role !== 'system_admin' && req.user.id !== file.ownerId && req.user.id !== file.uploaderId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
-      } else if (file.visibility === 'doctor_only') {
-        if (req.user.role !== 'system_admin' && req.user.role !== 'doctor' && req.user.id !== file.ownerId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
-      } else if (file.visibility === 'patient_only') {
-        if (req.user.role !== 'system_admin' && req.user.role !== 'patient' && req.user.id !== file.ownerId) {
-          throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
-        }
+      const allowed = await canAccessFile(req.user, file);
+      if (!allowed) {
+        throw new AppError('Access denied', 403, 'AUTHORIZATION_ERROR');
       }
 
       if (file.deleteAt && new Date() > new Date(file.deleteAt)) {

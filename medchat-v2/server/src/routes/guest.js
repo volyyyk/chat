@@ -94,4 +94,81 @@ router.post('/join', GuestController.join);
  */
 router.post('/upgrade', authenticate(), GuestController.upgrade);
 
+/**
+ * @swagger
+ * /api/guest/transfer/init:
+ *   post:
+ *     summary: Создать одноразовый токен переноса данных на новое устройство (10 минут)
+ *     tags: [Guest]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Токен переноса создан, предыдущие погашены
+ *       404:
+ *         description: Пользователь не найден
+ */
+router.post('/transfer/init', authenticate(), GuestController.transferInit);
+
+/**
+ * @swagger
+ * /api/guest/transfer/{token}/blob:
+ *   post:
+ *     summary: Загрузить шифрованный blob переноса (только владелец токена)
+ *     tags: [Guest]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [payload]
+ *             properties:
+ *               payload:
+ *                 type: string
+ *                 description: base64 (nonce || secretbox), ключ только в QR
+ *     responses:
+ *       200:
+ *         description: Blob сохранён
+ *       404:
+ *         description: Перенос не найден или чужой токен
+ *       410:
+ *         description: Срок действия истёк
+ */
+router.post('/transfer/:token/blob', authenticate(), GuestController.transferBlob);
+
+/**
+ * @swagger
+ * /api/guest/transfer/consume:
+ *   post:
+ *     summary: Одноразовое потребление токена переноса новым устройством
+ *     tags: [Guest]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token]
+ *             properties:
+ *               token:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Новая сессия (token/refreshToken/user) + шифрованный blob
+ *       409:
+ *         description: Blob ещё не загружен старым устройством
+ *       410:
+ *         description: Токен уже использован или истёк
+ */
+router.post('/transfer/consume', GuestController.transferConsume);
+
 module.exports = router;
