@@ -736,6 +736,7 @@ router.post('/oauth/vk', async (req, res, next) => {
       provider: 'vk',
       providerId: vkId,
       email: vkUser.email || tokenData.email || null,
+      phone: vkUser.phone || tokenData.phone || null,
       firstName: vkUser.first_name || null,
       lastName: vkUser.last_name || null,
       req,

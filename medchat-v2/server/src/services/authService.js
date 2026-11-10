@@ -490,7 +490,7 @@ class AuthService {
    * существующему аккаунту ТОЛЬКО если провайдер его верифицировал (VK ID);
    * Telegram email не отдаёт — заводится новый пользователь с synthetic email.
    */
-  static async oauthLogin({ provider, providerId, providerUsername, email, firstName, lastName, req }) {
+  static async oauthLogin({ provider, providerId, providerUsername, email, firstName, lastName, phone, req }) {
     if (!provider || !providerId) {
       throw new Error('provider and providerId are required');
     }
@@ -534,6 +534,24 @@ class AuthService {
         providerId: String(providerId),
         providerUsername: providerUsername || null,
       });
+    }
+
+    // 149-ФЗ ст. 10.1: идентификация по абонентскому номеру. VK ID может
+    // отдать телефон (scope phone): номер подтверждён самим провайдером,
+    // сохраняем как верифицированный. Если номер уже занят другим аккаунтом,
+    // тихо пропускаем (не блокируем вход).
+    if (phone && !user.phoneVerified) {
+      try {
+        const { Op } = require('sequelize');
+        const phoneTaken = await models.User.findOne({
+          where: { phone, id: { [Op.ne]: user.id } },
+        });
+        if (!phoneTaken) {
+          await user.update({ phone, phoneVerified: true });
+        }
+      } catch (e) {
+        // best-effort: телефон не критичен для входа
+      }
     }
 
     await user.update({
