@@ -27,13 +27,15 @@ const baseOptions = {
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
+  // express-rate-limit v8: дефолтный keyGenerator это req.ip с корректной
+  // обработкой IPv6 (ipKeyGenerator); кастомный (req) => req.ip больше не нужен
 };
 
 // Rate limiting configuration
 const rateLimiter = rateLimit({
   ...baseOptions,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 300, // 300 requests per window
+  // v8: опция называется limit (max - устаревший алиас v7)
+  limit: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 300, // 300 requests per window
   store: createRedisStore(),
   passOnStoreError: true, // serve requests even if Redis is temporarily down
   skip: (req) => {
@@ -65,7 +67,7 @@ const rateLimiter = rateLimit({
 // DISABLED brute-force protection for login too - now only /health is skipped.
 const authRateLimiter = rateLimit({
   ...baseOptions,
-  max: parseInt(process.env.RATE_LIMIT_AUTH_MAX) || 10, // 10 login attempts per window
+  limit: parseInt(process.env.RATE_LIMIT_AUTH_MAX) || 10, // 10 login attempts per window
   store: createRedisStore(),
   passOnStoreError: true,
   skip: (req) => {
