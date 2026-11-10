@@ -253,6 +253,35 @@ Smoke-тест: `npm run test:smoke` — поднимает сервер на :3
 - `GET /api/eprescriptions/:id/printable` — печатная форма HTML; специальности врача
   приходят из `doctor.specialtyDetails` (include через алиас, 65ec99c).
 
+### Guest (QR-приглашения, вход пациента без регистрации)
+
+- Модель `ChatInvite` (`chat_invites`): token 64 hex (crypto.randomBytes(32), unique),
+  doctorId, chatId, guestUserId, expiresAt, usedAt, revokedAt. Таблица создаётся
+  sequelize.sync() как остальные модели.
+- `POST /api/chats/invites` (врач, chatController.createInvite): один активный инвайт
+  на врача (предыдущие неиспользованные отзываются), срок 1..90 дней (дефолт 7);
+  ответ: token, inviteUrl (FRONTEND_URL/connect?token=...), qrImage (data URL,
+  пакет qrcode), expiresAt, doctor.
+- `GET /api/guest/invites/:token` (публично, guestController.preview):
+  valid/expired/alreadyUsed + врач/клиника/специальности, без ПД пациента.
+- `POST /api/guest/join` (публично, guestController.join): consent обязателен (152-ФЗ);
+  создаёт guest user (email guest-<16hex>@guest.medchat.local, случайный пароль,
+  role patient, consentGiven) + Patient (doctorId врача) + чат (зеркало
+  ChatController.create: CHAT_<ts>_<rand>, keyPair, ChatParticipant.bulkCreate);
+  привязывает инвайт (guestUserId, usedAt, chatId); повторный скан того же QR тем же
+  гостем = повторный вход (новые JWT, без дублей), новый гость не пройдёт;
+  ответ: token/refreshToken/user/patient/chat.
+- Роутер `src/routes/guest.js` смонтирован в index.js публично
+  (`app.use('/api/guest', guestRoutes)`, БЕЗ authenticate); спам держит глобальный
+  rateLimiter, перебор невозможен (256-бит токен).
+- Web: страница `src/pages/GuestConnectPage.js` на публичном маршруте /connect
+  (?token=...); после join делает setToken + localStorage userData и ПОЛНУЮ
+  перезагрузку на /chats/:id (AuthContext читает localStorage только при
+  монтировании). У врача в ChatsPage кнопка «Пригласить пациента по QR»
+  (POST /api/chats/invites) с показом QR-картинки.
+- E2E: гость входит без ключа устройства, поэтому сообщения врача идут в честном
+  plaintext-fallback; свой ключ гость регистрирует после входа через POST /api/keys.
+
 ### E2E-контракт (сквозное шифрование сообщений и файлов, d11762c → ed9a661)
 **Модель доверия**: сервер — реестр публичных ключей и транспорт; plaintext содержимого
 E2E-сообщений серверу недоступен (хранится только шифротекст). Метаданные (участники,

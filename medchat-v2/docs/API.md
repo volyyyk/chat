@@ -532,6 +532,75 @@ Update chat settings
 #### DELETE /api/chats/:id
 Delete chat
 
+### Guest Access (QR-приглашения, вход без регистрации)
+
+Вход пациента по QR-приглашению: врач создаёт одноразовый инвайт, пациент
+сканирует QR и попадает на страницу /connect фронтенда, даёт согласие на
+обработку персональных данных и сразу попадает в чат с врачом.
+
+#### Создать приглашение (врач)
+
+```http
+POST /api/chats/invites
+Authorization: Bearer <doctor_token>
+Content-Type: application/json
+
+{ "expiresInDays": 7 }
+```
+
+Ответ 201:
+
+```json
+{
+  "token": "<64 hex-символа>",
+  "inviteUrl": "https://medchat.ru/connect?token=<64 hex-символа>",
+  "qrImage": "data:image/png;base64,...",
+  "expiresAt": "2026-11-17T12:00:00.000Z",
+  "doctor": { "id": "...", "fullName": "Иванов И. И.", "clinic": { "id": "...", "name": "..." } }
+}
+```
+
+У врача один активный инвайт: создание нового отзывает предыдущие
+неиспользованные. Срок жизни: 1..90 дней, по умолчанию 7.
+
+#### Превью приглашения (публично)
+
+```http
+GET /api/guest/invites/:token
+```
+
+Ответ 200:
+
+```json
+{
+  "valid": true,
+  "expired": false,
+  "alreadyUsed": false,
+  "doctor": { "fullName": "Иванов И. И.", "clinic": { "name": "..." }, "specialties": ["..."] }
+}
+```
+
+#### Гостевой вход (публично)
+
+```http
+POST /api/guest/join
+Content-Type: application/json
+
+{ "token": "<64 hex-символа>", "consent": true, "firstName": "Имя", "lastName": "Фамилия" }
+```
+
+- `consent: true` обязателен (согласие на обработку ПД, 152-ФЗ), иначе 403 CONSENT_REQUIRED.
+- Первый вход создаёт гостевого пользователя (email-заглушка @guest.medchat.local,
+  парольный вход невозможен), пациента и чат с врачом; ответ:
+  `{ token, refreshToken, user, patient, chat }`.
+- Повторный скан того же QR тем же гостем даёт повторный вход (новые JWT, без дублей);
+  новый гость по использованному инвайту не пройдёт.
+- Ошибки: 400 VALIDATION_ERROR, 403 CONSENT_REQUIRED, 404 NOT_FOUND,
+  410 INVITE_EXPIRED / INVITE_REVOKED / DOCTOR_INACTIVE / GUEST_INACTIVE.
+
+Для промышленной эксплуатации рекомендуется SMS-верификация гостя
+(149-ФЗ ст. 10.1), см. LEGAL.md §5.
+
 ### Messages
 
 #### GET /api/chats/:chatId/messages
