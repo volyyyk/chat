@@ -1,4 +1,4 @@
-=== run 42781152374 job e2e-smoke Tue Nov 10 08:16:47 UTC 2026 ===
+=== run 42781590806 job e2e-smoke Tue Nov 10 08:19:59 UTC 2026 ===
 
 > medchat-server@2.0.1 test:smoke
 > node scripts/smoke-test.js
@@ -26,9 +26,9 @@ Base URL: http://127.0.0.1:3990
   ✓ врач всегда пишет бесплатно
 
 [4] Отправка бесплатного сообщения (последовательная связь)
-  ✗ сообщение отправлено и помечено как бесплатное :: 500
+  ✓ сообщение отправлено и помечено как бесплатное
   ✓ ответ врача отправлен
-  ✗ история сообщений читается обеими сторонами :: 3
+  ✓ история сообщений читается обеими сторонами
 
 [5] Платный поток: process -> отправка с paymentTransactionId
   ✓ платеж обработан (тестовый баланс)
@@ -41,17 +41,70 @@ Base URL: http://127.0.0.1:3990
   ✓ баланс клиники доступен администратору
 
 [6] Одновременная связь: 40 параллельных сообщений
-  ✗ 40/40 параллельных сообщений доставлено :: "0/40"
+  ✓ 40/40 параллельных сообщений доставлено
 
 [7] Socket.IO: комнаты, права, real-time доставка
   ✓ оба сокета подключены с JWT
   ✓ пациент 1 вошел в свой чат
   ✓ пациент 1 НЕ может войти в чужой чат (forbidden)
   ✓ индикатор печати доставлен врачу в реальном времени
-Smoke test crashed: Error: timeout waiting for "newMessage"
-    at Timeout._onTimeout (/home/runner/work/chat/chat/medchat-v2/server/scripts/smoke-test.js:154:43)
-    at listOnTimeout (node:internal/timers:585:17)
-    at process.processTimers (node:internal/timers:521:7)
+  ✓ новое сообщение доставлено врачу через Socket.IO
+  ✓ сокеты отключены
+
+[8] Приёмы (Appointments)
+  ✓ пациент 1 записался на приём
+  ✓ у пациента 1 есть приёмы (прошлый + новый)
+  ✓ врач подтвердил приём
+  ✓ врач видит приёмы пациентов
+  ✓ пациент 2 не видит чужой приём
+
+[9] Электронные рецепты (E-Prescriptions)
+  ✓ врач создал рецепт
+  ✓ medications сохранились как массив
+  ✓ врач подписал рецепт (route /:id/sign)
+  ✓ повторная подписка идемпотентна
+  ✓ пациент 1 видит свой рецепт
+  ✓ пациент 2 не видит чужой рецепт
+  ✓ GET /api/eprescriptions/statistics не перехватывается как /:id
+
+[10] Облачные бэкапы
+  ✓ бэкап создан
+  ✓ список бэкапов доступен
+  ✓ verify-password отвечает
+
+[11] Порядок роутов и статистика
+  ✓ GET /api/messages/unread-count отвечает 200 (не 404)
+  ✓ GET /api/payments/statistics отвечает 200
+  ✓ GET /api/transactions не 404
+  ✓ врач видит свои транзакции
+
+[12] E2E: реестр публичных ключей и зашифрованные конверты
+  ✓ пациент 1 зарегистрировал публичный ключ (201)
+  ✓ повторная регистрация = ротация ключа (200, rotated)
+  ✓ невалидный publicKey отклоняется (400)
+  ✓ врач зарегистрировал публичный ключ
+  ✓ GET /api/keys возвращает ключи с ротированным значением
+  ✓ ключи чата отдают активные ключи обоих участников
+  ✓ чужой пользователь не может собрать ключи чата (403)
+  ✓ E2E-сообщение принято: content пуст, конверт в metadata.e2e
+  ✓ plaintext рядом с конвертом отклоняется (400)
+  ✓ конверт без бокса отправителя отклоняется (400)
+  ✓ врач читает E2E-сообщение: только шифротекст, без plaintext
+  ✓ деактивация ключа устройства (DELETE /api/keys/:keyId)
+  ✓ после деактивации в реестре чата остались только активные ключи
+
+[13] Поиск по сообщениям (pg_trgm + GIN, /api/messages/search)
+  ✓ врач находит seed-сообщение «…по результатам анализов» глобальным поиском
+  ✓ query короче 2 символов отклоняется (400)
+  ✓ мусорный запрос возвращает пустой результат
+  ✓ поиск с chatId: пациент 1 находит «лекарство» в своём чате
+  ✓ поиск в чужом чате отклоняется (403)
+  ✓ глобальный поиск изолирован: пациент 1 НЕ видит сообщения чата пациента 2
+
+==============================================
+Проверок: 69, ошибок: 1
+==============================================
+SMOKE TEST FAILED
 ---- server stderr (tail) ----
 ◇ injected env (0) from .env
 ◇ injected env (0) from .env
@@ -108,39 +161,17 @@ Smoke test crashed: Error: timeout waiting for "newMessage"
   ]
 }
 
---- SERVER STDOUT TAIL (winston writes error logs to stdout!) ---
-t/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
-    at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
-2026-11-10 08:16:50 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
-    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
-    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async PostgresQueryInterface.insert (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
-    at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
-    at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
-    at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
-2026-11-10 08:16:50 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
-    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
-    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async PostgresQueryInterface.insert (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
-    at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
-    at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
-    at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
-2026-11-10 08:16:50 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
-    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
-    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async PostgresQueryInterface.insert (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
-    at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
-    at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
-    at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
-2026-11-10 08:16:50 [error] [INTERNAL_ERROR] invalid input value for enum enum_messages_free_message_reason: "new_chat_window"  Error
-    at Query.run (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
-    at /home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/sequelize.js:315:28
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async PostgresQueryInterface.insert (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/dialects/abstract/query-interface.js:308:21)
-    at async model.save (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:2490:35)
-    at async Message.create (/home/runner/work/chat/chat/medchat-v2/server/node_modules/sequelize/lib/model.js:1362:12)
-    at async sendMessage (/home/runner/work/chat/chat/medchat-v2/server/src/controllers/chatController.js:434:23)
+--- SERVER STDOUT TAIL (winston error logs go here) ---
+✅ Redis client connected.
+✅ Database connection has been established successfully (test).
+2026-11-10 08:20:01 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/7131ab27-fdd5-43f3-b1c8-7c628d5277e5" requestId="dd09dcf6-5379-460f-87e2-d509f824321a" userId="d976fbc4-546d-4e08-8c71-74129915b729" stack=undefined
+2026-11-10 08:20:01 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/beb1767c-060d-482c-9538-7b36cba2afcb" requestId="2cfd2c43-e966-4166-bf9a-030718fe6678" userId="9e54b986-ee3a-489b-9e34-ebf4ac2fd7a5" stack=undefined
+2026-11-10 08:20:01 [error] [TRANSACTION_ALREADY_USED] Payment transaction has already been used code="TRANSACTION_ALREADY_USED" status=409 method="POST" url="/api/chats/7131ab27-fdd5-43f3-b1c8-7c628d5277e5/messages" requestId="13cfa69b-fe99-4ae4-941e-0af6f1b689db" userId="9e54b986-ee3a-489b-9e34-ebf4ac2fd7a5" stack=undefined
+2026-11-10 08:20:02 [error] [FORBIDDEN] Cannot access this appointment code="FORBIDDEN" status=403 method="GET" url="/api/appointments/073880bc-b412-488b-9199-9e79cdb658da" requestId="4f2bde20-7067-4568-a0e3-c2c8bef64418" userId="9e54b986-ee3a-489b-9e34-ebf4ac2fd7a5" stack=undefined
+2026-11-10 08:20:02 [error] [FORBIDDEN] Cannot access this e-prescription code="FORBIDDEN" status=403 method="GET" url="/api/eprescriptions/b5691495-3213-4b5e-b8d7-7c9dbb08c54f" requestId="e8e4ebc6-7b43-439e-ab19-6cfaab30044b" userId="9e54b986-ee3a-489b-9e34-ebf4ac2fd7a5" stack=undefined
+2026-11-10 08:20:02 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/chats/beb1767c-060d-482c-9538-7b36cba2afcb/keys" requestId="b3639758-217c-4da9-8295-ed2b12f294ee" userId="9e54b986-ee3a-489b-9e34-ebf4ac2fd7a5" stack=undefined
+2026-11-10 08:20:02 [error] [VALIDATION_ERROR] content must be empty for E2E messages (send ciphertext in envelope.boxes) code="VALIDATION_ERROR" status=400 method="POST" url="/api/chats/beb1767c-060d-482c-9538-7b36cba2afcb/messages" requestId="ba41911b-93f6-4db1-be11-decda5b6481e" userId="d976fbc4-546d-4e08-8c71-74129915b729" stack=undefined
+2026-11-10 08:20:02 [error] [VALIDATION_ERROR] E2E envelope must include a box for the sender (own devices/history) code="VALIDATION_ERROR" status=400 method="POST" url="/api/chats/beb1767c-060d-482c-9538-7b36cba2afcb/messages" requestId="fefd4de0-8562-46c5-a4e7-80b43c8df5bb" userId="d976fbc4-546d-4e08-8c71-74129915b729" stack=undefined
+2026-11-10 08:20:02 [error] [VALIDATION_ERROR] Search query must be at least 2 characters long code="VALIDATION_ERROR" status=400 method="GET" url="/api/messages/search?query=%D0%B0" requestId="528f51b1-5223-4354-9a64-cfe8930fdf6c" userId="9f85ce2d-d8f4-4250-9cc2-211b6b73bea8" stack=undefined
+2026-11-10 08:20:02 [error] [AUTHORIZATION_ERROR] Access denied code="AUTHORIZATION_ERROR" status=403 method="GET" url="/api/messages/search?chatId=beb1767c-060d-482c-9538-7b36cba2afcb&query=%D0%BB%D0%B5%D0%BA%D0%B0%D1%80%D1%81%D1%82%D0%B2%D0%BE" requestId="00334f0a-98f5-482a-b73a-563cd2ad1230" userId="9e54b986-ee3a-489b-9e34-ebf4ac2fd7a5" stack=undefined
 
