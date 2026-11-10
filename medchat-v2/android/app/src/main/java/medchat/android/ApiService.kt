@@ -67,6 +67,7 @@ data class ChatSummary(
     val id: String,
     val chatId: String,
     val title: String,
+    val specialty: String,
     val lastMessageText: String,
     val lastMessageAt: String,
     val doctorUserId: String?,
@@ -153,7 +154,7 @@ class ApiService private constructor(val baseUrl: String) {
             connection.requestMethod = method
             connection.connectTimeout = 15000
             connection.readTimeout = 15000
-            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             if (authorized) {
                 token?.let { connection.setRequestProperty("Authorization", "Bearer " + it) }
             }
@@ -223,7 +224,8 @@ class ApiService private constructor(val baseUrl: String) {
             ChatSummary(
                 id = anyId(row.opt("id")) ?: "",
                 chatId = anyId(row.opt("chatId")) ?: anyId(row.opt("id")) ?: "",
-                title = row.optString("title"),
+                title = row.optString("title").ifEmpty { row.optString("doctorName") },
+                specialty = row.optString("specialty").ifEmpty { row.optJSONObject("doctor")?.optString("specialty").orEmpty() },
                 lastMessageText = row.optString("lastMessageText"),
                 lastMessageAt = row.optString("lastMessageAt"),
                 doctorUserId = participantId(row.opt("doctor")),
@@ -272,6 +274,7 @@ class ApiService private constructor(val baseUrl: String) {
         if (envelope != null) {
             body.put("envelope", envelope.json())
         }
+        ApiLog.record("POST message target chatId=" + chatId)
         request("/api/chats/" + chatId + "/messages", "POST", body)
     }
 
