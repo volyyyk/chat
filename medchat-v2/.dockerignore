@@ -1,0 +1,19 @@
+# Secrets and local-only environment files
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.prod.example
+
+# Dependencies and generated outputs
+**/node_modules
+**/coverage
+**/build
+**/dist
+**/.gradle
+**/.idea
+**/.run
+**/logs
+**/*.log
+
+# Git metadata
+.git
