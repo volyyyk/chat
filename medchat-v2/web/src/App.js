@@ -12,6 +12,7 @@ import ChatsPage from './pages/ChatsPage';
 import ChatPage from './pages/ChatPage';
 import FilesPage from './pages/FilesPage';
 import SettingsPage from './pages/SettingsPage';
+import GuestConnectPage from './pages/GuestConnectPage';
 
 function Protected({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -31,6 +32,7 @@ function AppRoutes() {
       <Route path="/chats/:chatId" element={<Protected><ChatPage /></Protected>} />
       <Route path="/files" element={<Protected><FilesPage /></Protected>} />
       <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
+      <Route path="/connect" element={<GuestConnectPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
