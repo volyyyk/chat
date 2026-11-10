@@ -157,6 +157,9 @@ fun MedchatApp() {
             api = null
             userId = null
             openChat = null
+            selectedChatId = null
+            messages.clear()
+            busy = false
             screen = "login"
         }
 
@@ -468,7 +471,7 @@ fun MedchatApp() {
             "chat" -> {
                 val chat = openChat
                 if (chat == null) {
-                    ChatsScreen(chats, busy, status, onOpen = { c ->
+                    ChatsScreen(chats, busy, status, onSettings = { screen = "settings" }, onOpen = { c ->
                         openChatById(c)
                     })
                 } else {
