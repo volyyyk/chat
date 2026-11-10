@@ -261,7 +261,7 @@ class BallSim {
             val a = i.toFloat() / n * 2.0 * PI
             homeA[i] = a.toFloat()
             xs[i] = w / 2f + cos(a).toFloat() * r
-            ys[i] = h * 0.18f + sin(a).toFloat() * r
+            ys[i] = h * 0.32f + sin(a).toFloat() * r
             pxs[i] = xs[i]
             pys[i] = ys[i]
         }
@@ -311,7 +311,7 @@ class BallSim {
             return
         }
         val c = center()
-        val startY = h * 0.18f
+        val startY = h * 0.32f
         val holdY = pegY + pegR + r * 0.92f
         var pull = 0.045f
         var grav = 0.10f
