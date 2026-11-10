@@ -8,6 +8,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Лёгкая эмуляция MedChat API для смоук-тестов клиентов с телефона.
@@ -21,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD("0.0.0.0", port) {
 
-    private val messages = ConcurrentHashMap<String, MutableList<JSONObject>>()
+    private val messages = ConcurrentHashMap<String, CopyOnWriteArrayList<JSONObject>>()
     private val freeUntil = ConcurrentHashMap<String, Long>()
 
     private val chats: List<JSONObject> = listOf(
@@ -51,9 +52,9 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
     }
 
     private fun seedMessages(chatId: String) {
-        messages[chatId] = mutableListOf(
+        messages[chatId] = CopyOnWriteArrayList(listOf(
             msg(chatId, "doctor-mock", "Здравствуйте! Чем могу помочь?", System.currentTimeMillis() - HOUR)
-        )
+        ))
     }
 
     override fun serve(session: IHTTPSession): Response {
@@ -186,7 +187,7 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
         val b = body(session)
         val content = b.optString("content", "").ifEmpty { b.optString("text", "(пусто)") }
         val m = msg(chatId, "user-mock-patient", content, System.currentTimeMillis())
-        messages.getOrPut(chatId) { mutableListOf() }.add(m)
+        messages.computeIfAbsent(chatId) { CopyOnWriteArrayList() }.add(m)
         val payload = JSONObject()
             .put("success", true)
             .put("data", m)
@@ -245,7 +246,7 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
         val html = "<html><body><h1>MedChat mock server</h1>" +
             "<p>Эндпоинты: /health, /api/auth/login, /api/chats, " +
             "/api/chats/{id}/messages, /api/chats/{id}/check-free</p></body></html>"
-        return cors(NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "text/html", html))
+        return cors(NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", html))
     }
 
     private fun cors(r: Response): Response {
@@ -255,16 +256,15 @@ class MockServer(val port: Int, private val onLog: (String) -> Unit) : NanoHTTPD
         return r
     }
 
-    private fun body(session: IHTTPSession): JSONObject = try {
+    private fun body(session: IHTTPSession): JSONObject {
         val map = HashMap<String, String>()
         session.parseBody(map)
-        JSONObject(map["postData"] ?: "{}")
-    } catch (_: Exception) {
-        JSONObject()
+        // Never silently turn a UTF-8 parse failure into an empty message.
+        return JSONObject(map["postData"] ?: "{}")
     }
 
     companion object {
-        private const val MIME_JSON = "application/json"
+        private const val MIME_JSON = "application/json; charset=utf-8"
         private const val HOUR = 3600_000L
         private const val FREE_WINDOW_MS = 24 * HOUR // как NEW_CHAT_FREE_HOURS=24 на сервере
         private val ISO = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
