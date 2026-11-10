@@ -36,7 +36,7 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: docker.io/pgsty/silo:RELEASE.2026-11-09T00-00-00Z
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -45,7 +45,7 @@ services:
     volumes:
       - miniodata:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "silo", "healthcheck", "ready"]
       interval: 15s
       timeout: 5s
       retries: 5
