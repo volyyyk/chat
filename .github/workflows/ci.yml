@@ -20,6 +20,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dev-compose-smoke:
+    name: Local Docker Compose smoke (server + web)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build and start local stack
+        run: docker compose --project-name medchat-ci --file medchat-v2/docker/docker-compose.yml --profile web up -d --build
+
+      - name: Seed demo accounts
+        run: docker compose --project-name medchat-ci --file medchat-v2/docker/docker-compose.yml exec -T server npm run seed:test
+
+      - name: Verify API and web
+        run: |
+          set -e
+          curl --retry 20 --retry-delay 3 --retry-connrefused --fail http://127.0.0.1:3000/health
+          curl --retry 20 --retry-delay 3 --retry-connrefused --fail --output /dev/null http://127.0.0.1:3002/
+
+      - name: Verify data services are localhost-only
+        run: |
+          set -e
+          docker compose --project-name medchat-ci --file medchat-v2/docker/docker-compose.yml port postgres 5432 | grep -q '127.0.0.1'
+          docker compose --project-name medchat-ci --file medchat-v2/docker/docker-compose.yml port redis 6379 | grep -q '127.0.0.1'
+          docker compose --project-name medchat-ci --file medchat-v2/docker/docker-compose.yml port minio 9000 | grep -q '127.0.0.1'
+
+      - name: Collect stack logs
+        if: failure()
+        run: docker compose --project-name medchat-ci --file medchat-v2/docker/docker-compose.yml logs --no-color
+
+      - name: Stop stack and remove test volumes
+        if: always()
+        run: docker compose --project-name medchat-ci --file medchat-v2/docker/docker-compose.yml --profile web down -v
+
   docker-server-build:
     name: Server Docker image (Node 22)
     runs-on: ubuntu-latest
