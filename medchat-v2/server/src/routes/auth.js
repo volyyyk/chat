@@ -601,5 +601,150 @@ router.post('/phone/verify', authenticate(), validate(phoneVerifySchema), async 
     next(error);
   }
 });
+/**
+ * @swagger
+ * /api/auth/oauth/config:
+ *   get:
+ *     summary: Какие OAuth-провайдеры включены (публично)
+ *     tags: [Authentication]
+ *     responses:
+ *       200:
+ *         description: Флаги включённости провайдеров
+ */
+router.get('/oauth/config', (req, res) => {
+  res.json({
+    telegram: {
+      enabled: !!process.env.TELEGRAM_BOT_TOKEN,
+      botUsername: process.env.TELEGRAM_BOT_USERNAME || null,
+    },
+    vk: {
+      enabled: !!process.env.VK_CLIENT_ID,
+      clientId: process.env.VK_CLIENT_ID || null,
+    },
+    // MAX: Bot API есть, но публикация ботов — только через верифицированное
+    // юрлицо РФ; публичного OAuth для всех нет. WhatsApp: официального
+    // бесплатного «входа через WhatsApp» не существует (только платные
+    // OTP-сервисы). Оба — осознанно выключены, см. readme_for_AI.md.
+    max: { enabled: false },
+    whatsapp: { enabled: false },
+  });
+});
+
+/**
+ * @swagger
+ * /api/auth/oauth/telegram:
+ *   post:
+ *     summary: Вход через Telegram Login Widget (публично)
+ *     tags: [Authentication]
+ *     responses:
+ *       200:
+ *         description: Сессия создана (как POST /api/auth/login)
+ *       401:
+ *         description: Подпись неверна или данные устарели
+ *       501:
+ *         description: Провайдер не настроен (TELEGRAM_BOT_TOKEN)
+ */
+router.post('/oauth/telegram', async (req, res, next) => {
+  try {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      return res.status(501).json({ error: 'Telegram auth is not configured' });
+    }
+    const data = req.body || {};
+    const check = require('../utils/oauthVerify').verifyTelegramAuth(data, botToken);
+    if (!check.ok) {
+      return res.status(401).json({ error: check.reason });
+    }
+    const result = await AuthService.oauthLogin({
+      provider: 'telegram',
+      providerId: String(data.id),
+      providerUsername: data.username || null,
+      firstName: data.first_name || null,
+      lastName: data.last_name || null,
+      req,
+    });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/oauth/vk:
+ *   post:
+ *     summary: Вход через VK ID (обмен authorization_code, публично)
+ *     tags: [Authentication]
+ *     responses:
+ *       200:
+ *         description: Сессия создана (как POST /api/auth/login)
+ *       400:
+ *         description: Нужны code и codeVerifier (PKCE)
+ *       401:
+ *         description: Обмен кода не удался
+ *       501:
+ *         description: Провайдер не настроен (VK_CLIENT_ID)
+ */
+router.post('/oauth/vk', async (req, res, next) => {
+  try {
+    const clientId = process.env.VK_CLIENT_ID;
+    if (!clientId) {
+      return res.status(501).json({ error: 'VK ID auth is not configured' });
+    }
+    const { code, codeVerifier, deviceId } = req.body || {};
+    if (!code || !codeVerifier) {
+      return res.status(400).json({ error: 'code and codeVerifier are required' });
+    }
+    // OAuth 2.1 + PKCE: обмен authorization_code на токены (id.vk.ru).
+    const form = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: clientId,
+      code,
+      code_verifier: codeVerifier,
+    });
+    if (process.env.VK_CLIENT_SECRET) form.set('client_secret', process.env.VK_CLIENT_SECRET);
+    if (deviceId) form.set('device_id', deviceId);
+    const tokenRes = await fetch('https://id.vk.ru/oauth2/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+    const tokenData = await tokenRes.json().catch(() => ({}));
+    if (!tokenRes.ok || !tokenData.access_token) {
+      return res.status(401).json({ error: 'VK ID code exchange failed' });
+    }
+    // Профиль (uid, имя, email) — best-effort: без него вход всё равно работает.
+    let vkUser = {};
+    try {
+      const infoRes = await fetch('https://id.vk.ru/oauth2/user_info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ access_token: tokenData.access_token }).toString(),
+      });
+      if (infoRes.ok) {
+        const j = await infoRes.json();
+        vkUser = (j && j.user) || j || {};
+      }
+    } catch (e) {
+      vkUser = {};
+    }
+    const vkId = String(vkUser.uid || tokenData.user_id || '');
+    if (!vkId) {
+      return res.status(401).json({ error: 'VK ID did not return user id' });
+    }
+    const result = await AuthService.oauthLogin({
+      provider: 'vk',
+      providerId: vkId,
+      email: vkUser.email || tokenData.email || null,
+      firstName: vkUser.first_name || null,
+      lastName: vkUser.last_name || null,
+      req,
+    });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
 

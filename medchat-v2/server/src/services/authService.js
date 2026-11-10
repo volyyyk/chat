@@ -455,6 +455,98 @@ class AuthService {
   }
 
   /**
+   * Выдать сессию (JWT + refresh + Session): общий хвост login/oauthLogin.
+   */
+  static async issueSession(user, req) {
+    const tokenPayload = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      clinicId: user.clinicId,
+    };
+    const accessToken = this.generateToken(tokenPayload);
+    const refreshToken = await this.generateRefreshToken({
+      id: user.id,
+      email: user.email,
+      ipAddress: req && req.ip,
+      userAgent: req && req.get ? req.get('User-Agent') : undefined,
+    });
+    await models.Session.create({
+      userId: user.id,
+      sessionId: uuidv4(),
+      token: accessToken,
+      ipAddress: req && req.ip,
+      userAgent: req && req.get ? req.get('User-Agent') : undefined,
+      deviceType: this.getDeviceType(req && req.get ? req.get('User-Agent') : undefined),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+    });
+    return { accessToken, refreshToken, expiresIn: JWT_EXPIRES_IN };
+  }
+
+  /**
+   * Вход/регистрация через внешний провайдер (Telegram Login Widget, VK ID).
+   * Подпись/обмен кода уже проверены роутом; здесь только поиск или создание
+   * пользователя по (provider, providerId). Email привязывает провайдера к
+   * существующему аккаунту ТОЛЬКО если провайдер его верифицировал (VK ID);
+   * Telegram email не отдаёт — заводится новый пользователь с synthetic email.
+   */
+  static async oauthLogin({ provider, providerId, providerUsername, email, firstName, lastName, req }) {
+    if (!provider || !providerId) {
+      throw new Error('provider and providerId are required');
+    }
+
+    let identity = await models.UserIdentity.findOne({
+      where: { provider, providerId: String(providerId) },
+      include: [{ model: models.User, as: 'user' }],
+    });
+
+    let user = identity && identity.user;
+
+    if (!user && email) {
+      user = await models.User.findOne({ where: { email } });
+    }
+
+    if (!user) {
+      const cryptoService = require('./cryptoService');
+      const syntheticEmail = email || 'oauth-' + crypto.randomBytes(8).toString('hex') + '@oauth.medchat.local';
+      user = await models.User.create({
+        email: syntheticEmail,
+        // Пароль случайный: вход по паролю для OAuth-аккаунта невозможен.
+        passwordHash: await this.hashPassword(crypto.randomBytes(24).toString('hex')),
+        role: 'patient',
+        status: 'active',
+        firstName: firstName || null,
+        lastName: lastName || null,
+      });
+      const keyPair = cryptoService.generateX25519KeyPair();
+      await user.update({ publicKey: keyPair.publicKey, privateKey: keyPair.privateKey });
+      await models.Patient.create({ userId: user.id, addedBy: 'patient' });
+    }
+
+    if (user.status !== 'active') {
+      throw new Error('Account is inactive. Please contact support.');
+    }
+
+    if (!identity) {
+      identity = await models.UserIdentity.create({
+        userId: user.id,
+        provider,
+        providerId: String(providerId),
+        providerUsername: providerUsername || null,
+      });
+    }
+
+    await user.update({
+      lastLoginAt: new Date(),
+      ipAddress: req && req.ip,
+      userAgent: req && req.get ? req.get('User-Agent') : undefined,
+    });
+
+    const { accessToken, refreshToken, expiresIn } = await this.issueSession(user, req);
+    return { user: this.sanitizeUser(user), accessToken, refreshToken, expiresIn };
+  }
+
+  /**
    * Sanitize user object (remove sensitive data)
    * @param {Object} user - User object
    * @returns {Object} Sanitized user
