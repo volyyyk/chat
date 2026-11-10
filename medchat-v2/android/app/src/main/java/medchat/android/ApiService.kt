@@ -123,11 +123,11 @@ class ApiService private constructor(val baseUrl: String) {
         // сетевые исключения в понятные сообщения (что именно не так).
         val startedAt = System.currentTimeMillis()
         try {
-            val json = doRequest(path, method, body, authorized)
-            ApiLog.record(method + " " + path + " -> HTTP ok (" + (System.currentTimeMillis() - startedAt) + " ms)")
+            val (status, json) = doRequest(path, method, body, authorized)
+            ApiLog.record(method + " " + path + " -> HTTP " + status + " ok (" + (System.currentTimeMillis() - startedAt) + " ms)")
             return json
         } catch (e: ApiError) {
-            ApiLog.record(method + " " + path + " -> HTTP " + e.status + " (" + (System.currentTimeMillis() - startedAt) + " ms)")
+            ApiLog.record(method + " " + path + " -> HTTP " + e.status + ": " + (e.message ?: "?") + " (" + (System.currentTimeMillis() - startedAt) + " ms)")
             throw e
         } catch (e: java.net.SocketTimeoutException) {
             ApiLog.record(method + " " + path + " -> таймаут после " + (System.currentTimeMillis() - startedAt) + " ms")
@@ -147,7 +147,7 @@ class ApiService private constructor(val baseUrl: String) {
         method: String,
         body: JSONObject?,
         authorized: Boolean
-    ): JSONObject {
+    ): Pair<Int, JSONObject> {
         val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
@@ -180,10 +180,12 @@ class ApiService private constructor(val baseUrl: String) {
                     token = null
                     onUnauthorized?.invoke()
                 }
-                val message = json.optString("message").ifEmpty { "HTTP " + status }
+                // Сервер присылает причину в "error" (иногда в "message"):
+                // без этого пользователь видит голое "HTTP 401" вместо причины.
+                val message = json.optString("error").ifEmpty { json.optString("message") }.ifEmpty { "HTTP " + status }
                 throw ApiError(status, message)
             }
-            return json
+            return Pair(status, json)
         } finally {
             connection.disconnect()
         }
@@ -195,6 +197,7 @@ class ApiService private constructor(val baseUrl: String) {
         // случайно слушающий тот же порт (иначе «подключение» проходит
         // успешно, а вход потом непонятно почему падает).
         if (json.optString("status") != "ok") {
+            ApiLog.record("GET /health -> на " + baseUrl + " отвечает не MedChat-сервер (нет status=ok)")
             throw ApiError(0, "на " + baseUrl + " отвечает не MedChat-сервер (нет status=ok)")
         }
     }
@@ -204,6 +207,7 @@ class ApiService private constructor(val baseUrl: String) {
         val json = request("/api/auth/login", "POST", body, authorized = false)
         val accessToken = json.optString("accessToken")
         if (accessToken.isEmpty()) {
+            ApiLog.record("POST /api/auth/login -> в ответе нет accessToken")
             throw ApiError(0, "сервер не вернул accessToken")
         }
         token = accessToken
@@ -315,3 +319,4 @@ class ApiService private constructor(val baseUrl: String) {
         return anyId((row.optJSONObject("user") ?: JSONObject()).opt("id"))
     }
 }
+
