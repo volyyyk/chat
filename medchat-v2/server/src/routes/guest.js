@@ -7,6 +7,7 @@
 
 const router = require('express').Router();
 const GuestController = require('../controllers/guestController');
+const { authenticate } = require('../middleware/auth');
 
 /**
  * @swagger
@@ -61,5 +62,36 @@ router.get('/invites/:token', GuestController.preview);
  *         description: Приглашение истекло, отозвано или врач недоступен
  */
 router.post('/join', GuestController.join);
+
+
+/**
+ * @swagger
+ * /api/guest/upgrade:
+ *   post:
+ *     summary: Создать аккаунт из гостевого (закрепить историю чатов за пациентом)
+ *     tags: [Guest]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       200:
+ *         description: Аккаунт создан, новые токены
+ *       409:
+ *         description: Аккаунт уже не гостевой или email занят
+ */
+router.post('/upgrade', authenticate(), GuestController.upgrade);
 
 module.exports = router;

@@ -4,6 +4,7 @@
  */
 
 const models = require('../models');
+const crypto = require('crypto');
 const { AppError } = require('../middleware/errorHandler');
 const CryptoService = require('../services/cryptoService');
 const PaymentService = require('../services/paymentService');
@@ -718,6 +719,97 @@ class ChatController {
           clinic: doctor.clinic ? { id: doctor.clinic.id, name: doctor.clinic.name } : null,
         },
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Слияние чатов (врач): сообщения и файлы из чата-источника переносятся
+   * в текущий (целевой) чат, источник закрывается. Сценарий: пациент
+   * несколько раз заходит по QR (каждый вход без регистрации создаёт
+   * нового гостя), врач помечает «старый пациент» и сливает историю
+   * в один чат. E2E-сообщения источника остаются зашифрованными ключами
+   * гостевого устройства: у врача история видна, у второго пациента —
+   * честная плашка (см. readme_for_AI.md, секция Guest).
+   */
+  static async merge(req, res, next) {
+    try {
+      const { id } = req.params; // целевой чат (основная история)
+      const sourceChatId = req.body && req.body.sourceChatId;
+      if (!sourceChatId || sourceChatId === id) {
+        throw new AppError('sourceChatId is required and must differ from the target chat', 400, 'VALIDATION_ERROR');
+      }
+      if (!req.user.doctorId) {
+        throw new AppError('Doctor profile not found in token', 403, 'AUTHORIZATION_ERROR');
+      }
+
+      const target = await models.Chat.findByPk(id);
+      const source = await models.Chat.findByPk(sourceChatId);
+      if (!target || !source) {
+        throw new AppError('Chat not found', 404, 'NOT_FOUND');
+      }
+      if (target.doctorId !== req.user.doctorId || source.doctorId !== req.user.doctorId) {
+        throw new AppError('Access denied: both chats must belong to the doctor', 403, 'AUTHORIZATION_ERROR');
+      }
+      if (source.status === 'closed' || source.status === 'deleted') {
+        throw new AppError('Source chat is already closed', 409, 'DUPLICATE_ERROR');
+      }
+
+      const unreadDoctor = Math.max(0, Number(source.unreadCountDoctor) || 0);
+      const unreadPatient = Math.max(0, Number(source.unreadCountPatient) || 0);
+      const totalMessages = Math.max(0, Number(source.totalMessages) || 0);
+      const totalFiles = Math.max(0, Number(source.totalFiles) || 0);
+
+      const movedMessages = await models.Message.update(
+        { chatId: target.id },
+        { where: { chatId: source.id } }
+      );
+      await models.File.update(
+        { chatId: target.id },
+        { where: { chatId: source.id } }
+      );
+
+      // «Последнее сообщение» — более свежее из двух чатов.
+      const srcNewer = !target.lastMessageAt || (source.lastMessageAt && source.lastMessageAt > target.lastMessageAt);
+      await target.update({
+        unreadCountDoctor: models.Sequelize.literal('unread_count_doctor + ' + unreadDoctor),
+        unreadCountPatient: models.Sequelize.literal('unread_count_patient + ' + unreadPatient),
+        totalMessages: models.Sequelize.literal('total_messages + ' + totalMessages),
+        totalFiles: models.Sequelize.literal('total_files + ' + totalFiles),
+        ...(srcNewer ? {
+          lastMessageId: source.lastMessageId,
+          lastMessageText: source.lastMessageText,
+          lastMessageSenderId: source.lastMessageSenderId,
+          lastMessageAt: source.lastMessageAt,
+        } : {}),
+      });
+
+      // Источник закрываем, метим метаданными слияния, участников убираем,
+      // чтобы чат не висел в списках как активный.
+      await source.update({
+        status: 'closed',
+        metadata: {
+          ...(source.metadata || {}),
+          mergedIntoChatId: target.id,
+          mergedAt: new Date().toISOString(),
+        },
+      });
+      await models.ChatParticipant.destroy({ where: { chatId: source.id } });
+
+      // Real-time уведомление обеих сторон (best-effort).
+      try {
+        const io = req.app.get('io');
+        if (io) {
+          io.to('chat:' + source.id).emit('chatMerged', { mergedIntoChatId: target.id });
+          io.to('chat:' + target.id).emit('chatUpdated', { chatId: target.id, mergedFromChatId: source.id });
+        }
+      } catch (e) {
+        // Socket.IO not configured - ignore
+      }
+
+      const fullChat = await models.Chat.findByPk(target.id, { include: CHAT_INCLUDE });
+      res.json({ merged: true, movedMessages: movedMessages[0] || 0, chat: fullChat });
     } catch (error) {
       next(error);
     }

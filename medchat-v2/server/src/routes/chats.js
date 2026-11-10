@@ -470,6 +470,42 @@ router.post('/invites', isDoctor(), ChatController.createInvite);
 
 /**
  * @swagger
+ * /api/chats/{id}/merge:
+ *   post:
+ *     summary: Слить чат-источник с текущим (врач, история гостевых входов в один чат)
+ *     tags: [Chats]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [sourceChatId]
+ *             properties:
+ *               sourceChatId:
+ *                 type: string
+ *                 format: uuid
+ *     responses:
+ *       200:
+ *         description: Сообщения и файлы перенесены, источник закрыт
+ *       403:
+ *         description: Оба чата должны принадлежать врачу
+ *       404:
+ *         description: Чат не найден
+ */
+router.post('/:id/merge', isDoctor(), ChatController.merge);
+
+/**
+ * @swagger
  * /api/chats/{id}/settings:
  *   get:
  *     summary: Get chat settings

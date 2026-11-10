@@ -38,6 +38,7 @@ const updateChatSchema = Joi.object({
     maxFileSize: Joi.number().min(1).max(100).optional(),
   }).optional(),
   fileRetentionDays: Joi.number().min(1).max(30).optional(),
+  metadata: Joi.object().optional(),
 });
 
 // List chats schema

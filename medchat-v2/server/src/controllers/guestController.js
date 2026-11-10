@@ -229,6 +229,61 @@ class GuestController {
       next(error);
     }
   }
+
+  /**
+   * POST /api/guest/upgrade { email, password }
+   * Превращение анонимного гостевого аккаунта в полноценный: пациент задаёт
+   * email и пароль, история чатов остаётся за ним и доступна с любого
+   * устройства после входа. Доступно только гостю (@guest.medchat.local).
+   */
+  static async upgrade(req, res, next) {
+    try {
+      const user = await models.User.findByPk(req.user.id);
+      if (!user || user.status !== 'active') {
+        throw new AppError('Пользователь не найден', 404, 'NOT_FOUND');
+      }
+      if (!/@guest\.medchat\.local$/.test(user.email)) {
+        throw new AppError('Аккаунт уже не гостевой', 409, 'DUPLICATE_ERROR');
+      }
+
+      const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+      const password = String((req.body && req.body.password) || '');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new AppError('Некорректный email', 400, 'VALIDATION_ERROR');
+      }
+      if (password.length < 8) {
+        throw new AppError('Пароль должен быть не короче 8 символов', 400, 'VALIDATION_ERROR');
+      }
+
+      const existing = await models.User.findOne({ where: { email } });
+      if (existing && existing.id !== user.id) {
+        throw new AppError('Пользователь с таким email уже зарегистрирован', 409, 'DUPLICATE_ERROR');
+      }
+
+      const passwordHash = await AuthService.hashPassword(password);
+      await user.update({ email, passwordHash, emailVerified: false });
+
+      const patient = await models.Patient.findOne({ where: { userId: user.id } });
+      const tokenPayload = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        clinicId: user.clinicId || null,
+        patientId: patient ? patient.id : null,
+      };
+      const accessToken = AuthService.generateToken(tokenPayload);
+      const refreshToken = await AuthService.generateRefreshToken({
+        id: user.id,
+        email: user.email,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+      });
+
+      res.json({ token: accessToken, refreshToken, user: sanitizeUser(user) });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = GuestController;
