@@ -1,8 +1,8 @@
 name: Release
 
 # Релизы MedChat: GitHub Release с бинарными ассетами всех платформ
-# (Android APK, Linux deb/AppImage, Windows NSIS exe, Web-статика,
-# iOS xcframework, .node-ядро, UniFFI-обвязка, SHA256SUMS) из артефактов
+# (Android APK, тестовый сервер-APK, Linux deb/AppImage, Windows NSIS exe,
+# Web-статика, iOS xcframework, .node-ядро, UniFFI-обвязка, SHA256SUMS) из артефактов
 # последнего ЗЕЛЁНОГО прогона CI на main. Триггер: пуш в ветку
 # release/<tag> — например release/v2.0.0 — создаёт/обновляет Release
 # с тегом <tag> (target_commitish: main).
@@ -64,7 +64,7 @@ jobs:
       # Ретраи против транзиентных 5xx на artifact API: релизный прогон #2
       # упал на скачивании web-статика (остальные скачались нормально).
       # gh CLI download с тем же GITHUB_TOKEN; 3 попытки на артефакт.
-      - name: Download CI artifacts (7, с ретраями)
+      - name: Download CI artifacts (8, с ретраями)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -91,6 +91,7 @@ jobs:
           dl medchat-core-xcframework dist/ios
           dl medchat-core-linux-x64-gnu dist/node
           dl medchat-core-uniffi-bindings dist/uniffi
+          dl medchat-server-mock-apk dist/server-mock
           echo "[release] downloaded files:"
           find dist -type f | sort
 
@@ -128,6 +129,8 @@ jobs:
             (cd dist/ios-content && cp -R . "$GITHUB_WORKSPACE/dist/ios/MedchatCore.xcframework/")
             (cd dist/ios && zip -qr "$GITHUB_WORKSPACE/assets/MedChat-iOS-MedchatCore-xcframework.zip" MedchatCore.xcframework)
           fi
+          # Тестовый сервер: лёгкая эмуляция MedChat API для телефонов
+          cp dist/server-mock/*.apk assets/MedChat-ServerMock-Android-debug.apk
           # Ядро: napi-аддон и UniFFI-обвязка (Swift/Kotlin)
           cp dist/node/medchat-core.linux-x64-gnu.node assets/
           (cd dist/uniffi && zip -qr "$GITHUB_WORKSPACE/assets/medchat-core-uniffi-bindings.zip" .)
@@ -142,9 +145,10 @@ jobs:
           target_commitish: main
           name: MedChat ${{ steps.tag.outputs.tag }}
           body: |
-            MedChat v2 — сборки всех платформ из артефактов последнего зелёного прогона CI (main).
+            MedChat — сборки всех платформ из артефактов последнего зелёного прогона CI (main).
 
             - Android: MedChat-Android-debug-unsigned.apk — неподписанный debug-APK (adb install; release-подпись и Play Console — оператор, medchat-v2/android/README_ANDROID.md).
+            - Android (тестовый сервер): MedChat-ServerMock-Android-debug.apk — лёгкий тестовый сервер MedChat API (NanoHTTPD) для проверки клиентов с телефона без полноценного бэкенда (medchat-v2/server-mock-android/README.md).
             - Linux: .deb и .AppImage — неподписанные установщики Tauri 2 (подписи/GPG — оператор, medchat-v2/docs/DESKTOP_RELEASE.md).
             - Windows: MedChat-Windows-Setup-unsigned.exe — NSIS-установщик без Authenticode.
             - Web: MedChat-Web-static.zip — статический бандл React-клиента (врачи/клиника; разворачивается за nginx/TLS, адрес API — REACT_APP_API_URL при сборке).
