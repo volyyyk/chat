@@ -140,7 +140,11 @@ module.exports = (sequelize, DataTypes) => {
           'first_message',
           'doctor_initiated',
           'promotional',
-          'system'
+          'system',
+          // Окно бесплатных сообщений нового чата (NEW_CHAT_FREE_HOURS,
+          // см. paymentService.resolveMessageFree). Без этого значения
+          // Message.create падает: invalid input value for enum.
+          'new_chat_window'
         ),
         allowNull: true,
         field: 'free_message_reason',

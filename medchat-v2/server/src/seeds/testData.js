@@ -162,10 +162,28 @@ async function ensureSearchIndex() {
   }
 }
 
+// Sequelize sync() НЕ расширяет Postgres ENUM у существующей таблицы:
+// новое значение 'new_chat_window' (окно бесплатности нового чата) нужно
+// добавить в тип вручную, иначе Message.create падает с
+// "invalid input value for enum". На свежей БД sync() создаёт ENUM уже
+// с этим значением, поэтому шаг не-fatal.
+async function ensureEnumValue() {
+  try {
+    await models.sequelize.query(
+      "ALTER TYPE enum_messages_free_message_reason ADD VALUE IF NOT EXISTS 'new_chat_window'"
+    );
+  } catch (e) {
+    console.warn('ENUM free_message_reason не расширен (не критично на свежей БД): ' + e.message);
+  }
+}
+
 async function main() {
   console.log('Seeding MedChat test data...');
 
   await models.sequelize.sync();
+
+  // Расширение ENUM free_message_reason (см. ensureEnumValue выше)
+  await ensureEnumValue();
 
   // 0. Search acceleration: pg_trgm + GIN on messages.content
   await ensureSearchIndex();
@@ -296,7 +314,7 @@ async function main() {
       chatCreatedAt: daysAgo(40),
     });
   } else {
-    await patient2.update({ doctorId: doctor.id, clinicId: clinic.id, lastAppointmentDate: daysAgo(40) });
+    await patient2.update({ doctorId: doctor.id, clinicId: clinic.id, lastAppointmentDate: daysAgo(40), chatCreatedAt: daysAgo(40) });
   }
 
   // 6. Completed appointments (drive the free/paid message window)
@@ -318,6 +336,12 @@ async function main() {
     clinic,
     'Иванов Иван (терапевт) — Сидорова Мария'
   );
+
+  // Платный сценарий: чат пациента 2 должен быть СТАРЫМ. Иначе окно
+  // бесплатности нового чата (NEW_CHAT_FREE_HOURS, по умолчанию 24ч от
+  // createdAt) делает его сообщения бесплатными и ломает смоук-тест
+  // платного потока (проверка «пациент 2: сообщение платно»).
+  await chat2.update({ createdAt: daysAgo(40), lastMessageAt: daysAgo(40) });
 
   await ensureParticipant(chat1, doctorUser.id, 'doctor');
   await ensureParticipant(chat1, patient1User.id, 'patient');
