@@ -3,9 +3,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Каркасный клиент: разрешаем HTTP к локальному тестовому серверу
+         (NanoHTTPD, medchat-v2/server-mock-android). Прод-контур работает
+         за nginx/TLS; здесь осознанный компромисс для тестов с телефона. -->
     <application
         android:allowBackup="false"
         android:label="MedChat"
+        android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:name=".MainActivity"

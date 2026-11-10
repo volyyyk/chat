@@ -49,7 +49,7 @@ private fun ServerScreen() {
     var error by remember { mutableStateOf<String?>(null) }
     val log = remember { mutableStateListOf<String>() }
     val scope = rememberCoroutineScope()
-    val ip = remember { localIpv4() ?: "127.0.0.1" }
+    val ips = remember { localIpv4s() }
 
     Column(
         modifier = Modifier
@@ -104,11 +104,19 @@ private fun ServerScreen() {
 
         if (server != null) {
             val active = server!!
-            Text("Сервер работает. Адрес для клиентов:", style = MaterialTheme.typography.titleSmall)
-            Text("http://$ip:${active.port}", fontFamily = FontFamily.Monospace)
+            Text("Сервер работает. Адреса для клиентов:", style = MaterialTheme.typography.titleSmall)
+            if (ips.isEmpty()) {
+                Text("http://127.0.0.1:${active.port} (сетевой адрес не найден)", fontFamily = FontFamily.Monospace)
+            }
+            ips.forEach { (name, addr) ->
+                Text("http://$addr:${active.port}  ($name)", fontFamily = FontFamily.Monospace)
+            }
             Text(
                 "На этом же устройстве: http://127.0.0.1:${active.port}. " +
-                    "Телефон клиента должен быть в той же Wi-Fi сети.",
+                    "Телефон клиента должен быть подключён к той же сети (точка доступа). " +
+                    "Если адресов несколько, берите адрес вида 192.168.x.x: адреса " +
+                    "10.x/100.x обычно принадлежат мобильной сети оператора и с другого " +
+                    "телефона недоступны.",
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -133,19 +141,22 @@ private fun ServerScreen() {
     }
 }
 
-private fun localIpv4(): String? {
+private fun localIpv4s(): List<Pair<String, String>> {
     return try {
+        val result = mutableListOf<Pair<String, String>>()
         val en = NetworkInterface.getNetworkInterfaces()
         while (en.hasMoreElements()) {
             val n = en.nextElement()
             val addrs = n.inetAddresses
             while (addrs.hasMoreElements()) {
                 val a = addrs.nextElement()
-                if (!a.isLoopbackAddress && a is Inet4Address) return a.hostAddress
+                if (!a.isLoopbackAddress && a is Inet4Address) {
+                    result.add(n.name to a.hostAddress)
+                }
             }
         }
-        null
+        result
     } catch (_: Exception) {
-        null
+        emptyList()
     }
 }
