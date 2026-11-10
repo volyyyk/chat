@@ -1426,6 +1426,16 @@ GPG, Android release-key) — оператор, паттерн честност�
   собирает debug-APK, артефакт medchat-server-mock-apk. Подробнее
   medchat-v2/server-mock-android/README.md.
 
+- **Бесплатное окно нового чата: подводный камень ENUM** (коммиты 78e4ecf + 1f9d033):
+  reason new_chat_window нужно добавлять СРАЗУ в ENUM freeMessageReason модели
+  Message: sequelize sync() НЕ расширяет Postgres ENUM у существующей таблицы
+  (Message.create падает "invalid input value for enum"), поэтому сид расширяет
+  тип raw SQL (ALTER TYPE ... ADD VALUE IF NOT EXISTS, ensureEnumValue).
+  Второй урок: instance.update() не перезаписывает автотаймстампы Sequelize
+  (createdAt) надёжно, бэктейт тестовых данных делается raw SQL UPDATE по
+  chat_id (сид пациента 2, чат test-chat-0002 старше 40 дней, иначе окно
+  24ч делает платный сценарий бесплатным и ломает smoke [3]).
+
 ---
 
 *Документ поддерживай актуальным при крупных изменениях: он — первое, что читает
