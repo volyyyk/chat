@@ -12,9 +12,8 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     networks:
       - medchat-network
     restart: unless-stopped
@@ -32,7 +31,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     networks:
       - medchat-network
     restart: unless-stopped
@@ -53,8 +52,8 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     networks:
       - medchat-network
     restart: unless-stopped
@@ -96,7 +95,7 @@ services:
       MESSAGE_PRICE_RUB: 50
       DOCTOR_SHARE_PERCENT: 80
       CLINIC_SHARE_PERCENT: 20
-      CORS_ORIGIN: http://localhost:3000,http://localhost:3001,http://localhost:19006
+      CORS_ORIGIN: http://localhost:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3002,http://localhost:19006
       LOG_LEVEL: info
     depends_on:
       postgres:
@@ -107,7 +106,7 @@ services:
         condition: service_healthy
     ports:
       - "3000:3000"
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     volumes:
       - ../server:/app/server
       - /app/server/node_modules
@@ -126,7 +125,7 @@ services:
     environment:
       NODE_ENV: development
       REACT_APP_API_URL: http://localhost:3000
-      REACT_APP_WS_URL: ws://localhost:3001
+      REACT_APP_WS_URL: http://localhost:3000
     volumes:
       - ../web:/app/web
       - /app/web/node_modules
@@ -135,7 +134,7 @@ services:
     networks:
       - medchat-network
     restart: unless-stopped
-    command: npm run dev
+    command: npm start
     profiles:
       - web
 
