@@ -1426,6 +1426,13 @@ GPG, Android release-key) — оператор, паттерн честност�
   собирает debug-APK, артефакт medchat-server-mock-apk. Подробнее
   medchat-v2/server-mock-android/README.md.
 
+- **Cleartext HTTP и адреса тестового сервера** (f912f38): каркасный Android-клиент
+  разрешает HTTP (usesCleartextTraffic в манифесте), иначе Android 9+ режет
+  подключение к тестовому серверу с ошибкой "Cleartext HTTP traffic not
+  permitted". ServerMock показывает ВСЕ IPv4 с именами интерфейсов: адрес
+  10.x/100.x это мобильная сеть оператора (CGNAT), с другого телефона
+  недоступна; для точки доступа брать адрес 192.168.x.x.
+
 - **Бесплатное окно нового чата: подводный камень ENUM** (коммиты 78e4ecf + 1f9d033):
   reason new_chat_window нужно добавлять СРАЗУ в ENUM freeMessageReason модели
   Message: sequelize sync() НЕ расширяет Postgres ENUM у существующей таблицы
