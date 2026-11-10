@@ -19,6 +19,21 @@ try {
 }
 
 /**
+ * Express 5: req.query is a getter-only property, direct assignment
+ * (req.query = ...) throws a TypeError. Sanitize the query object in place;
+ * other sources (body/params/headers) remain plain writable properties.
+ */
+function applySanitized(req, source, value) {
+  if (source === 'query' && req.query && typeof req.query === 'object') {
+    const target = req.query;
+    for (const key of Object.keys(target)) delete target[key];
+    Object.assign(target, value);
+    return;
+  }
+  req[source] = value;
+}
+
+/**
  * Validate request data against Joi schema
  * @param {Object} schema - Joi schema
  * @param {string} source - Data source ('body', 'query', 'params', 'headers')
@@ -61,8 +76,8 @@ function validate(schema, source = 'body') {
     // Attach validated data to request
     req.validatedData = value;
     // Replace the original source with the sanitized value so controllers
-    // never see unknown fields
-    req[source] = value;
+    // never see unknown fields (Express 5: query is sanitized in place)
+    applySanitized(req, source, value);
     next();
   };
 }
@@ -90,7 +105,7 @@ function validateMultiple(schemas) {
         errors.push(...error.details);
       } else {
         validatedData[source] = value;
-        req[source] = value;
+        applySanitized(req, source, value);
       }
     }
 
