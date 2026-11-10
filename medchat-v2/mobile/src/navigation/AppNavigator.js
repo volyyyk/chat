@@ -25,6 +25,7 @@ import DoctorRegisterScreen from '../screens/DoctorRegisterScreen';
 import DoctorHomeScreen from '../screens/DoctorHomeScreen';
 import PatientHomeScreen from '../screens/PatientHomeScreen';
 import AddChatScreen from '../screens/AddChatScreen';
+import TransferExportScreen from '../screens/TransferExportScreen';
 import DoctorInfoScreen from '../screens/DoctorInfoScreen';
 import PaymentScreen from '../screens/PaymentScreen';
 import PatientFilesScreen from '../screens/PatientFilesScreen';
@@ -165,6 +166,7 @@ function PatientStackNavigator() {
       <Stack.Screen name="EPrescriptions" component={EPrescriptionsScreen} />
       <Stack.Screen name="QRCode" component={QRCodeScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="TransferExport" component={TransferExportScreen} />
     </Stack.Navigator>
   );
 }
@@ -191,14 +193,14 @@ function DoctorStackNavigator() {
       <Stack.Screen name="EPrescriptions" component={EPrescriptionsScreen} />
       <Stack.Screen name="QRCode" component={QRCodeScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="TransferExport" component={TransferExportScreen} />
     </Stack.Navigator>
   );
 }
 
 // Main App Navigator
 function AppNavigator() {
-  const { state } = useContext(AuthContext);
-  const { isAuthenticated, user } = state;
+  const { isAuthenticated, user } = useContext(AuthContext);
 
   return (
     <NavigationContainer>

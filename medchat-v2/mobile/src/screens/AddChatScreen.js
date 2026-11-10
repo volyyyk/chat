@@ -16,15 +16,18 @@ import { API_BASE_URL } from '../config/config';
 import { colors } from '../styles/colors';
 import { spacing } from '../styles/spacing';
 import { textStyles, buttonStyles, cardStyles } from '../styles/commonStyles';
+import { parseTransferQr, receiveTransfer } from '../services/transferService';
 
 const AddChatScreen = ({ navigation }) => {
-  const { token, user } = useAuth();
+  const { token, user, applySession } = useAuth();
   const [hasPermission, setHasPermission] = useState(null);
   const [scanned, setScanned] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [patientLogin, setPatientLogin] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingCode, setPendingCode] = useState(null);
+  const [mode, setMode] = useState('add'); // add | transfer
+  const [transferBusy, setTransferBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -70,8 +73,48 @@ const AddChatScreen = ({ navigation }) => {
     }
   };
 
+  // Перенос данных со старого устройства (режим «Перенос данных»)
+  const startTransfer = (parsed) => {
+    Alert.alert(
+      'Перенос данных',
+      'Перенести чаты и ключи шифрования со старого устройства на это?',
+      [
+        { text: 'Отмена', style: 'cancel', onPress: () => setScanned(false) },
+        {
+          text: 'Перенести',
+          onPress: async () => {
+            setTransferBusy(true);
+            try {
+              await receiveTransfer(parsed.token, parsed.keyB64, applySession);
+              Alert.alert('Готово', 'Данные перенесены, вы вошли в свой профиль.');
+              navigation.goBack();
+            } catch (err) {
+              Alert.alert('Ошибка', err.message || 'Перенос не удался');
+              setScanned(false);
+            } finally {
+              setTransferBusy(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleBarCodeScanned = ({ data }) => {
     setScanned(true);
+    if (mode === 'transfer') {
+      const parsed = parseTransferQr(data);
+      if (!parsed) {
+        Alert.alert(
+          'Не тот QR',
+          'Это не QR переноса данных. Отсканируйте QR переноса со старого устройства (Настройки - Перенос на новое устройство) или переключитесь в режим «Добавить чат».'
+        );
+        setScanned(false);
+        return;
+      }
+      startTransfer(parsed);
+      return;
+    }
     let code = data;
     try {
       const parsed = JSON.parse(data);
@@ -134,6 +177,17 @@ const AddChatScreen = ({ navigation }) => {
     );
   }
 
+  if (transferBusy) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary[600]} />
+        <Text style={[textStyles.bodySmall, styles.permissionText]}>
+          Переносим данные...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
   if (hasPermission === null) {
     return (
       <SafeAreaView style={styles.center}>
@@ -159,7 +213,28 @@ const AddChatScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={[textStyles.h4, styles.headerTitle]}>Добавить чат</Text>
+        <Text style={[textStyles.h4, styles.headerTitle]}>
+          {mode === 'transfer' ? 'Перенос данных' : 'Добавить чат'}
+        </Text>
+      </View>
+
+      <View style={styles.modeToggle}>
+        <TouchableOpacity
+          style={[styles.modeButton, mode === 'add' && styles.modeButtonActive]}
+          onPress={() => setMode('add')}
+        >
+          <Text style={[styles.modeButtonText, mode === 'add' && styles.modeButtonTextActive]}>
+            Добавить чат
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modeButton, mode === 'transfer' && styles.modeButtonActive]}
+          onPress={() => setMode('transfer')}
+        >
+          <Text style={[styles.modeButtonText, mode === 'transfer' && styles.modeButtonTextActive]}>
+            Перенос данных
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.scannerContainer}>
@@ -170,10 +245,11 @@ const AddChatScreen = ({ navigation }) => {
         />
         <View style={styles.scannerFrame} />
         <Text style={[textStyles.bodySmall, styles.scannerHint]}>
-          Наведите камеру на QR-код врача
+          {mode === 'transfer' ? 'Отсканируйте QR переноса со старого устройства' : 'Наведите камеру на QR-код врача'}
         </Text>
       </View>
 
+      {mode === 'add' && (
       <View style={styles.manualContainer}>
         <Text style={[textStyles.bodySmall, styles.manualTitle]}>
           Или введите код клиники или врача:
@@ -193,6 +269,7 @@ const AddChatScreen = ({ navigation }) => {
           <Text style={buttonStyles.buttonPrimaryText}>Продолжить</Text>
         </TouchableOpacity>
       </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -218,6 +295,15 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: spacing[3], left: 0, right: 0,
     textAlign: 'center', color: '#fff',
   },
+  modeToggle: {
+    flexDirection: 'row', marginHorizontal: spacing[4], marginTop: spacing[2],
+    backgroundColor: colors.surface.primary, borderRadius: spacing[2],
+    borderWidth: 1, borderColor: colors.border.primary,
+  },
+  modeButton: { flex: 1, alignItems: 'center', paddingVertical: spacing[2], borderRadius: spacing[2] },
+  modeButtonActive: { backgroundColor: colors.primary[600] },
+  modeButtonText: { color: colors.text.secondary, fontSize: 14 },
+  modeButtonTextActive: { color: '#fff', fontWeight: '600' },
   manualContainer: { padding: spacing[4] },
   manualTitle: { color: colors.text.secondary, marginBottom: spacing[2] },
   input: {

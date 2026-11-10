@@ -217,6 +217,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Применить внешне полученную сессию (например, перенос данных
+  // с другого устройства): сохранить токены и переключить приложение.
+  const applySession = async (newToken, newUser) => {
+    try {
+      await AsyncStorage.setItem('authToken', newToken);
+      await AsyncStorage.setItem('userData', JSON.stringify(newUser));
+      setToken(newToken);
+      setUser(newUser);
+      setError(null);
+      try {
+        await chatService.initialize(newToken, newUser);
+      } catch (initErr) {
+        console.error('Error initializing chat service:', initErr);
+      }
+    } catch (err) {
+      console.error('Error applying session:', err);
+      throw err;
+    }
+  };
+
   // Refresh token
   const refreshToken = async () => {
     try {
@@ -250,6 +270,7 @@ export const AuthProvider = ({ children }) => {
     updateProfile,
     changePassword,
     refreshToken,
+    applySession,
     clearError: () => setError(null),
   };
 

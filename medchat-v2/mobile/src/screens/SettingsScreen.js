@@ -216,6 +216,7 @@ const SettingsScreen = ({ navigation }) => {
             {renderSettingItem('qr-code', 'Мой QR-код', 'Сгенерировать QR-код для пациентов', () => navigation.navigate('QRCode'))}
             {renderSettingItem('group', 'Пациенты', 'Список всех пациентов', () => navigation.navigate('Patients'))}
             {renderSettingItem('backup', 'Экспорт/Импорт', 'Экспорт и импорт данных', handleBackupPress)}
+            {renderSettingItem('phone-android', 'Перенос на новое устройство', 'Показать QR переноса чатов и ключей', () => navigation.navigate('TransferExport'))}
           </>
         ))}
       </>
@@ -232,6 +233,7 @@ const SettingsScreen = ({ navigation }) => {
           <>
             {renderSettingItem('qr-code-scanner', 'Отсканировать QR', 'Добавить новый чат', () => navigation.navigate('PatientSetup'))}
             {renderSettingItem('chat', 'Все чаты', 'Список всех чатов', () => navigation.navigate('Chats'))}
+            {renderSettingItem('phone-android', 'Перенос на новое устройство', 'Показать QR переноса чатов и ключей', () => navigation.navigate('TransferExport'))}
           </>
         ))}
       </>

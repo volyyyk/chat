@@ -262,6 +262,29 @@ async function removeLocalKeyPair(userId) {
   }
 }
 
+/**
+ * Экспорт локальной пары ключей для переноса на другое устройство.
+ * Вызывается ТОЛЬКО локально: секретный ключ не отправляется на сервер
+ * в открытом виде - только внутри шифрованного blob'а переноса
+ * (ключ шифрования передаётся в QR между устройствами).
+ */
+async function exportKeyPair(userId) {
+  return getLocalKeyPair(userId);
+}
+
+/**
+ * Импорт пары ключей, полученной с другого устройства (перенос данных).
+ * Перезаписывает локальную пару: устройство становится «тем же»
+ * E2E-устройством и может расшифровывать старую историю.
+ */
+async function importKeyPair(userId, record) {
+  if (!record || !record.keyId || !record.publicKey || !record.secretKey) {
+    throw new Error('Некорректная запись ключа');
+  }
+  await writeRecord(userId, JSON.stringify(record));
+  return record;
+}
+
 // ---------------------------------------------------------------------------
 // Server API for the PUBLIC key registry
 // ---------------------------------------------------------------------------
@@ -591,6 +614,8 @@ export {
   getLocalKeyPair,
   getOrCreateKeyPair,
   removeLocalKeyPair,
+  exportKeyPair,
+  importKeyPair,
   ensureRegisteredKey,
   getChatKeys,
   deactivateKey,
