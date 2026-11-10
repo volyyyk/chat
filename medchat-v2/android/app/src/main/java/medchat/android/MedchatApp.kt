@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.TextButton
@@ -36,6 +38,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -361,7 +365,7 @@ fun MedchatApp() {
             }
         }
 
-        Box {
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (screen) {
             "connect" -> ConnectScreen(busy, status) { url ->
                 val normalized = ApiService.normalize(url)
@@ -634,15 +638,26 @@ private fun ChatsScreen(chats: List<ChatSummary>, busy: Boolean, status: String?
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(chats, key = { it.chatId }) { chat ->
-                Button(onClick = { onOpen(chat) }, modifier = Modifier.fillMaxWidth()) {
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text(chat.title.ifEmpty { "Чат " + chat.chatId })
-                        if (chat.specialty.isNotBlank()) {
-                            Text(chat.specialty, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                Card(
+                    onClick = { onOpen(chat) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(chat.title.ifEmpty { "Чат " + chat.chatId }, style = MaterialTheme.typography.titleMedium)
+                            if (chat.specialty.isNotBlank()) {
+                                Text(chat.specialty, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                            }
+                            Text(
+                                chat.lastMessageText.ifEmpty { "нет сообщений" },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF77847F))
                         }
-                        Text(
-                            chat.lastMessageText.ifEmpty { "нет сообщений" },
-                            style = MaterialTheme.typography.bodySmall)
+                        Text("›", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
             }
