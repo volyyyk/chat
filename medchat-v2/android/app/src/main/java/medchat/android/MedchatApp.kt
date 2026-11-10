@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.wifi.WifiManager
 import android.util.Base64
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -130,6 +131,10 @@ fun MedchatApp() {
         var ratchetNote by remember { mutableStateOf<String?>(null) }
         var olderRemaining by remember { mutableStateOf(0) }
         var loadingOlder by remember { mutableStateOf(false) }
+        var loaderRun by remember { mutableStateOf(0) }
+        var loaderActive by remember { mutableStateOf(false) }
+        var loaderComplete by remember { mutableStateOf(false) }
+        var loaderNext by remember { mutableStateOf<(() -> Unit)?>(null) }
         val messages = remember { mutableStateListOf<UiMessage>() }
         val ratchet = remember { RatchetService() }
 
@@ -331,9 +336,17 @@ fun MedchatApp() {
             }
         }
 
+        Box {
         when (screen) {
             "connect" -> ConnectScreen(busy, status) { url ->
                 val normalized = ApiService.normalize(url)
+                loaderRun++
+                loaderComplete = false
+                loaderActive = true
+                loaderNext = {
+                    loaderActive = false
+                    screen = "login"
+                }
                 busy = true
                 status = null
                 Thread {
@@ -342,8 +355,9 @@ fun MedchatApp() {
                         service.health()
                         SecureStore.set(normalized, KEY_SERVER)
                         api = service
-                        screen = "login"
+                        loaderComplete = true
                     } catch (e: Exception) {
+                        loaderActive = false
                         status = "Сервер недоступен: " + (e.message ?: "ошибка сети") +
                             ". Сервер на этом же телефоне? Введите http://127.0.0.1:8080. " +
                             "На другом? Подключитесь к его Wi-Fi точке доступа и нажмите «Шлюз Wi-Fi»"
@@ -353,6 +367,13 @@ fun MedchatApp() {
             }
             "login" -> LoginScreen(busy, status) { email, password ->
                 val service = api ?: return@LoginScreen
+                loaderRun++
+                loaderComplete = false
+                loaderActive = true
+                loaderNext = {
+                    loaderActive = false
+                    screen = "chats"
+                }
                 busy = true
                 status = null
                 Thread {
@@ -371,8 +392,9 @@ fun MedchatApp() {
                                 // честно: без ключа в реестре исходящие уйдут plaintext
                             }
                         }
-                        screen = "chats"
+                        loaderComplete = true
                     } catch (e: Exception) {
+                        loaderActive = false
                         status = e.message ?: "ошибка входа"
                     }
                     busy = false
@@ -410,6 +432,13 @@ fun MedchatApp() {
                         onSend = { text -> sendText(chat, text) },
                         onBack = { openChat = null; screen = "chats" })
                 }
+            }
+            }
+            if (loaderActive) {
+                BallLoaderOverlay(
+                    runId = loaderRun,
+                    complete = loaderComplete,
+                    onProceed = { loaderNext?.invoke() })
             }
         }
     }

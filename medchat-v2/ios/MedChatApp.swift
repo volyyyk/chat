@@ -22,6 +22,14 @@ final class AppState: ObservableObject {
     @Published var lastError: String = ""
     @Published var e2eEnabled = false
     
+    // Шарик-загрузчик: анимация подключения/входа (минимум 5 секунд).
+    // Реальная работа может завершиться раньше, тогда вид загрузки
+    // держится до 5 секунд; «Перейти дальше» переключает экран.
+    @Published var loaderRun = 0
+    @Published var loaderActive = false
+    @Published var loaderComplete = false
+    var loaderNext: AppScreen?
+    
     var api: ApiService?
     var crypto: CryptoService?
     
@@ -63,16 +71,21 @@ final class AppState: ObservableObject {
             lastError = "Введите адрес сервера"
             return
         }
+        loaderRun += 1
+        loaderComplete = false
+        loaderActive = true
+        loaderNext = .login
         let probe = ApiService(baseUrl: normalized)
         do {
             try await probe.health()
         } catch {
+            loaderActive = false
             lastError = "Сервер недоступен: " + apiErrorMessage(error)
             return
         }
         server = normalized
         KeychainStore.set(normalized, key: "server")
-        screen = .login
+        loaderComplete = true
     }
     
     func login(email: String, password: String) async {
@@ -81,6 +94,10 @@ final class AppState: ObservableObject {
             lastError = "Введите email и пароль"
             return
         }
+        loaderRun += 1
+        loaderComplete = false
+        loaderActive = true
+        loaderNext = .main
         let service = ApiService(baseUrl: server)
         do {
             let profile = try await service.login(email: email, password: password)
@@ -90,8 +107,9 @@ final class AppState: ObservableObject {
             api = service
             user = profile
             await ensureE2EKey()
-            screen = .main
+            loaderComplete = true
         } catch {
+            loaderActive = false
             lastError = "Ошибка входа: " + apiErrorMessage(error)
         }
     }
@@ -157,13 +175,26 @@ struct RootView: View {
     @EnvironmentObject var app: AppState
     
     var body: some View {
-        switch app.screen {
-        case .connect:
-            ConnectView()
-        case .login:
-            LoginView()
-        case .main:
-            ChatListView()
+        ZStack {
+            switch app.screen {
+            case .connect:
+                ConnectView()
+            case .login:
+                LoginView()
+            case .main:
+                ChatListView()
+            }
+            if app.loaderActive {
+                LoaderBallView(
+                    runId: app.loaderRun,
+                    complete: app.loaderComplete,
+                    onProceed: {
+                        if let next = app.loaderNext {
+                            app.screen = next
+                        }
+                        app.loaderActive = false
+                    })
+            }
         }
     }
 }
