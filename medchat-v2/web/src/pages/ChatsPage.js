@@ -31,6 +31,25 @@ const ChatsPage = () => {
   };
 
 
+  // Распечатать QR-приглашение (например, повесить в регистратуре).
+  const printInvite = (inv) => {
+    const w = window.open('', '_blank', 'width=640,height=800');
+    if (!w) return;
+    w.document.write(
+      '<html><head><title>QR-приглашение</title></head>' +
+      '<body style="font-family: Arial, sans-serif; text-align: center; padding: 24px;">' +
+      '<h2>Приглашение в чат</h2>' +
+      (inv.doctor && inv.doctor.fullName ? '<p>' + inv.doctor.fullName + '</p>' : '') +
+      '<img src="' + inv.qrImage + '" width="360" height="360" />' +
+      '<p style="word-break: break-all; font-size: 12px;">' + inv.inviteUrl + '</p>' +
+      '<p style="font-size: 12px;">Действует до: ' + new Date(inv.expiresAt).toLocaleString('ru-RU') + '</p>' +
+      '</body></html>'
+    );
+    w.document.close();
+    w.focus();
+    w.print();
+  };
+
   const load = useCallback(async () => {
     try {
       const data = await api.get('/api/chats?limit=50' + (search ? '&search=' + encodeURIComponent(search) : ''));
@@ -78,6 +97,7 @@ const ChatsPage = () => {
           <p className="muted" style={{ fontSize: 13 }}>
             Действует до: {new Date(invite.expiresAt).toLocaleString('ru-RU')}
           </p>
+          <button className="btn btn-secondary" onClick={() => printInvite(invite)}>Распечатать QR</button>{' '}
           <button className="btn" onClick={() => setInvite(null)}>Закрыть</button>
         </div>
       )}

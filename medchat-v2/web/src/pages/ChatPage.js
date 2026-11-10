@@ -96,6 +96,11 @@ const ChatPage = () => {
   const [remainingOlder, setRemainingOlder] = useState(0);
   const [viewStart, setViewStart] = useState(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  // Пометки врача о госте + слияние с предыдущим чатом пациента.
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeList, setMergeList] = useState([]);
+  const [mergeBusy, setMergeBusy] = useState(false);
+  const [mergeError, setMergeError] = useState("");
   const bottomRef = useRef(null);
   const containerRef = useRef(null);
   const socketRef = useRef(null);
@@ -290,6 +295,46 @@ const ChatPage = () => {
   const visible = messages.slice(viewStart, viewStart + RENDER_CAP);
   const hiddenNewer = Math.max(0, messages.length - (viewStart + RENDER_CAP));
 
+  const isDoctor = !!(user && user.role === "doctor");
+
+  // Пометить гостя как нового пациента (metadata.guestKind).
+  const markNewPatient = async () => {
+    try {
+      const meta = { ...((chat && chat.metadata) || {}), guestKind: "new", markedAt: new Date().toISOString() };
+      await api.put("/api/chats/" + chatId, { metadata: meta });
+      setChat({ ...chat, metadata: meta });
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // «Старый пациент»: выбрать прошлый чат и слить текущий в него
+  // (одна общая история вместо цепочки гостевых чатов).
+  const openMerge = async () => {
+    setMergeOpen(true);
+    setMergeError("");
+    try {
+      const data = await api.get("/api/chats?limit=50&status=active");
+      setMergeList((data.data || []).filter((c) => c.id !== chatId));
+    } catch (err) {
+      setMergeError(err.message);
+    }
+  };
+
+  const doMerge = async (targetId) => {
+    setMergeBusy(true);
+    setMergeError("");
+    try {
+      await api.post("/api/chats/" + targetId + "/merge", { sourceChatId: chatId });
+      setMergeOpen(false);
+      navigate("/chats/" + targetId);
+    } catch (err) {
+      setMergeError(err.message);
+    } finally {
+      setMergeBusy(false);
+    }
+  };
+
   return (
     <div className="chat-layout" style={{ height: "calc(100vh - 120px)" }}>
       <div className="chat-window">
@@ -302,11 +347,57 @@ const ChatPage = () => {
             </div>
           </div>
           <div className="row">
+            {isDoctor && (
+              <>
+                <button
+                  className="btn btn-secondary btn-small"
+                  style={{ opacity: 0.8 }}
+                  onClick={markNewPatient}
+                  title="Пометить: новый пациент"
+                >
+                  Новый пациент
+                </button>
+                <button
+                  className="btn btn-secondary btn-small"
+                  style={{ opacity: 0.8 }}
+                  onClick={openMerge}
+                  title="Слить историю с предыдущим чатом пациента"
+                >
+                  Старый пациент
+                </button>
+              </>
+            )}
             <Link to={"/files?chatId=" + chatId} className="btn btn-secondary btn-small">Файлы пациента</Link>
           </div>
         </div>
 
         {error && <div className="alert alert-error" style={{ margin: 12 }}>{error}</div>}
+
+        {isDoctor && mergeOpen && (
+          <div className="card" style={{ margin: 12 }}>
+            <h4 style={{ marginTop: 0 }}>Слить с предыдущим чатом пациента</h4>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Сообщения и файлы из текущего чата будут перенесены в выбранный
+              чат, текущий чат закроется. Выберите прошлый чат этого пациента.
+            </p>
+            {mergeError && <div className="alert alert-error">{mergeError}</div>}
+            <div style={{ maxHeight: 240, overflowY: "auto" }}>
+              {mergeList.length === 0 && <div className="muted">Других активных чатов нет</div>}
+              {mergeList.map((c) => (
+                <button
+                  key={c.id}
+                  className="btn btn-secondary btn-small"
+                  style={{ display: "block", width: "100%", textAlign: "left", marginBottom: 6 }}
+                  disabled={mergeBusy}
+                  onClick={() => doMerge(c.id)}
+                >
+                  {(c.title || "Чат") + (c.lastMessageAt ? " · " + new Date(c.lastMessageAt).toLocaleString("ru-RU") : "")}
+                </button>
+              ))}
+            </div>
+            <button className="btn" onClick={() => setMergeOpen(false)}>Отмена</button>
+          </div>
+        )}
 
         {chat && (
           <div className="convenience-note" style={{ alignSelf: "center", margin: "10px 18px" }}>

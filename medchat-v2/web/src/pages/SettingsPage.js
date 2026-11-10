@@ -2,7 +2,8 @@
  * Settings: profile, convenience time, prices, backups with password, export/import
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { api } from '../services/api';
+import { api, setToken } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const SettingsPage = () => {
   const [profile, setProfile] = useState({ firstName: '', lastName: '', middleName: '', specialty: '', qualification: '' });
@@ -19,6 +20,13 @@ const SettingsPage = () => {
   const [restorePassword, setRestorePassword] = useState('');
   const [backups, setBackups] = useState([]);
   const [isWorking, setIsWorking] = useState(false);
+
+  // Гостевой аккаунт (вход по QR): возможность создать полноценный аккаунт.
+  const { user } = useAuth();
+  const isGuest = !!(user && user.email && user.email.endsWith('@guest.medchat.local'));
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPassword, setGuestPassword] = useState('');
+  const [guestBusy, setGuestBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -211,11 +219,46 @@ const SettingsPage = () => {
     }
   };
 
+  // Создание аккаунта из гостевого: история чатов закрепляется за пациентом.
+  const handleGuestUpgrade = async (e) => {
+    e.preventDefault();
+    setGuestBusy(true);
+    setError('');
+    try {
+      const data = await api.post('/api/guest/upgrade', { email: guestEmail, password: guestPassword });
+      setToken(data.token);
+      localStorage.setItem('userData', JSON.stringify(data.user));
+      flash('Аккаунт создан: история чатов закреплена за вами');
+      setTimeout(() => { window.location.href = '/settings'; }, 800);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGuestBusy(false);
+    }
+  };
+
   return (
     <div>
       <h2>Настройки</h2>
       {error && <div className="alert alert-error">{error}</div>}
       {notice && <div className="alert alert-success">{notice}</div>}
+
+      {isGuest && (
+        <form className="card" onSubmit={handleGuestUpgrade} style={{ marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0 }}>Создать аккаунт (сейчас вы анонимный гость)</h3>
+          <p className="muted" style={{ fontSize: 14 }}>
+            Вы вошли по QR-приглашению без регистрации. Создайте аккаунт, чтобы
+            закрепить историю чатов за собой и входить с любого устройства.
+          </p>
+          <label className="muted">Email</label>
+          <input className="search-input" type="email" required value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
+          <label className="muted">Пароль (минимум 8 символов)</label>
+          <input className="search-input" type="password" minLength="8" required value={guestPassword} onChange={(e) => setGuestPassword(e.target.value)} />
+          <button className="btn btn-primary" type="submit" disabled={guestBusy} style={{ marginTop: 12 }}>
+            {guestBusy ? 'Создаём...' : 'Создать аккаунт'}
+          </button>
+        </form>
+      )}
 
       <div className="grid">
         <form className="card" onSubmit={handleSaveProfile}>
