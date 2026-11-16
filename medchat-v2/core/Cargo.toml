@@ -50,7 +50,7 @@ crypto_box = "0.9"
 # AeadCore::generate_nonce — энтропию берём из OsRng crypto_box-линии,
 # новых источников случайности не добавляется (rand_core 0.6 уже в дереве
 # crypto_box, прямой деп лишь выводит трейт RngCore в скоуп ядра).
-rand_core = "0.6"
+rand_core = "0.10"
 # Double Ratchet (src/ratchet.rs): raw X25519 (DH-выход для KDF_RK),
 # HMAC-SHA256 (цепочки KDF_RK/KDF_CK), AES-256-GCM (AEAD на message keys).
 x25519-dalek = { version = "3.0.0", features = ["static_secrets"] }
